@@ -1,0 +1,177 @@
+name: Deploy
+
+on:
+  push:
+    branches: [develop, staging, production]
+
+jobs:
+  decide-deploy-type:
+    name: Decide Deploy Type
+    runs-on: ubuntu-latest
+    outputs:
+      deploy_type: ${{ steps.check.outputs.type }}
+      deploy_reason: ${{ steps.check.outputs.reason }}
+      channel: ${{ steps.channel.outputs.name }}
+      app_env: ${{ steps.channel.outputs.app_env }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Set channel and app_env
+        id: channel
+        run: |
+          BRANCH="${{ github.ref_name }}"
+          if [ "$BRANCH" = "production" ]; then
+            echo "name=production" >> $GITHUB_OUTPUT
+            echo "app_env=prod" >> $GITHUB_OUTPUT
+          elif [ "$BRANCH" = "staging" ]; then
+            echo "name=staging" >> $GITHUB_OUTPUT
+            echo "app_env=staging" >> $GITHUB_OUTPUT
+          else
+            echo "name=develop" >> $GITHUB_OUTPUT
+            echo "app_env=staging" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check if native build required
+        id: check
+        run: |
+          CHANGED=$(git diff --name-only HEAD~1 HEAD)
+          NEEDS_BUILD=false
+          REASON="JS/TS only changes"
+
+          if echo "$CHANGED" | grep -q "^package\.json$"; then
+            NEEDS_BUILD=true; REASON="package.json changed"
+          fi
+          if echo "$CHANGED" | grep -q "^app\.config\.ts$"; then
+            NEEDS_BUILD=true; REASON="app.config.ts changed"
+          fi
+          if echo "$CHANGED" | grep -q "^eas\.json$"; then
+            NEEDS_BUILD=true; REASON="eas.json changed"
+          fi
+          if git diff HEAD~1 HEAD -- eas.json 2>/dev/null | grep -q "EXPO_PUBLIC_APP_ENV"; then
+            NEEDS_BUILD=true; REASON="APP_ENV changed in eas.json"
+          fi
+
+          if [ "$NEEDS_BUILD" = true ]; then
+            echo "type=build" >> $GITHUB_OUTPUT
+          else
+            echo "type=ota" >> $GITHUB_OUTPUT
+          fi
+          echo "reason=$REASON" >> $GITHUB_OUTPUT
+
+      - name: Write deploy summary
+        run: |
+          {
+            echo "## 🚀 Deploy Decision"
+            echo "| Key | Value |"
+            echo "|---|---|"
+            echo "| Type | **${{ steps.check.outputs.type }}** |"
+            echo "| Reason | ${{ steps.check.outputs.reason }} |"
+            echo "| Channel | ${{ steps.channel.outputs.name }} |"
+            echo "| APP_ENV | ${{ steps.channel.outputs.app_env }} |"
+            echo "| Branch | ${{ github.ref_name }} |"
+          } >> $GITHUB_STEP_SUMMARY
+
+  ota-update:
+    name: EAS OTA Update
+    needs: decide-deploy-type
+    if: needs.decide-deploy-type.outputs.deploy_type == 'ota'
+    runs-on: ubuntu-latest
+    env:
+      EXPO_PUBLIC_APP_ENV: ${{ needs.decide-deploy-type.outputs.app_env }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Decoded in THIS job on purpose: files and $GITHUB_ENV do not cross job
+      # boundaries, so a separate "write config" job would leave this runner
+      # with no Firebase config at all.
+      - name: Decode Firebase config and select the Maps key
+        env:
+          APP_ENV: ${{ needs.decide-deploy-type.outputs.app_env }}
+        run: |
+          if [ "$APP_ENV" = "prod" ]; then
+            echo "${{ secrets.GOOGLE_SERVICES_PRODUCTION_ANDROID }}" | base64 --decode > google-services.production.json
+            echo "${{ secrets.GOOGLE_SERVICES_PRODUCTION_IOS }}" | base64 --decode > GoogleService-Info.production.plist
+            echo "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_PRODUCTION_API_KEY }}" >> $GITHUB_ENV
+          else
+            echo "${{ secrets.GOOGLE_SERVICES_STAGING_ANDROID }}" | base64 --decode > google-services.staging.json
+            echo "${{ secrets.GOOGLE_SERVICES_STAGING_IOS }}" | base64 --decode > GoogleService-Info.staging.plist
+            echo "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_STAGING_API_KEY }}" >> $GITHUB_ENV
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: corepack enable
+      - uses: actions/cache@v4
+        with:
+          path: .yarn/cache
+          key: yarn-${{ hashFiles('yarn.lock') }}
+          restore-keys: yarn-
+      - run: yarn install --immutable
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Publish OTA update
+        run: |
+          eas update \
+            --channel ${{ needs.decide-deploy-type.outputs.channel }} \
+            --message "OTA: ${{ github.event.head_commit.message }}" \
+            --non-interactive
+
+  eas-build:
+    name: EAS Native Build
+    needs: decide-deploy-type
+    if: needs.decide-deploy-type.outputs.deploy_type == 'build'
+    runs-on: ubuntu-latest
+    env:
+      EXPO_PUBLIC_APP_ENV: ${{ needs.decide-deploy-type.outputs.app_env }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Decode Firebase config and select the Maps key
+        env:
+          APP_ENV: ${{ needs.decide-deploy-type.outputs.app_env }}
+        run: |
+          if [ "$APP_ENV" = "prod" ]; then
+            echo "${{ secrets.GOOGLE_SERVICES_PRODUCTION_ANDROID }}" | base64 --decode > google-services.production.json
+            echo "${{ secrets.GOOGLE_SERVICES_PRODUCTION_IOS }}" | base64 --decode > GoogleService-Info.production.plist
+            echo "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_PRODUCTION_API_KEY }}" >> $GITHUB_ENV
+          else
+            echo "${{ secrets.GOOGLE_SERVICES_STAGING_ANDROID }}" | base64 --decode > google-services.staging.json
+            echo "${{ secrets.GOOGLE_SERVICES_STAGING_IOS }}" | base64 --decode > GoogleService-Info.staging.plist
+            echo "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_STAGING_API_KEY }}" >> $GITHUB_ENV
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: corepack enable
+      - uses: actions/cache@v4
+        with:
+          path: .yarn/cache
+          key: yarn-${{ hashFiles('yarn.lock') }}
+          restore-keys: yarn-
+      - run: yarn install --immutable
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Build Android
+        run: |
+          eas build --platform android \
+            --profile ${{ needs.decide-deploy-type.outputs.channel }} \
+            --non-interactive --no-wait
+
+      - name: Build iOS
+        run: |
+          eas build --platform ios \
+            --profile ${{ needs.decide-deploy-type.outputs.channel }} \
+            --non-interactive --no-wait

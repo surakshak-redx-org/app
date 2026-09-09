@@ -1,0 +1,43 @@
+name: Bug Report
+description: Report a bug in Surakshak
+labels: ['bug', 'needs-review']
+body:
+  - type: input
+    id: phase
+    attributes:
+      label: Feature / Phase affected
+      placeholder: 'e.g. Phase 3 — SOS'
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      placeholder: "1. Open app\n2. Tap SOS\n3. See error"
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options: [Android, iOS, Both]
+    validations:
+      required: true
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      options: [dev, staging, prod]
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error Logs (if any)
+      render: shell

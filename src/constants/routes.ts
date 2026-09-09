@@ -1,0 +1,24 @@
+export const ROUTES = {
+  WELCOME: '/(auth)/welcome',
+  PHONE: '/(auth)/phone',
+  OTP: '/(auth)/otp',
+  ONBOARDING: '/(auth)/onboarding',
+  HOME: '/(tabs)/',
+  MAP: '/(tabs)/map',
+  COMMUNITY: '/(tabs)/community',
+  INFO: '/(tabs)/info',
+  PROFILE: '/(tabs)/profile',
+  EMERGENCY_CONTACTS: '/emergency-contacts',
+  LIVE_LOCATION: '/live-location',
+  SAFE_JOURNEY: '/safe-journey',
+  SAFE_CHECKIN: '/safe-checkin',
+  INCIDENT_REPORT: '/incident-report',
+  NEARBY_HELP: '/nearby-help',
+  SILENT_RECORDING: '/silent-recording',
+  SETTINGS: '/settings',
+  LANGUAGE_SELECT: '/language-select',
+  LAW_DETAIL: '/law',
+  NEWS_DETAIL: '/news',
+} as const;
+
+export type RouteKey = keyof typeof ROUTES;

@@ -1,0 +1,85 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches: [develop, staging, production]
+
+jobs:
+  typecheck:
+    name: typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # corepack must be enabled AFTER setup-node so it targets that Node, and
+      # the yarn cache is restored manually: setup-node's `cache: yarn` probes
+      # the runner's preinstalled Yarn 1 and picks the wrong cache directory.
+      - run: corepack enable
+      - uses: actions/cache@v4
+        with:
+          path: .yarn/cache
+          key: yarn-${{ hashFiles('yarn.lock') }}
+          restore-keys: yarn-
+      - run: yarn install --immutable
+      - run: yarn typecheck
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: corepack enable
+      - uses: actions/cache@v4
+        with:
+          path: .yarn/cache
+          key: yarn-${{ hashFiles('yarn.lock') }}
+          restore-keys: yarn-
+      - run: yarn install --immutable
+      - run: yarn lint
+
+  prettier:
+    name: prettier
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: corepack enable
+      - uses: actions/cache@v4
+        with:
+          path: .yarn/cache
+          key: yarn-${{ hashFiles('yarn.lock') }}
+          restore-keys: yarn-
+      - run: yarn install --immutable
+      - run: yarn format:check
+
+  no-eslint-disable:
+    name: no-eslint-disable
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for eslint-disable comments
+        run: bash scripts/check-no-eslint-disable.sh
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: corepack enable
+      - uses: actions/cache@v4
+        with:
+          path: .yarn/cache
+          key: yarn-${{ hashFiles('yarn.lock') }}
+          restore-keys: yarn-
+      - run: yarn install --immutable
+      - run: yarn test --ci --coverage

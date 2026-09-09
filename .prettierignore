@@ -1,0 +1,10 @@
+node_modules
+.expo
+.yarn
+dist
+build
+coverage
+functions/lib
+android
+ios
+yarn.lock

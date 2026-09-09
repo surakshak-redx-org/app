@@ -1,0 +1,24 @@
+name: Phase Task
+description: A task for a specific phase
+labels: ['feature']
+body:
+  - type: input
+    id: phase
+    attributes:
+      label: Phase
+      placeholder: 'Phase 3: Emergency Core'
+    validations:
+      required: true
+  - type: textarea
+    id: task
+    attributes:
+      label: Task Description
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      placeholder: "- [ ] Criterion 1\n- [ ] Criterion 2"
+    validations:
+      required: true

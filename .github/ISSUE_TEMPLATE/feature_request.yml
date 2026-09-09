@@ -1,0 +1,29 @@
+name: Feature Request
+description: Suggest a new feature
+labels: ['feature']
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+    validations:
+      required: true
+  - type: dropdown
+    id: phase
+    attributes:
+      label: Suggested Phase
+      options:
+        - Phase 3 — Emergency Core
+        - Phase 4 — Location & Maps
+        - Phase 5 — Community
+        - Phase 6 — Information Hub
+        - Phase 7 — Advanced Safety
+        - Phase 8 — Multilingual
+        - Phase 9 — Admin Dashboard
+        - Future

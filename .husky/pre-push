@@ -1,0 +1,3 @@
+echo "Running TypeScript check before push..."
+yarn typecheck
+echo "✅ TypeScript check passed"
