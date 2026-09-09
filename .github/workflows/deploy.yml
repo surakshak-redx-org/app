@@ -12,26 +12,30 @@ jobs:
       deploy_type: ${{ steps.check.outputs.type }}
       deploy_reason: ${{ steps.check.outputs.reason }}
       channel: ${{ steps.channel.outputs.name }}
-      app_env: ${{ steps.channel.outputs.app_env }}
+      # EAS's own "environment" tier (development/preview/production) — distinct
+      # from `channel` (develop/staging/production) and from our APP_ENV concept
+      # (staging/prod). Must stay in sync with each profile's `environment`
+      # field in eas.json, and with `eas env:list` on expo.dev.
+      eas_environment: ${{ steps.channel.outputs.eas_environment }}
 
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 2
 
-      - name: Set channel and app_env
+      - name: Set channel and EAS environment
         id: channel
         run: |
           BRANCH="${{ github.ref_name }}"
           if [ "$BRANCH" = "production" ]; then
             echo "name=production" >> $GITHUB_OUTPUT
-            echo "app_env=prod" >> $GITHUB_OUTPUT
+            echo "eas_environment=production" >> $GITHUB_OUTPUT
           elif [ "$BRANCH" = "staging" ]; then
             echo "name=staging" >> $GITHUB_OUTPUT
-            echo "app_env=staging" >> $GITHUB_OUTPUT
+            echo "eas_environment=preview" >> $GITHUB_OUTPUT
           else
             echo "name=develop" >> $GITHUB_OUTPUT
-            echo "app_env=staging" >> $GITHUB_OUTPUT
+            echo "eas_environment=development" >> $GITHUB_OUTPUT
           fi
 
       - name: Check if native build required
@@ -50,9 +54,6 @@ jobs:
           if echo "$CHANGED" | grep -q "^eas\.json$"; then
             NEEDS_BUILD=true; REASON="eas.json changed"
           fi
-          if git diff HEAD~1 HEAD -- eas.json 2>/dev/null | grep -q "EXPO_PUBLIC_APP_ENV"; then
-            NEEDS_BUILD=true; REASON="APP_ENV changed in eas.json"
-          fi
 
           if [ "$NEEDS_BUILD" = true ]; then
             echo "type=build" >> $GITHUB_OUTPUT
@@ -70,7 +71,7 @@ jobs:
             echo "| Type | **${{ steps.check.outputs.type }}** |"
             echo "| Reason | ${{ steps.check.outputs.reason }} |"
             echo "| Channel | ${{ steps.channel.outputs.name }} |"
-            echo "| APP_ENV | ${{ steps.channel.outputs.app_env }} |"
+            echo "| EAS environment | ${{ steps.channel.outputs.eas_environment }} |"
             echo "| Branch | ${{ github.ref_name }} |"
           } >> $GITHUB_STEP_SUMMARY
 
@@ -79,16 +80,16 @@ jobs:
     needs: decide-deploy-type
     if: needs.decide-deploy-type.outputs.deploy_type == 'ota'
     runs-on: ubuntu-latest
-    env:
-      EXPO_PUBLIC_APP_ENV: ${{ needs.decide-deploy-type.outputs.app_env }}
-      EXPO_PUBLIC_GOOGLE_MAPS_API_KEY_ANDROID: ${{ secrets.GOOGLE_MAPS_API_KEY_ANDROID }}
-      EXPO_PUBLIC_GOOGLE_MAPS_API_KEY_IOS: ${{ secrets.GOOGLE_MAPS_API_KEY_IOS }}
     steps:
       - uses: actions/checkout@v4
 
       # Decoded in THIS job on purpose: files and $GITHUB_ENV do not cross job
       # boundaries, so a separate "write config" job would leave this runner
-      # with no Firebase config at all.
+      # with no Firebase config at all. APP_ENV and the Maps keys are NOT set
+      # here — `eas update --environment` below pulls them from EAS's own
+      # hosted Environment Variables instead. Job-level `env:` here would only
+      # ever have reached local bundling, never `eas build`'s remote worker,
+      # so hosted variables are the only mechanism that works for both paths.
       - name: Decode Firebase config
         env:
           GOOGLE_SERVICES_ANDROID: ${{ secrets.GOOGLE_SERVICES_ANDROID }}
@@ -117,6 +118,7 @@ jobs:
         run: |
           eas update \
             --channel ${{ needs.decide-deploy-type.outputs.channel }} \
+            --environment ${{ needs.decide-deploy-type.outputs.eas_environment }} \
             --message "OTA: ${{ github.event.head_commit.message }}" \
             --non-interactive
 
@@ -125,10 +127,6 @@ jobs:
     needs: decide-deploy-type
     if: needs.decide-deploy-type.outputs.deploy_type == 'build'
     runs-on: ubuntu-latest
-    env:
-      EXPO_PUBLIC_APP_ENV: ${{ needs.decide-deploy-type.outputs.app_env }}
-      EXPO_PUBLIC_GOOGLE_MAPS_API_KEY_ANDROID: ${{ secrets.GOOGLE_MAPS_API_KEY_ANDROID }}
-      EXPO_PUBLIC_GOOGLE_MAPS_API_KEY_IOS: ${{ secrets.GOOGLE_MAPS_API_KEY_IOS }}
     steps:
       - uses: actions/checkout@v4
 
@@ -156,6 +154,10 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
+      # No --environment flag here (build has none) and no job-level env: —
+      # `-e <profile>` is enough. Each profile in eas.json declares its own
+      # `environment`, which is how EAS Build knows which hosted variables to
+      # inject into the remote build container.
       - name: Build Android
         run: |
           eas build --platform android \

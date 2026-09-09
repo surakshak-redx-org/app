@@ -14,24 +14,21 @@
       "distribution": "internal",
       "channel": "develop",
       "environment": "development",
-      "android": { "buildType": "apk" },
-      "env": { "EXPO_PUBLIC_APP_ENV": "staging" }
+      "android": { "buildType": "apk" }
     },
     "staging": {
       "extends": "base",
       "distribution": "internal",
       "channel": "staging",
       "environment": "preview",
-      "android": { "buildType": "apk" },
-      "env": { "EXPO_PUBLIC_APP_ENV": "staging" }
+      "android": { "buildType": "apk" }
     },
     "production": {
       "extends": "base",
       "distribution": "store",
       "channel": "production",
       "environment": "production",
-      "android": { "buildType": "app-bundle" },
-      "env": { "EXPO_PUBLIC_APP_ENV": "prod" }
+      "android": { "buildType": "app-bundle" }
     }
   },
   "submit": {

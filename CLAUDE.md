@@ -429,6 +429,8 @@ platform is required to have any app-identity restriction at all:
 - `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY_IOS` — restricted to the iOS app
   restriction (bundle ID, all three), same API scope.
 - Local dev (`.env.local`) → use both staging keys.
+- `eas build` / `eas update` → EAS's own hosted Environment Variables, one
+  value shared across all three tiers — see "Where config values live" below.
 
 Both are `EXPO_PUBLIC_*`, so both get inlined into **both** platforms' JS
 bundles — the Android build ships the iOS key string too, and vice versa.
@@ -436,6 +438,39 @@ This is not a leak: each key's own restriction is enforced server-side by
 Google regardless of which bundle it's sitting in, so a key that ends up in
 the wrong build is simply unusable there. Don't mistake the presence of
 "the other platform's key" in a bundle for a misconfiguration.
+
+## Where config values live
+
+Three separate systems, easy to conflate:
+
+| System                    | Reaches                                                                                 | Set via                                 |
+| ------------------------- | --------------------------------------------------------------------------------------- | --------------------------------------- |
+| `.env.local`              | Local `yarn start` only                                                                 | hand-edited, gitignored                 |
+| GitHub Secrets            | GitHub Actions steps directly (Firebase file decode, `EXPO_TOKEN`, `ANTHROPIC_API_KEY`) | repo Settings → Secrets                 |
+| EAS Environment Variables | `eas build` (remote container) and `eas update` (via `--environment`)                   | `eas env:set` or the expo.dev dashboard |
+
+**Why three, not one:** `eas build` runs entirely on Expo's own remote
+infrastructure — a GitHub Actions job's `env:` block never reaches that
+container, no matter how it's set. Only `eas.json`'s own file-based `env`
+(not used here) or EAS's hosted Environment Variables do. `eas update`
+bundles locally in the calling job, so it could use either mechanism, but
+`--environment` is **required for SDK 55+** to pull hosted variables at all
+— omit it and `eas update` gets none of them, silently.
+
+`EXPO_PUBLIC_APP_ENV` and both Maps keys live in EAS Environment Variables,
+scoped per tier:
+
+```bash
+eas env:set --name KEY --value VALUE \
+  --environment development --environment preview --environment production \
+  --visibility plaintext|sensitive|secret --non-interactive
+```
+
+`development`/`preview`/`production` here are EAS's own tier names — matched
+1:1 to each build profile's `environment` field in `eas.json`. They are not
+the same namespace as `APP_ENV` (`dev`/`staging`/`prod`) or `channel`
+(`develop`/`staging`/`production`); check `eas.json` before assuming which
+maps to which.
 
 ## Build vs OTA Rules
 
@@ -539,18 +574,17 @@ code back to match the original text — CI will fail.
 
 ### GitHub secrets
 
-Four, plus `EXPO_TOKEN` and `ANTHROPIC_API_KEY`:
+Two, plus `EXPO_TOKEN` and `ANTHROPIC_API_KEY`:
 
-| Secret                        | Contents                                                |
-| ----------------------------- | ------------------------------------------------------- |
-| `GOOGLE_SERVICES_ANDROID`     | base64 of `google-services.json`                        |
-| `GOOGLE_SERVICES_IOS`         | base64 of `GoogleService-Info.plist`                    |
-| `GOOGLE_MAPS_API_KEY_ANDROID` | Maps key restricted to Android apps (plain, not base64) |
-| `GOOGLE_MAPS_API_KEY_IOS`     | Maps key restricted to iOS apps (plain, not base64)     |
+| Secret                    | Contents                             |
+| ------------------------- | ------------------------------------ |
+| `GOOGLE_SERVICES_ANDROID` | base64 of `google-services.json`     |
+| `GOOGLE_SERVICES_IOS`     | base64 of `GoogleService-Info.plist` |
 
-Two Maps keys, not one — a Maps key's application restriction is either
-"Android apps" or "iOS apps", never both, so only a two-key split gives each
-platform an app-identity restriction at all.
+The Maps keys and `EXPO_PUBLIC_APP_ENV` are **not** GitHub secrets — they live
+in EAS's hosted Environment Variables instead, since `eas build`'s remote
+container never sees a GitHub Actions job's `env:` block at all. See "Where
+config values live" above.
 
 Also worth knowing:
 
