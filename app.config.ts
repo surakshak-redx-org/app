@@ -16,6 +16,16 @@ function envString(value: unknown, fallback = ''): string {
 
 const APP_ENV = envString(process.env.EXPO_PUBLIC_APP_ENV, 'dev') as AppEnv;
 
+// `eas init` / `eas update` can't write into a dynamic config (a .ts file,
+// not static JSON) — both print the value instead of setting it themselves,
+// which is why this is a hand-committed literal rather than something a CLI
+// manages. Real ID for surakshak-redx-org/app; `eas init --force` would mint
+// a different project rather than restore this line. One constant, not a
+// runtime app value, so it lives here rather than in src/constants/ — @/
+// imports do resolve inside app.config.ts (verified), but this identifier
+// has nothing to do with the app's runtime behavior that module documents.
+const EAS_PROJECT_ID = '720001ee-e12e-4c08-a278-7c22b660d6ea';
+
 /**
  * Two separate Maps keys, not one: a Google Maps API key can only carry an
  * Android app restriction OR an iOS app restriction, never both at once — see
@@ -149,12 +159,19 @@ const config: ExpoConfig = {
   experiments: {
     typedRoutes: true,
   },
-  // `eas init` can't write this back itself — app.config.ts is dynamic
-  // (a .ts file, not static JSON), so it prints the value instead. This is
-  // the real one for surakshak-redx-org/app; `eas init --force` would
-  // generate a different project rather than restore this line.
+  // runtimeVersion "appVersion" ties OTA compatibility to the `version`
+  // field above: an update only reaches a native build sharing that exact
+  // version string. EAS's own recommended default, avoids fingerprint-based
+  // runtime versioning's extra complexity. Bump `version` on any native
+  // change, or an OTA could ship to an incompatible native shell.
+  updates: {
+    url: `https://u.expo.dev/${EAS_PROJECT_ID}`,
+  },
+  runtimeVersion: {
+    policy: 'appVersion',
+  },
   extra: {
-    eas: { projectId: '720001ee-e12e-4c08-a278-7c22b660d6ea' },
+    eas: { projectId: EAS_PROJECT_ID },
   },
 };
 
