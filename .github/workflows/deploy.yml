@@ -38,6 +38,44 @@ jobs:
             echo "eas_environment=development" >> $GITHUB_OUTPUT
           fi
 
+      # eas-cli is needed here (not just in the two downstream jobs) because
+      # the bootstrap check below has to ask EAS's own build history whether
+      # this profile has ever shipped a native build at all.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: corepack enable
+      - uses: actions/cache@v4
+        with:
+          path: .yarn/cache
+          key: yarn-${{ hashFiles('yarn.lock') }}
+          restore-keys: yarn-
+      - run: yarn install --immutable
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      # An OTA update ships JS to an app shell that's already installed on a
+      # device. If this profile has never had a successful native build, no
+      # such shell exists anywhere — an "OTA" here would update nothing. Force
+      # a real build the first time, regardless of what files changed.
+      - name: Check for an existing build on this profile
+        id: bootstrap
+        run: |
+          EXISTING=$(eas build:list \
+            --status finished \
+            --build-profile "${{ steps.channel.outputs.name }}" \
+            --limit 1 --non-interactive --json)
+
+          # Any failure to parse or reach EAS defaults to "no build" — an extra
+          # build costs time; a wrongly-skipped first build ships nothing.
+          if [ "$EXISTING" = "[]" ] || [ -z "$EXISTING" ]; then
+            echo "has_build=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_build=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Check if native build required
         id: check
         run: |
@@ -45,6 +83,9 @@ jobs:
           NEEDS_BUILD=false
           REASON="JS/TS only changes"
 
+          if [ "${{ steps.bootstrap.outputs.has_build }}" = "false" ]; then
+            NEEDS_BUILD=true; REASON="no finished build exists yet for this profile"
+          fi
           if echo "$CHANGED" | grep -q "^package\.json$"; then
             NEEDS_BUILD=true; REASON="package.json changed"
           fi
