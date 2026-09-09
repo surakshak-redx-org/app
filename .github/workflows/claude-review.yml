@@ -33,7 +33,14 @@ jobs:
         id: diff
         run: |
           git fetch origin ${{ github.base_ref }}
-          DIFF=$(git diff origin/${{ github.base_ref }}...HEAD -- '*.ts' '*.tsx' | head -c 60000)
+          # *.ts/*.tsx alone left the bot structurally blind to config changes —
+          # eas.json, .env.example, workflow yml, CLAUDE.md — which is exactly
+          # the kind of PR most likely to break a build silently. Lockfiles are
+          # excluded: huge, generated, never worth a model's attention.
+          DIFF=$(git diff origin/${{ github.base_ref }}...HEAD -- \
+            '*.ts' '*.tsx' '*.json' '*.md' '*.yml' '*.yaml' \
+            ':!yarn.lock' ':!package-lock.json' ':!pnpm-lock.yaml' ':!bun.lock' \
+            | head -c 60000)
           {
             echo 'diff<<DIFF_DELIMITER'
             echo "$DIFF"

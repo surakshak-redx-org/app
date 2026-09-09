@@ -10,8 +10,7 @@ import { z } from 'zod';
  */
 const envSchema = z.object({
   APP_ENV: z.enum(['dev', 'staging', 'prod']),
-  // Two keys, not one: a Google Maps key can only carry an Android app
-  // restriction OR an iOS app restriction, never both — see app.config.ts.
+  // Two keys, not one — see CLAUDE.md "API Keys" for why.
   GOOGLE_MAPS_API_KEY_ANDROID: z.string().min(1),
   GOOGLE_MAPS_API_KEY_IOS: z.string().min(1),
   ONESIGNAL_APP_ID: z.string().min(1),

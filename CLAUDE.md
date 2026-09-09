@@ -430,6 +430,13 @@ platform is required to have any app-identity restriction at all:
   restriction (bundle ID, all three), same API scope.
 - Local dev (`.env.local`) → use both staging keys.
 
+Both are `EXPO_PUBLIC_*`, so both get inlined into **both** platforms' JS
+bundles — the Android build ships the iOS key string too, and vice versa.
+This is not a leak: each key's own restriction is enforced server-side by
+Google regardless of which bundle it's sitting in, so a key that ends up in
+the wrong build is simply unusable there. Don't mistake the presence of
+"the other platform's key" in a bundle for a misconfiguration.
+
 ## Build vs OTA Rules
 
 Full native EAS build triggered when ANY of these files change:
