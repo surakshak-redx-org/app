@@ -227,8 +227,24 @@ jobs:
             --profile ${{ needs.decide-deploy-type.outputs.channel }} \
             --non-interactive --no-wait
 
+      # continue-on-error is TEMPORARY: no Apple Developer Program membership
+      # exists yet, so EAS has no way to provision iOS credentials at all --
+      # this step fails on every push until that's set up, independent of
+      # anything in this repo. Remove continue-on-error once membership is
+      # active and `eas credentials -p ios` has been run interactively for
+      # each profile, so a real iOS failure goes back to failing the job.
       - name: Build iOS
+        id: ios_build
+        continue-on-error: true
         run: |
           eas build --platform ios \
             --profile ${{ needs.decide-deploy-type.outputs.channel }} \
             --non-interactive --no-wait
+
+      # A green job here doesn't mean iOS actually built -- surface that
+      # explicitly rather than let a skipped platform hide in a passing run.
+      - name: Note skipped iOS build
+        if: steps.ios_build.outcome == 'failure'
+        run: |
+          echo "## ⚠️ iOS build skipped" >> $GITHUB_STEP_SUMMARY
+          echo "No Apple Developer Program membership yet -- Android built, iOS did not." >> $GITHUB_STEP_SUMMARY
