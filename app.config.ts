@@ -149,6 +149,18 @@ const config: ExpoConfig = {
   experiments: {
     typedRoutes: true,
   },
+  // `eas update` can't write these into a dynamic config either — same
+  // "prints the value instead" situation as extra.eas.projectId below.
+  // runtimeVersion "appVersion" ties OTA compatibility to the `version`
+  // field above: an update only reaches a native build sharing that exact
+  // version string, which is EAS's own recommended default and avoids
+  // fingerprint-based runtime versioning's extra complexity.
+  updates: {
+    url: 'https://u.expo.dev/720001ee-e12e-4c08-a278-7c22b660d6ea',
+  },
+  runtimeVersion: {
+    policy: 'appVersion',
+  },
   // `eas init` can't write this back itself — app.config.ts is dynamic
   // (a .ts file, not static JSON), so it prints the value instead. This is
   // the real one for surakshak-redx-org/app; `eas init --force` would
