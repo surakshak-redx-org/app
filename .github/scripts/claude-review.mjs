@@ -50,11 +50,21 @@ const FALLBACK_NOTICE = [
   '_This does not block the pipeline — the other PR checks still apply._',
 ].join('\n');
 
+/**
+ * The workflow writes this to $GITHUB_OUTPUT as a `body<<DELIMITER ... DELIMITER`
+ * block, which requires the closing delimiter on its own line. Model output
+ * has no guaranteed trailing newline, so without this every review risks
+ * gluing the delimiter onto the review's last line and breaking the parser.
+ */
+function writeOutput(text) {
+  process.stdout.write(text.endsWith('\n') ? text : `${text}\n`);
+}
+
 async function main() {
   const diff = process.env.PR_DIFF ?? '';
 
   if (diff.trim().length === 0) {
-    process.stdout.write('## 🛡️ Surakshak Code Review\n\nNo TypeScript changes to review.\n');
+    writeOutput('## 🛡️ Surakshak Code Review\n\nNo TypeScript changes to review.');
     return;
   }
 
@@ -83,7 +93,7 @@ async function main() {
   // A refusal is a normal 200 response, not an exception — check it before
   // reading content.
   if (response.stop_reason === 'refusal') {
-    process.stdout.write(FALLBACK_NOTICE);
+    writeOutput(FALLBACK_NOTICE);
     return;
   }
 
@@ -91,7 +101,7 @@ async function main() {
   // always find the text block by type rather than by index.
   const text = response.content.find((block) => block.type === 'text')?.text ?? '';
 
-  process.stdout.write(text.length > 0 ? text : FALLBACK_NOTICE);
+  writeOutput(text.length > 0 ? text : FALLBACK_NOTICE);
 }
 
 try {
@@ -104,5 +114,5 @@ try {
   } else {
     process.stderr.write(`Claude review failed: ${String(error)}\n`);
   }
-  process.stdout.write(FALLBACK_NOTICE);
+  writeOutput(FALLBACK_NOTICE);
 }

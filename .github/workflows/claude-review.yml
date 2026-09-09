@@ -53,6 +53,11 @@ jobs:
           {
             echo 'body<<REVIEW_DELIMITER'
             cat review.md
+            # Guarantees a newline before the closing delimiter even if
+            # review.md doesn't end in one — $GITHUB_OUTPUT's heredoc format
+            # requires the delimiter on its own line, or the parser can't
+            # find it ("Matching delimiter not found").
+            echo
             echo 'REVIEW_DELIMITER'
           } >> $GITHUB_OUTPUT
 
