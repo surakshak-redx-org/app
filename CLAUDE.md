@@ -480,8 +480,22 @@ Full native EAS build triggered when ANY of these files change:
 - app.config.ts
 - eas.json
 
+A build is also forced regardless of file changes when the target profile has
+**no finished build yet** — checked live against EAS's own build history, not
+inferred from the diff. Without this, the very first deploy on a profile would
+OTA-update a native shell that has never existed anywhere.
+
 Everything else → OTA update via eas update.
 Build decision reason always printed in GitHub Actions summary.
+
+**`runtimeVersion` is `{ policy: "appVersion" }`** — an OTA update only
+reaches a native build sharing the exact same `version` string in
+`app.config.ts`. This means any native-affecting change that ships without a
+`version` bump is silently OTA-shippable to a build it isn't actually
+compatible with. Bump `version` whenever a change touches native code or
+config, not just when it feels like a "release." The `fingerprint` policy
+removes this footgun entirely by keying compatibility off a hash of the
+native project instead — worth it if this bites in practice.
 
 ## Component Pattern
 

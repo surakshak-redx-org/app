@@ -43,7 +43,7 @@ jobs:
       # this profile has ever shipped a native build at all.
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: '.nvmrc'
       - run: corepack enable
       - uses: actions/cache@v4
         with:
@@ -60,20 +60,30 @@ jobs:
       # device. If this profile has never had a successful native build, no
       # such shell exists anywhere — an "OTA" here would update nothing. Force
       # a real build the first time, regardless of what files changed.
+      #
+      # `steps.channel.outputs.name` doubles as both the eas.json build
+      # profile's own key (develop/staging/production) AND that profile's
+      # `channel` value — this project deliberately keeps the two identical,
+      # confirmed for all three profiles. `--build-profile` filters by the
+      # former, which is exactly what's passed here.
       - name: Check for an existing build on this profile
         id: bootstrap
         run: |
+          # GitHub Actions runs `run:` as `bash -e {0}` — a failing command
+          # substitution aborts the whole step, so `|| echo '[]'` has to sit
+          # INSIDE the substitution, not after it, or a genuine EAS outage
+          # hard-fails this job instead of falling back to "build anyway."
           EXISTING=$(eas build:list \
             --status finished \
             --build-profile "${{ steps.channel.outputs.name }}" \
-            --limit 1 --non-interactive --json)
+            --limit 1 --non-interactive --json 2>/dev/null || echo '[]')
 
-          # Any failure to parse or reach EAS defaults to "no build" — an extra
-          # build costs time; a wrongly-skipped first build ships nothing.
-          if [ "$EXISTING" = "[]" ] || [ -z "$EXISTING" ]; then
-            echo "has_build=false" >> $GITHUB_OUTPUT
-          else
+          COUNT=$(echo "$EXISTING" | jq 'length' 2>/dev/null || echo 0)
+
+          if [ "$COUNT" -gt 0 ]; then
             echo "has_build=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_build=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Check if native build required
@@ -83,9 +93,6 @@ jobs:
           NEEDS_BUILD=false
           REASON="JS/TS only changes"
 
-          if [ "${{ steps.bootstrap.outputs.has_build }}" = "false" ]; then
-            NEEDS_BUILD=true; REASON="no finished build exists yet for this profile"
-          fi
           if echo "$CHANGED" | grep -q "^package\.json$"; then
             NEEDS_BUILD=true; REASON="package.json changed"
           fi
@@ -94,6 +101,14 @@ jobs:
           fi
           if echo "$CHANGED" | grep -q "^eas\.json$"; then
             NEEDS_BUILD=true; REASON="eas.json changed"
+          fi
+
+          # Checked last, deliberately: each `if` above overwrites REASON when
+          # it matches, so whichever check runs last wins the summary. A first
+          # build is the rarer, more surprising case and deserves top billing
+          # over "package.json changed" even when both are true at once.
+          if [ "${{ steps.bootstrap.outputs.has_build }}" = "false" ]; then
+            NEEDS_BUILD=true; REASON="no finished build exists yet for this profile"
           fi
 
           if [ "$NEEDS_BUILD" = true ]; then
@@ -141,7 +156,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: '.nvmrc'
       - run: corepack enable
       - uses: actions/cache@v4
         with:
@@ -181,7 +196,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: '.nvmrc'
       - run: corepack enable
       - uses: actions/cache@v4
         with:
