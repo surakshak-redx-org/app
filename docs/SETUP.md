@@ -10,8 +10,8 @@ Ask your lead for these before you start — you cannot finish without them:
 
 1. The values for `.env.local` (Maps key, OneSignal app id, MixPanel token,
    Sentry DSN — all staging).
-2. `google-services.staging.json` (Android Firebase config).
-3. `GoogleService-Info.staging.plist` (iOS Firebase config).
+2. `google-services.json` (Android Firebase config).
+3. `GoogleService-Info.plist` (iOS Firebase config).
 
 All three are secret and none are in git.
 
@@ -97,8 +97,8 @@ Leave `EXPO_PUBLIC_APP_ENV=dev` — local development is always `dev`.
 instead. Put both in the repo root:
 
 ```
-app/google-services.staging.json
-app/GoogleService-Info.staging.plist
+app/google-services.json
+app/GoogleService-Info.plist
 ```
 
 Both are gitignored, so you cannot commit them by accident.
@@ -160,7 +160,7 @@ version. See `npmMinimalAgeGate` in `.yarnrc.yml`.
 yarn start --clear
 ```
 
-### "Cannot find module 'google-services.staging.json'"
+### "Cannot find module 'google-services.json'"
 
 You skipped Step 4. The app runs without the file (the config guards for it),
 but anything touching Firebase will fail until it is in place.

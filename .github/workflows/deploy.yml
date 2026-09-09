@@ -81,25 +81,20 @@ jobs:
     runs-on: ubuntu-latest
     env:
       EXPO_PUBLIC_APP_ENV: ${{ needs.decide-deploy-type.outputs.app_env }}
+      EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
     steps:
       - uses: actions/checkout@v4
 
       # Decoded in THIS job on purpose: files and $GITHUB_ENV do not cross job
       # boundaries, so a separate "write config" job would leave this runner
       # with no Firebase config at all.
-      - name: Decode Firebase config and select the Maps key
+      - name: Decode Firebase config
         env:
-          APP_ENV: ${{ needs.decide-deploy-type.outputs.app_env }}
+          GOOGLE_SERVICES_ANDROID: ${{ secrets.GOOGLE_SERVICES_ANDROID }}
+          GOOGLE_SERVICES_IOS: ${{ secrets.GOOGLE_SERVICES_IOS }}
         run: |
-          if [ "$APP_ENV" = "prod" ]; then
-            echo "${{ secrets.GOOGLE_SERVICES_PRODUCTION_ANDROID }}" | base64 --decode > google-services.production.json
-            echo "${{ secrets.GOOGLE_SERVICES_PRODUCTION_IOS }}" | base64 --decode > GoogleService-Info.production.plist
-            echo "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_PRODUCTION_API_KEY }}" >> $GITHUB_ENV
-          else
-            echo "${{ secrets.GOOGLE_SERVICES_STAGING_ANDROID }}" | base64 --decode > google-services.staging.json
-            echo "${{ secrets.GOOGLE_SERVICES_STAGING_IOS }}" | base64 --decode > GoogleService-Info.staging.plist
-            echo "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_STAGING_API_KEY }}" >> $GITHUB_ENV
-          fi
+          echo "$GOOGLE_SERVICES_ANDROID" | base64 --decode > google-services.json
+          echo "$GOOGLE_SERVICES_IOS" | base64 --decode > GoogleService-Info.plist
 
       - uses: actions/setup-node@v4
         with:
@@ -131,22 +126,17 @@ jobs:
     runs-on: ubuntu-latest
     env:
       EXPO_PUBLIC_APP_ENV: ${{ needs.decide-deploy-type.outputs.app_env }}
+      EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Decode Firebase config and select the Maps key
+      - name: Decode Firebase config
         env:
-          APP_ENV: ${{ needs.decide-deploy-type.outputs.app_env }}
+          GOOGLE_SERVICES_ANDROID: ${{ secrets.GOOGLE_SERVICES_ANDROID }}
+          GOOGLE_SERVICES_IOS: ${{ secrets.GOOGLE_SERVICES_IOS }}
         run: |
-          if [ "$APP_ENV" = "prod" ]; then
-            echo "${{ secrets.GOOGLE_SERVICES_PRODUCTION_ANDROID }}" | base64 --decode > google-services.production.json
-            echo "${{ secrets.GOOGLE_SERVICES_PRODUCTION_IOS }}" | base64 --decode > GoogleService-Info.production.plist
-            echo "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_PRODUCTION_API_KEY }}" >> $GITHUB_ENV
-          else
-            echo "${{ secrets.GOOGLE_SERVICES_STAGING_ANDROID }}" | base64 --decode > google-services.staging.json
-            echo "${{ secrets.GOOGLE_SERVICES_STAGING_IOS }}" | base64 --decode > GoogleService-Info.staging.plist
-            echo "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_STAGING_API_KEY }}" >> $GITHUB_ENV
-          fi
+          echo "$GOOGLE_SERVICES_ANDROID" | base64 --decode > google-services.json
+          echo "$GOOGLE_SERVICES_IOS" | base64 --decode > GoogleService-Info.plist
 
       - uses: actions/setup-node@v4
         with:

@@ -514,6 +514,24 @@ code back to match the original text — CI will fail.
 | `SOSButton`       | `components/ui/` in the brief                                         | **`components/features/sos/`**                  | this file is the source of truth                                                    |
 | Package manager   | unspecified                                                           | **Yarn 4**                                      | see the Tech Stack table                                                            |
 
+> ⚠️ **The single Firebase config overrides the Environments table above.**
+> `prod` now reads the _same_ Firebase project as `dev` and `staging`, because
+> there is only one `google-services.json` / `GoogleService-Info.plist` pair.
+> The APP_ENV split still governs app name, bundle id, icon colour, EAS channel
+> and whether MixPanel/Sentry initialise — just not the Firebase project.
+> To separate them later: restore the `Record<AppEnv, string>` maps in
+> `app.config.ts` and add per-environment secrets back to `deploy.yml`.
+
+### GitHub secrets
+
+Three, plus `EXPO_TOKEN` and `ANTHROPIC_API_KEY`:
+
+| Secret                    | Contents                                    |
+| ------------------------- | ------------------------------------------- |
+| `GOOGLE_SERVICES_ANDROID` | base64 of `google-services.json`            |
+| `GOOGLE_SERVICES_IOS`     | base64 of `GoogleService-Info.plist`        |
+| `GOOGLE_MAPS_API_KEY`     | the Google Maps API key (plain, not base64) |
+
 Also worth knowing:
 
 - **Jest env bootstrap.** `babel-preset-expo` inlines `EXPO_PUBLIC_*` at

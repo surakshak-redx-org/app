@@ -51,8 +51,8 @@ yarn start
 ```
 
 You also need the Firebase config files, which are **never** committed. Ask your
-lead for `google-services.staging.json` and `GoogleService-Info.staging.plist`
-and drop both in the repo root. They are already gitignored.
+lead for `google-services.json` and `GoogleService-Info.plist` and drop both in
+the repo root. They are already gitignored.
 
 Full walkthrough, including Windows: [docs/SETUP.md](docs/SETUP.md).
 

@@ -36,17 +36,17 @@ const iconColors: Record<AppEnv, string> = {
   prod: '#D4380D',
 };
 
-const googleServicesAndroid: Record<AppEnv, string> = {
-  dev: './google-services.staging.json',
-  staging: './google-services.staging.json',
-  prod: './google-services.production.json',
-};
-
-const googleServicesIos: Record<AppEnv, string> = {
-  dev: './GoogleService-Info.staging.plist',
-  staging: './GoogleService-Info.staging.plist',
-  prod: './GoogleService-Info.production.plist',
-};
+/**
+ * One Firebase config per platform, shared by every APP_ENV.
+ *
+ * NOTE: this collapses the per-environment split that CLAUDE.md's Environments
+ * table describes — prod now reads the same Firebase project as dev/staging.
+ * Deliberate: the project keeps a single GOOGLE_SERVICES secret per platform.
+ * To split them again, restore the Record<AppEnv, string> maps here and add
+ * per-environment secrets back to deploy.yml.
+ */
+const GOOGLE_SERVICES_ANDROID = './google-services.json';
+const GOOGLE_SERVICES_IOS = './GoogleService-Info.plist';
 
 /**
  * The native Firebase config files are gitignored and decoded from base64 in CI.
@@ -69,7 +69,7 @@ const config: ExpoConfig = {
   icon: './assets/images/icon.png',
   android: {
     package: bundleIds[APP_ENV],
-    ...googleServicesFile(googleServicesAndroid[APP_ENV]),
+    ...googleServicesFile(GOOGLE_SERVICES_ANDROID),
     adaptiveIcon: {
       foregroundImage: './assets/images/adaptive-icon.png',
       backgroundColor: iconColors[APP_ENV],
@@ -93,7 +93,7 @@ const config: ExpoConfig = {
   ios: {
     bundleIdentifier: bundleIds[APP_ENV],
     supportsTablet: false,
-    ...googleServicesFile(googleServicesIos[APP_ENV]),
+    ...googleServicesFile(GOOGLE_SERVICES_IOS),
     config: {
       googleMapsApiKey: GOOGLE_MAPS_API_KEY,
     },
