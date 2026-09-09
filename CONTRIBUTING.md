@@ -14,7 +14,7 @@ not get help.
 
 | Tool                | Version | Check with       |
 | ------------------- | ------- | ---------------- |
-| Node.js             | 20 LTS  | `node --version` |
+| Node.js             | 22 LTS  | `node --version` |
 | Corepack (Yarn)     | Yarn 4  | `yarn --version` |
 | Git                 | any     | `git --version`  |
 | Expo Go / Dev build | latest  | on your phone    |

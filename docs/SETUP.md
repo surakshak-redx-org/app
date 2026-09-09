@@ -17,25 +17,25 @@ All three are secret and none are in git.
 
 ---
 
-## Step 1 — Install Node 20
+## Step 1 — Install Node 22
 
 ### macOS
 
 ```bash
-brew install node@20
-node --version   # must print v20.x or newer
+brew install node@22
+node --version   # must print v22.x or newer
 ```
 
 Or with nvm:
 
 ```bash
-nvm install 20
-nvm use 20
+nvm install 22
+nvm use 22
 ```
 
 ### Windows
 
-Download the Node 20 LTS installer from <https://nodejs.org> and run it, then
+Download the Node 22 LTS installer from <https://nodejs.org> and run it, then
 in a **new** PowerShell window:
 
 ```powershell
