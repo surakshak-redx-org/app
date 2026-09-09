@@ -2,7 +2,7 @@ name: Deploy
 
 on:
   push:
-    branches: [develop, staging, production]
+    branches: [staging, production]
 
 jobs:
   decide-deploy-type:
@@ -23,6 +23,13 @@ jobs:
         with:
           fetch-depth: 2
 
+      # develop deliberately does NOT trigger this workflow (see the `on:`
+      # trigger above) -- it's the integration branch where every junior's PR
+      # lands, often several times a day, and a build/OTA on every single
+      # merge there is unnecessary cost and noise. develop still gets full
+      # pr-checks.yml coverage; it just never deploys anywhere. The `develop`
+      # EAS profile in eas.json is kept for on-demand local builds only
+      # (`eas build --profile develop`), not for anything automated.
       - name: Set channel and EAS environment
         id: channel
         run: |
@@ -34,8 +41,8 @@ jobs:
             echo "name=staging" >> $GITHUB_OUTPUT
             echo "eas_environment=preview" >> $GITHUB_OUTPUT
           else
-            echo "name=develop" >> $GITHUB_OUTPUT
-            echo "eas_environment=development" >> $GITHUB_OUTPUT
+            echo "Unexpected branch '$BRANCH' -- this workflow only triggers on staging/production." >&2
+            exit 1
           fi
 
       # eas-cli is needed here (not just in the two downstream jobs) because
