@@ -35,15 +35,21 @@ production ← staging ← develop ← feature/xxx | fix/xxx | chore/xxx
 - Juniors only open PRs targeting develop
 - Direct push to develop, staging, production: blocked for everyone including Dhruv
 - All PRs require: all pipeline checks pass + Claude bot review + 1 human approval
-- develop CI: APP_ENV=staging, surakshak-staging Firebase
-- staging CI: APP_ENV=staging, surakshak-staging Firebase
-- production CI: APP_ENV=prod, surakshak-production Firebase
+- develop CI: pr-checks.yml only (typecheck/lint/prettier/no-eslint-disable/test)
+  — **no build, no OTA**. develop is the integration branch every PR lands on,
+  often several times a day; deploying on every merge there is unnecessary
+  cost and noise. Promote to `staging` deliberately when it's time to deploy.
+- staging CI: pr-checks.yml + deploy.yml (APP_ENV=staging, surakshak-staging Firebase)
+- production CI: pr-checks.yml + deploy.yml (APP_ENV=prod, surakshak-production Firebase)
 
 ## Branch → EAS Channel → APP_ENV Mapping
 
+Only `staging` and `production` pushes trigger `deploy.yml` — `develop` never
+does (see above). The `develop` EAS profile in `eas.json` still exists, for
+on-demand local builds only (`eas build --profile develop`), never automated.
+
 | Branch     | EAS Channel | APP_ENV |
 | ---------- | ----------- | ------- |
-| develop    | develop     | staging |
 | staging    | staging     | staging |
 | production | production  | prod    |
 
