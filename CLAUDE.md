@@ -404,7 +404,7 @@ isPublished: boolean
 const locationUrl = `https://www.google.com/maps/place/${latitude},${longitude}`;
 ```
 
-## Google Cloud APIs (enable in both GCP projects)
+## Google Cloud APIs (enable in the GCP project)
 
 - Maps SDK for Android
 - Maps SDK for iOS
@@ -414,13 +414,21 @@ const locationUrl = `https://www.google.com/maps/place/${latitude},${longitude}`
 - Distance Matrix API
 - Maps JavaScript API (admin dashboard — Phase 9)
 
+> See the Phase 1 Corrections section — this is one shared GCP project now,
+> not one per environment.
+
 ## API Keys
 
-EXPO_PUBLIC_GOOGLE_MAPS_API_KEY is set per EAS environment:
+**Two Maps keys, not one** — a Google Maps API key's application restriction
+is either "Android apps" or "iOS apps", never both at once, so one key per
+platform is required to have any app-identity restriction at all:
 
-- development + preview environments → surakshak-staging GCP key
-- production environment → surakshak-production GCP key
-- Local dev (.env.local) → always use staging key
+- `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY_ANDROID` — restricted to the Android app
+  restriction (package name + SHA-1, all three bundle IDs), scoped to the
+  Maps SDK for Android + the four non-platform-specific APIs above.
+- `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY_IOS` — restricted to the iOS app
+  restriction (bundle ID, all three), same API scope.
+- Local dev (`.env.local`) → use both staging keys.
 
 ## Build vs OTA Rules
 
@@ -524,13 +532,18 @@ code back to match the original text — CI will fail.
 
 ### GitHub secrets
 
-Three, plus `EXPO_TOKEN` and `ANTHROPIC_API_KEY`:
+Four, plus `EXPO_TOKEN` and `ANTHROPIC_API_KEY`:
 
-| Secret                    | Contents                                    |
-| ------------------------- | ------------------------------------------- |
-| `GOOGLE_SERVICES_ANDROID` | base64 of `google-services.json`            |
-| `GOOGLE_SERVICES_IOS`     | base64 of `GoogleService-Info.plist`        |
-| `GOOGLE_MAPS_API_KEY`     | the Google Maps API key (plain, not base64) |
+| Secret                        | Contents                                                |
+| ----------------------------- | ------------------------------------------------------- |
+| `GOOGLE_SERVICES_ANDROID`     | base64 of `google-services.json`                        |
+| `GOOGLE_SERVICES_IOS`         | base64 of `GoogleService-Info.plist`                    |
+| `GOOGLE_MAPS_API_KEY_ANDROID` | Maps key restricted to Android apps (plain, not base64) |
+| `GOOGLE_MAPS_API_KEY_IOS`     | Maps key restricted to iOS apps (plain, not base64)     |
+
+Two Maps keys, not one — a Maps key's application restriction is either
+"Android apps" or "iOS apps", never both, so only a two-key split gives each
+platform an app-identity restriction at all.
 
 Also worth knowing:
 
