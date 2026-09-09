@@ -60,16 +60,30 @@ const iconColors: Record<AppEnv, string> = {
  * Deliberate: the project keeps a single GOOGLE_SERVICES secret per platform.
  * To split them again, restore the Record<AppEnv, string> maps here and add
  * per-environment secrets back to deploy.yml.
+ *
+ * Local dev reads the plain file at the repo root (gitignored, placed by
+ * hand). `eas build` is different: it runs on a REMOTE worker that never
+ * receives a file merely decoded onto the calling CI runner's disk — the
+ * only way a file reaches that worker is EAS's own file-type Environment
+ * Variables, which resolve through `process.env.<NAME>` to a temp path that
+ * exists only on that specific build machine. GOOGLE_SERVICES_ANDROID_FILE /
+ * GOOGLE_SERVICES_IOS_FILE hold exactly that; prefer them when present.
  */
-const GOOGLE_SERVICES_ANDROID = './google-services.json';
-const GOOGLE_SERVICES_IOS = './GoogleService-Info.plist';
+const GOOGLE_SERVICES_ANDROID = envString(
+  process.env.GOOGLE_SERVICES_ANDROID_FILE,
+  './google-services.json',
+);
+const GOOGLE_SERVICES_IOS = envString(
+  process.env.GOOGLE_SERVICES_IOS_FILE,
+  './GoogleService-Info.plist',
+);
 
 /**
- * The native Firebase config files are gitignored and decoded from base64 in CI.
- * A fresh clone will not have them, and pointing `googleServicesFile` at a
- * missing path makes `expo start` / `expo config` throw. Only set the key when
- * the file is actually on disk. `exactOptionalPropertyTypes` forbids assigning
- * `undefined`, so this has to be a conditional spread rather than a ternary.
+ * A fresh clone (or a build with the EAS file variable not yet set) has
+ * neither the local file nor the EAS-provided one — pointing `googleServicesFile`
+ * at a missing path makes `expo start` / `expo config` throw. Only set the
+ * key when the file actually exists. `exactOptionalPropertyTypes` forbids
+ * assigning `undefined`, so this has to be a conditional spread, not a ternary.
  */
 function googleServicesFile(path: string): { googleServicesFile: string } | Record<string, never> {
   return fs.existsSync(path) ? { googleServicesFile: path } : {};
@@ -114,6 +128,11 @@ const config: ExpoConfig = {
       googleMapsApiKey: GOOGLE_MAPS_API_KEY_IOS,
     },
     infoPlist: {
+      // Suppresses App Store Connect's manual export-compliance prompt on
+      // every build. Standard HTTPS/TLS is exempt from this declaration —
+      // it only needs to be `true` if the app implements or modifies its
+      // own cryptographic algorithms, which nothing here does.
+      ITSAppUsesNonExemptEncryption: false,
       NSCameraUsageDescription: 'Surakshak needs camera access for evidence recording.',
       NSMicrophoneUsageDescription: 'Surakshak needs microphone for audio recording.',
       NSLocationWhenInUseUsageDescription:
