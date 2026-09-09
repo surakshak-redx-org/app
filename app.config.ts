@@ -16,7 +16,13 @@ function envString(value: unknown, fallback = ''): string {
 
 const APP_ENV = envString(process.env.EXPO_PUBLIC_APP_ENV, 'dev') as AppEnv;
 
-const GOOGLE_MAPS_API_KEY = envString(process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY);
+/**
+ * Two separate Maps keys, not one: a Google Maps API key can only carry an
+ * Android app restriction OR an iOS app restriction, never both at once — see
+ * CLAUDE.md's Google Cloud APIs section for the exact restriction steps.
+ */
+const GOOGLE_MAPS_API_KEY_ANDROID = envString(process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY_ANDROID);
+const GOOGLE_MAPS_API_KEY_IOS = envString(process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY_IOS);
 
 const appNames: Record<AppEnv, string> = {
   dev: 'Surakshak-dev',
@@ -87,7 +93,7 @@ const config: ExpoConfig = {
       'android.permission.READ_CONTACTS',
     ],
     config: {
-      googleMaps: { apiKey: GOOGLE_MAPS_API_KEY },
+      googleMaps: { apiKey: GOOGLE_MAPS_API_KEY_ANDROID },
     },
   },
   ios: {
@@ -95,7 +101,7 @@ const config: ExpoConfig = {
     supportsTablet: false,
     ...googleServicesFile(GOOGLE_SERVICES_IOS),
     config: {
-      googleMapsApiKey: GOOGLE_MAPS_API_KEY,
+      googleMapsApiKey: GOOGLE_MAPS_API_KEY_IOS,
     },
     infoPlist: {
       NSCameraUsageDescription: 'Surakshak needs camera access for evidence recording.',
@@ -143,8 +149,12 @@ const config: ExpoConfig = {
   experiments: {
     typedRoutes: true,
   },
+  // `eas init` can't write this back itself — app.config.ts is dynamic
+  // (a .ts file, not static JSON), so it prints the value instead. This is
+  // the real one for surakshak-redx-org/app; `eas init --force` would
+  // generate a different project rather than restore this line.
   extra: {
-    eas: { projectId: 'REPLACE_AFTER_EAS_INIT' },
+    eas: { projectId: '720001ee-e12e-4c08-a278-7c22b660d6ea' },
   },
 };
 

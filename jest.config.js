@@ -6,7 +6,8 @@
  * Module scope here runs before any transform and is inherited by workers.
  */
 process.env.EXPO_PUBLIC_APP_ENV ??= 'dev';
-process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ??= 'test-maps-key';
+process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY_ANDROID ??= 'test-maps-key-android';
+process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY_IOS ??= 'test-maps-key-ios';
 process.env.EXPO_PUBLIC_ONESIGNAL_APP_ID ??= 'test-onesignal-app-id';
 process.env.EXPO_PUBLIC_MIXPANEL_TOKEN ??= 'test-mixpanel-token';
 process.env.EXPO_PUBLIC_SENTRY_DSN ??= 'https://test@test.ingest.sentry.io/1';
