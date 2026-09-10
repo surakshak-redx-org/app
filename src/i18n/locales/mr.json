@@ -220,7 +220,19 @@
     "guestPrompt": "",
     "anonymousUser": "",
     "helpBadge": "",
-    "viewOnMap": ""
+    "viewOnMap": "",
+    "compose": "",
+    "textPost": "",
+    "anonymousOn": "",
+    "anonymousOff": "",
+    "charCount": "",
+    "uploadingImage": "",
+    "viewImage": "",
+    "caughtUp": "",
+    "reportConfirmTitle": "",
+    "reportConfirmBody": "",
+    "reportAction": "",
+    "loadError": ""
   },
   "info": {
     "title": "",

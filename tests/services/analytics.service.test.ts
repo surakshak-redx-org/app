@@ -19,6 +19,12 @@ import {
   trackSafeJourneyStarted,
   trackSirenToggled,
   trackSmsAlertSent,
+  trackCommunityHelpRequested,
+  trackCommunityImageShared,
+  trackCommunityLocationShared,
+  trackCommunityPostCreated,
+  trackCommunityPostReported,
+  trackCommunityTabSwitched,
   trackSosCancelled,
   trackSosTriggered,
   trackUnsafeAreaReported,
@@ -120,6 +126,29 @@ describe('analytics.service', () => {
     expect(track).toHaveBeenLastCalledWith('nearby_help_called', { category: 'police' });
     trackNearbyHelpDirections('pharmacy');
     expect(track).toHaveBeenLastCalledWith('nearby_help_directions', { category: 'pharmacy' });
+  });
+
+  it('maps the community helpers to their events and payloads', () => {
+    trackCommunityPostCreated('image', true);
+    expect(track).toHaveBeenLastCalledWith('community_post_created', {
+      type: 'image',
+      is_anonymous: true,
+    });
+
+    trackCommunityPostReported();
+    expect(track).toHaveBeenLastCalledWith('community_post_reported', {});
+
+    trackCommunityHelpRequested();
+    expect(track).toHaveBeenLastCalledWith('community_help_requested', {});
+
+    trackCommunityTabSwitched('all_india');
+    expect(track).toHaveBeenLastCalledWith('community_tab_switched', { tab: 'all_india' });
+
+    trackCommunityImageShared();
+    expect(track).toHaveBeenLastCalledWith('community_image_shared', {});
+
+    trackCommunityLocationShared();
+    expect(track).toHaveBeenLastCalledWith('community_location_shared', {});
   });
 
   it('routes contact-change actions to the matching event', () => {

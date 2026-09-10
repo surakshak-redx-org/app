@@ -220,7 +220,19 @@
     "guestPrompt": "Sign in to post in the community",
     "anonymousUser": "Anonymous",
     "helpBadge": "Help Needed",
-    "viewOnMap": "View on Maps"
+    "viewOnMap": "View on Maps",
+    "compose": "New post",
+    "textPost": "Text post",
+    "anonymousOn": "Your name won't be visible",
+    "anonymousOff": "Posting as yourself",
+    "charCount": "{{count}}/{{max}}",
+    "uploadingImage": "Uploading image…",
+    "viewImage": "View image",
+    "caughtUp": "You're all caught up",
+    "reportConfirmTitle": "Report this post?",
+    "reportConfirmBody": "Our team will review it. Thanks for helping keep the community safe.",
+    "reportAction": "Report",
+    "loadError": "Couldn't load posts"
   },
   "info": {
     "title": "Information",
