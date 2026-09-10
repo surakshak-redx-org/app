@@ -1,6 +1,5 @@
 import { act, renderHook } from '@testing-library/react-native';
 
-import { useCommunity } from '@/hooks/useCommunity';
 import { useLiveLocation } from '@/hooks/useLiveLocation';
 import { useLocation } from '@/hooks/useLocation';
 import { useLocationStore } from '@/stores/location.store';
@@ -53,24 +52,5 @@ describe('useLiveLocation', () => {
     const { result } = await renderHook(() => useLiveLocation());
     await expect(result.current.stopSharing()).resolves.toBeUndefined();
     await expect(result.current.extendTime(1)).resolves.toBeUndefined();
-  });
-});
-
-describe('useCommunity', () => {
-  it('starts with an empty feed and rejects its Phase 5 actions', async () => {
-    const { result } = await renderHook(() => useCommunity());
-
-    expect(result.current.posts).toEqual([]);
-    expect(result.current.isLoading).toBe(false);
-    await expect(
-      result.current.createPost({
-        content: 'hi',
-        type: 'text',
-        isAnonymous: false,
-        city: 'Mumbai',
-        state: 'MH',
-      }),
-    ).rejects.toThrow('Not implemented');
-    await expect(result.current.reportPost('post-1')).rejects.toThrow('Not implemented');
   });
 });

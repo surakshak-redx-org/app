@@ -13,6 +13,10 @@ export const APP_CONFIG = {
   FAKE_CALL_DEFAULT_DELAY_SECONDS: 15,
   FAKE_CALL_RING_SECONDS: 30,
   COMMUNITY_REPORT_HIDE_THRESHOLD: 3,
+  COMMUNITY_POST_MAX_LENGTH: 500,
+  COMMUNITY_PAGE_SIZE: 20,
+  COMMUNITY_FEED_LIMIT: 50,
+  COMMUNITY_IMAGE_QUALITY: 0.7,
   SAFE_JOURNEY_CHECK_INTERVAL_MINUTES: 5,
   SAFE_CHECKIN_MISSED_COUNT_BEFORE_ALERT: 2,
   MAX_EVIDENCE_RECORDING_MINUTES: 30,
@@ -63,3 +67,9 @@ export const LOCATION_UNAVAILABLE = 'Location unavailable';
 
 /** Newest-first cap on the locally persisted SMS alert history. */
 export const SMS_HISTORY_LIMIT = 50;
+
+/**
+ * 4:3 crop the picker applies to an attached community image. Kept out of
+ * `APP_CONFIG` because that object is asserted to be entirely numeric.
+ */
+export const COMMUNITY_IMAGE_ASPECT: [number, number] = [4, 3];

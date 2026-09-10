@@ -1,4 +1,5 @@
 import { identify, resetAnalytics, track } from '@/config/mixpanel';
+import type { CommunityTab, PostType } from '@/types/community.types';
 import type { SMSAlertType, SOSTriggerMethod } from '@/types/emergency.types';
 
 /**
@@ -23,6 +24,11 @@ export const ANALYTICS_EVENTS = {
   SAFE_JOURNEY_ARRIVED: 'safe_journey_arrived',
   SAFE_JOURNEY_ALERT_SENT: 'safe_journey_alert_sent',
   COMMUNITY_POST_CREATED: 'community_post_created',
+  COMMUNITY_POST_REPORTED: 'community_post_reported',
+  COMMUNITY_HELP_REQUESTED: 'community_help_requested',
+  COMMUNITY_TAB_SWITCHED: 'community_tab_switched',
+  COMMUNITY_IMAGE_SHARED: 'community_image_shared',
+  COMMUNITY_LOCATION_SHARED: 'community_location_shared',
   UNSAFE_AREA_REPORTED: 'unsafe_area_reported',
   UNSAFE_AREA_UPVOTED: 'unsafe_area_upvoted',
   UNSAFE_AREA_DOWNVOTED: 'unsafe_area_downvoted',
@@ -158,4 +164,30 @@ export function trackNearbyHelpCalled(category: string): void {
 
 export function trackNearbyHelpDirections(category: string): void {
   trackEvent(ANALYTICS_EVENTS.NEARBY_HELP_DIRECTIONS, { category });
+}
+
+/* --------------------------- community ---------------------------- */
+
+export function trackCommunityPostCreated(type: PostType, isAnonymous: boolean): void {
+  trackEvent(ANALYTICS_EVENTS.COMMUNITY_POST_CREATED, { type, is_anonymous: isAnonymous });
+}
+
+export function trackCommunityPostReported(): void {
+  trackEvent(ANALYTICS_EVENTS.COMMUNITY_POST_REPORTED, {});
+}
+
+export function trackCommunityHelpRequested(): void {
+  trackEvent(ANALYTICS_EVENTS.COMMUNITY_HELP_REQUESTED, {});
+}
+
+export function trackCommunityTabSwitched(tab: CommunityTab): void {
+  trackEvent(ANALYTICS_EVENTS.COMMUNITY_TAB_SWITCHED, { tab });
+}
+
+export function trackCommunityImageShared(): void {
+  trackEvent(ANALYTICS_EVENTS.COMMUNITY_IMAGE_SHARED, {});
+}
+
+export function trackCommunityLocationShared(): void {
+  trackEvent(ANALYTICS_EVENTS.COMMUNITY_LOCATION_SHARED, {});
 }
