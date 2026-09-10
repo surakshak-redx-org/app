@@ -11,6 +11,8 @@
  * silently passing. `jest.mock` calls are hoisted above it by babel-jest, so
  * the mocks below still apply.
  */
+import type * as React from 'react';
+
 import '@/i18n';
 
 jest.mock('@react-native-firebase/app', () => ({
@@ -87,8 +89,35 @@ jest.mock('expo-location', () => ({
       timestamp: 1_700_000_000_000,
     }),
   ),
+  watchPositionAsync: jest.fn(() => Promise.resolve({ remove: jest.fn() })),
+  startLocationUpdatesAsync: jest.fn(() => Promise.resolve()),
+  stopLocationUpdatesAsync: jest.fn(() => Promise.resolve()),
+  hasStartedLocationUpdatesAsync: jest.fn(() => Promise.resolve(false)),
+  reverseGeocodeAsync: jest.fn(() =>
+    Promise.resolve([{ city: 'Mumbai', region: 'Maharashtra', subregion: 'Mumbai' }]),
+  ),
   Accuracy: { Lowest: 1, Low: 2, Balanced: 3, High: 4, Highest: 5, BestForNavigation: 6 },
 }));
+
+jest.mock('expo-task-manager', () => ({
+  defineTask: jest.fn(),
+  isTaskDefined: jest.fn(() => false),
+  isTaskRegisteredAsync: jest.fn(() => Promise.resolve(false)),
+}));
+
+jest.mock('react-native-maps', () => {
+  const ReactActual = jest.requireActual<typeof import('react')>('react');
+  const RN = jest.requireActual<typeof import('react-native')>('react-native');
+  const Passthrough = (props: { children?: React.ReactNode }): React.ReactElement =>
+    ReactActual.createElement(RN.View, null, props.children);
+  return {
+    __esModule: true,
+    default: Passthrough,
+    Marker: Passthrough,
+    Circle: Passthrough,
+    PROVIDER_GOOGLE: 'google',
+  };
+});
 
 jest.mock('expo-notifications', () => ({
   requestPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false })),

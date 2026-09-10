@@ -13,6 +13,7 @@ import { initOneSignal } from '@/config/onesignal';
 import { captureException, initSentry } from '@/config/sentry';
 import { ROUTES } from '@/constants/routes';
 import { STORAGE_KEYS } from '@/constants/storage';
+import { registerLiveLocationTask } from '@/hooks/useLiveLocation';
 import { changeLanguage } from '@/i18n';
 import { identifyUser } from '@/services/analytics.service';
 import { subscribeToAuthChanges } from '@/services/firebase/auth.service';
@@ -41,6 +42,12 @@ function RootLayout(): React.JSX.Element {
     initSentry();
     initOneSignal();
     void initMixPanel();
+  }, []);
+
+  // The background location task must be defined before the first tick so the
+  // OS can hand a relaunch back to it — see `useLiveLocation`.
+  useEffect(() => {
+    registerLiveLocationTask();
   }, []);
 
   // Firebase auth is reached through the service layer — absolute rule 13

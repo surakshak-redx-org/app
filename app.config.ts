@@ -103,7 +103,10 @@ function googleServicesFile(path: string): { googleServicesFile: string } | Reco
 const config: ExpoConfig = {
   name: appNames[APP_ENV],
   slug: 'surakshak',
-  version: '1.0.0',
+  // Bumped for Phase 4: expo-task-manager + background-location native config.
+  // `runtimeVersion` is `appVersion`, so a native change needs a new version
+  // string or an OTA could ship to an incompatible native shell.
+  version: '1.1.0',
   orientation: 'portrait',
   scheme: `surakshak-${APP_ENV}`,
   userInterfaceStyle: 'automatic',
@@ -120,6 +123,10 @@ const config: ExpoConfig = {
       'android.permission.RECORD_AUDIO',
       'android.permission.ACCESS_FINE_LOCATION',
       'android.permission.ACCESS_BACKGROUND_LOCATION',
+      // Required by expo-location's background updates foreground service on
+      // Android 14+ (the typed permission is mandatory alongside the base one).
+      'android.permission.FOREGROUND_SERVICE',
+      'android.permission.FOREGROUND_SERVICE_LOCATION',
       'android.permission.CALL_PHONE',
       'android.permission.SEND_SMS',
       'android.permission.READ_PHONE_STATE',
@@ -151,6 +158,8 @@ const config: ExpoConfig = {
       NSLocationAlwaysAndWhenInUseUsageDescription:
         'Surakshak needs background location for safe journey monitoring.',
       NSContactsUsageDescription: 'Surakshak needs contacts access to add emergency contacts.',
+      // Lets the live-location task keep receiving fixes while backgrounded.
+      UIBackgroundModes: ['location'],
     },
   },
   plugins: [
@@ -171,6 +180,9 @@ const config: ExpoConfig = {
       {
         locationAlwaysAndWhenInUsePermission:
           'Surakshak needs background location for safe journey monitoring.',
+        isAndroidBackgroundLocationEnabled: true,
+        isAndroidForegroundServiceEnabled: true,
+        isIosBackgroundLocationEnabled: true,
       },
     ],
     ['expo-camera', { cameraPermission: 'Surakshak needs camera access for evidence recording.' }],

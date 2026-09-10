@@ -19,7 +19,27 @@ export const APP_CONFIG = {
   MAX_COMMUNITY_IMAGE_MB: 5,
   UNSAFE_AREA_SEARCH_RADIUS_KM: 50,
   CACHE_EXPIRY_HOURS: 24,
+  LIVE_LOCATION_DISTANCE_INTERVAL_METERS: 10,
+  SAFE_JOURNEY_ETA_MIN_MINUTES: 5,
+  SAFE_JOURNEY_ETA_MAX_MINUTES: 480,
+  SAFE_JOURNEY_ETA_DEFAULT_MINUTES: 30,
+  /** Countdown turns red once the journey has this many seconds or fewer left. */
+  SAFE_JOURNEY_ALERT_WARN_SECONDS: 300,
+  UNSAFE_AREA_DEFAULT_RADIUS_METERS: 200,
+  NEARBY_HELP_SEARCH_RADIUS_METERS: 5000,
+  /** Region span used when centring the map on a fresh fix. */
+  MAP_DEFAULT_LATITUDE_DELTA: 0.02,
+  MAP_DEFAULT_LONGITUDE_DELTA: 0.02,
+  /** Mumbai — where the map opens before a location fix is available. */
+  MAP_FALLBACK_LATITUDE: 19.076,
+  MAP_FALLBACK_LONGITUDE: 72.8777,
 } as const;
+
+/** Live-location share durations (hours) offered on the Live Location screen. */
+export const LIVE_LOCATION_DURATION_OPTIONS_HOURS = [1, 2, 4, 8] as const;
+
+/** ETA presets (minutes) offered on the Safe Journey form. */
+export const SAFE_JOURNEY_ETA_PRESETS_MINUTES = [15, 30, 60, 120] as const;
 
 /** Base URL for the shareable location links sent in every SOS / journey SMS. */
 export const GOOGLE_MAPS_PLACE_URL = 'https://www.google.com/maps/place';
