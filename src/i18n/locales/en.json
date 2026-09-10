@@ -264,7 +264,8 @@
     "terms": "Terms of Service",
     "privacyPolicy": "Privacy Policy",
     "deleteAccount": "Delete Account",
-    "deleteAccountWarning": "This action is permanent and cannot be undone."
+    "deleteAccountWarning": "This action is permanent and cannot be undone.",
+    "deleteAccountConfirmFinal": "Yes, delete my account"
   },
   "errors": {
     "networkError": "No internet connection. Please try again.",

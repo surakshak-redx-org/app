@@ -18,17 +18,74 @@ jest.mock('@react-native-firebase/app', () => ({
 }));
 
 jest.mock('@react-native-firebase/auth', () => ({
-  getAuth: jest.fn(() => ({})),
+  getAuth: jest.fn(() => ({ currentUser: null })),
   onAuthStateChanged: jest.fn(() => jest.fn()),
   signOut: jest.fn(() => Promise.resolve()),
+  signInWithPhoneNumber: jest.fn(() => Promise.resolve({ confirm: jest.fn() })),
+  deleteUser: jest.fn(() => Promise.resolve()),
 }));
 
 jest.mock('@react-native-firebase/firestore', () => ({
   getFirestore: jest.fn(() => ({})),
+  doc: jest.fn(() => ({})),
+  getDoc: jest.fn(() =>
+    Promise.resolve({ exists: () => false, id: 'test-uid', data: () => undefined }),
+  ),
+  setDoc: jest.fn(() => Promise.resolve()),
+  updateDoc: jest.fn(() => Promise.resolve()),
+  deleteDoc: jest.fn(() => Promise.resolve()),
+  serverTimestamp: jest.fn(() => ({ __serverTimestamp: true })),
 }));
 
 jest.mock('@react-native-firebase/storage', () => ({
   getStorage: jest.fn(() => ({})),
+  ref: jest.fn(() => ({})),
+  putFile: jest.fn(() => Promise.resolve()),
+  getDownloadURL: jest.fn(() => Promise.resolve('https://example.com/avatar.jpg')),
+}));
+
+jest.mock('@react-native-async-storage/async-storage', () => ({
+  __esModule: true,
+  default: {
+    getItem: jest.fn(() => Promise.resolve(null)),
+    setItem: jest.fn(() => Promise.resolve()),
+    removeItem: jest.fn(() => Promise.resolve()),
+    multiGet: jest.fn(() => Promise.resolve([])),
+    multiSet: jest.fn(() => Promise.resolve()),
+    clear: jest.fn(() => Promise.resolve()),
+  },
+}));
+
+jest.mock('expo-image-picker', () => ({
+  launchImageLibraryAsync: jest.fn(() => Promise.resolve({ canceled: true })),
+}));
+
+// Native permission modules pulled in transitively by `@/utils/permissions.utils`.
+jest.mock('expo-audio', () => ({
+  requestRecordingPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false })),
+}));
+
+jest.mock('expo-camera', () => ({
+  Camera: {
+    requestCameraPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false })),
+  },
+}));
+
+jest.mock('expo-contacts', () => ({
+  requestPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false })),
+  getPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false })),
+}));
+
+jest.mock('expo-location', () => ({
+  requestForegroundPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false })),
+  requestBackgroundPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false })),
+  getForegroundPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false })),
+  getBackgroundPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false })),
+}));
+
+jest.mock('expo-notifications', () => ({
+  requestPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false })),
+  getPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false })),
 }));
 
 jest.mock('react-native-onesignal', () => ({

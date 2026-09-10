@@ -264,7 +264,8 @@
     "terms": "",
     "privacyPolicy": "",
     "deleteAccount": "",
-    "deleteAccountWarning": ""
+    "deleteAccountWarning": "",
+    "deleteAccountConfirmFinal": ""
   },
   "errors": {
     "networkError": "",
