@@ -76,18 +76,27 @@ export default function MapScreen(): React.JSX.Element {
   // --- iOS blank-map diagnostics (dev only; remove once resolved) ---
   useEffect(() => {
     const nativeIosMapsKey = Constants.expoConfig?.ios?.config?.googleMapsApiKey;
+    const nativeIosMapsKeySet = typeof nativeIosMapsKey === 'string' && nativeIosMapsKey.length > 0;
     debugLog('MapScreen', 'mounted', {
       platform: Platform.OS,
       provider: PROVIDER_GOOGLE,
       // The key the native Google Maps SDK actually uses on iOS — baked at
       // build/prebuild time from app.config.ts. Blank map ⇒ this is missing.
-      nativeIosMapsKeySet: typeof nativeIosMapsKey === 'string' && nativeIosMapsKey.length > 0,
+      nativeIosMapsKeySet,
       nativeIosMapsKeyPrefix: nativeIosMapsKey?.slice(0, 8) ?? null,
       // The key the JS layer uses for the Places REST calls (works already).
       jsIosMapsKeyPrefix: ENV.GOOGLE_MAPS_API_KEY_IOS.slice(0, 8),
       appOwnership: Constants.appOwnership,
       executionEnvironment: Constants.executionEnvironment,
     });
+    if (Platform.OS === 'ios' && !nativeIosMapsKeySet && __DEV__) {
+      console.error(
+        '[MapScreen] The Google Maps iOS key is not embedded in this native ' +
+          'build. `expo prebuild --clean -p ios` (or an EAS iOS build) with ' +
+          'EXPO_PUBLIC_GOOGLE_MAPS_API_KEY_IOS set, then rebuild — the map SDK ' +
+          'has no key so it renders blank.',
+      );
+    }
   }, []);
 
   useEffect(() => {
