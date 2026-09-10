@@ -25,8 +25,11 @@
 - Local development: always APP_ENV=dev, always staging Firebase credentials
 - MixPanel and Sentry must NOT initialize when APP_ENV=dev — log console.warn instead
 - app.json does NOT exist — app.config.ts is the only config file
-- google-services.json and GoogleService-Info.plist are never committed to git
-- In CI they are decoded from base64 GitHub secrets at build time
+- google-services\*.json and GoogleService-Info\*.plist are never committed to git
+- One config-file pair per APP_ENV (dev/staging/prod), selected by bundle id in
+  app.config.ts. CI native builds read them from EAS file-type Environment
+  Variables (GOOGLE_SERVICES_ANDROID_FILE / _IOS_FILE), scoped per tier — not
+  from GitHub secrets. OTA deploys need no Firebase file at all.
 
 ## Branch Strategy
 
@@ -35,6 +38,9 @@ production ← staging ← develop ← feature/xxx | fix/xxx | chore/xxx
 - Juniors only open PRs targeting develop
 - Direct push to develop, staging, production: blocked for everyone including Dhruv
 - All PRs require: all pipeline checks pass + Claude bot review + 1 human approval
+- Commit messages and PR descriptions: do NOT add `Co-Authored-By: Claude`,
+  `Claude-Session:`, "Generated with Claude Code", or any other AI-attribution
+  trailer/footer
 - develop CI: pr-checks.yml only (typecheck/lint/prettier/no-eslint-disable/test)
   — **no build, no OTA**. develop is the integration branch every PR lands on,
   often several times a day; deploying on every merge there is unnecessary
@@ -234,6 +240,9 @@ assets/
 
 scripts/
 └── check-no-eslint-disable.sh
+
+plugins/
+└── withReactNativeFirebaseStaticFramework.js # sets $RNFirebaseAsStaticFramework
 
 docs/
 ├── SKILL.md
@@ -572,39 +581,51 @@ The scaffold above was written against an older Expo baseline. These are the
 points where the shipped repo deliberately differs, and why. Do not "fix" the
 code back to match the original text — CI will fail.
 
-| Topic             | Original                                                              | Shipped                                         | Reason                                                                              |
-| ----------------- | --------------------------------------------------------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------- |
-| ESLint config     | `.eslintrc.js`                                                        | **`eslint.config.js`** (flat), `eslint@^9`      | ESLint 10 removed eslintrc support entirely                                         |
-| Audio             | `expo-av`                                                             | **`expo-audio`**                                | expo-av was never published for SDK 53+; it is dead at SDK 57                       |
-| Firebase env vars | 6 × `EXPO_PUBLIC_FIREBASE_*` in `env.ts`                              | **removed**                                     | `@react-native-firebase` reads the native config files and ignores env vars         |
-| Push              | OneSignal + `@react-native-firebase/messaging` + `expo-notifications` | **OneSignal + expo-notifications (local only)** | messaging and OneSignal both claim the FCM/APNs delegate                            |
-| Metro             | not mentioned                                                         | **`metro.config.js` added**                     | NativeWind v4 does not work without `withNativeWind`                                |
-| Tailwind          | unpinned                                                              | **`tailwindcss@^3.4.19`**                       | NativeWind 4's `react-native-css-interop` peer is `tailwindcss: "~3"`; v4 breaks it |
-| Tests location    | `tests/` here, `__tests__/` in the Phase-1 brief                      | **`tests/`**                                    | this file is the source of truth                                                    |
-| `SOSButton`       | `components/ui/` in the brief                                         | **`components/features/sos/`**                  | this file is the source of truth                                                    |
-| Package manager   | unspecified                                                           | **Yarn 4**                                      | see the Tech Stack table                                                            |
+| Topic             | Original                                                              | Shipped                                                                                                                                                         | Reason                                                                                                                                                                                         |
+| ----------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ESLint config     | `.eslintrc.js`                                                        | **`eslint.config.js`** (flat), `eslint@^9`                                                                                                                      | ESLint 10 removed eslintrc support entirely                                                                                                                                                    |
+| Audio             | `expo-av`                                                             | **`expo-audio`**                                                                                                                                                | expo-av was never published for SDK 53+; it is dead at SDK 57                                                                                                                                  |
+| Firebase env vars | 6 × `EXPO_PUBLIC_FIREBASE_*` in `env.ts`                              | **removed**                                                                                                                                                     | `@react-native-firebase` reads the native config files and ignores env vars                                                                                                                    |
+| Push              | OneSignal + `@react-native-firebase/messaging` + `expo-notifications` | **OneSignal + expo-notifications (local only)**                                                                                                                 | messaging and OneSignal both claim the FCM/APNs delegate                                                                                                                                       |
+| Metro             | not mentioned                                                         | **`metro.config.js` added**                                                                                                                                     | NativeWind v4 does not work without `withNativeWind`                                                                                                                                           |
+| Tailwind          | unpinned                                                              | **`tailwindcss@^3.4.19`**                                                                                                                                       | NativeWind 4's `react-native-css-interop` peer is `tailwindcss: "~3"`; v4 breaks it                                                                                                            |
+| Tests location    | `tests/` here, `__tests__/` in the Phase-1 brief                      | **`tests/`**                                                                                                                                                    | this file is the source of truth                                                                                                                                                               |
+| `SOSButton`       | `components/ui/` in the brief                                         | **`components/features/sos/`**                                                                                                                                  | this file is the source of truth                                                                                                                                                               |
+| Package manager   | unspecified                                                           | **Yarn 4**                                                                                                                                                      | see the Tech Stack table                                                                                                                                                                       |
+| iOS Firebase pods | not mentioned                                                         | **`expo-build-properties` `ios.useFrameworks: "static"` + `plugins/withReactNativeFirebaseStaticFramework.js` + `@react-native-firebase/app` `ios.disableSPM`** | firebase-ios-sdk Swift pods can't build as static libraries (non-modular deps); under `use_frameworks!` the RNFirebase podspecs need `$RNFirebaseAsStaticFramework = true` and SPM must be off |
 
-> ⚠️ **The single Firebase config overrides the Environments table above.**
-> `prod` now reads the _same_ Firebase project as `dev` and `staging`, because
-> there is only one `google-services.json` / `GoogleService-Info.plist` pair.
+> ⚠️ **One Firebase project, three registered apps — overrides the Environments table above.**
+> Every tier uses a single Firebase project (`surakshak-2869a`; the
+> `surakshak-staging` / `surakshak-production` names in the table are labels,
+> not real project IDs). Within it each bundle id (`com.surakshak.dev` /
+> `.staging` / `.app`) is registered as its own app, so there are three
+> `google-services.<env>.json` + three `GoogleService-Info.<env>.plist` files at
+> the repo root (all gitignored), selected by `APP_ENV` through the
+> `Record<AppEnv, string>` maps in `app.config.ts`. Per-tier config reaches CI
+> native builds via EAS file-type env vars (`GOOGLE_SERVICES_ANDROID_FILE` /
+> `_IOS_FILE` on the `preview` and `production` tiers).
 > The APP_ENV split still governs app name, bundle id, icon colour, EAS channel
-> and whether MixPanel/Sentry initialise — just not the Firebase project.
-> To separate them later: restore the `Record<AppEnv, string>` maps in
-> `app.config.ts` and add per-environment secrets back to `deploy.yml`.
+> and whether MixPanel/Sentry initialise. To split into separate Firebase
+> _projects_ later: point each map entry at that project's file and update the
+> per-tier EAS file variables to match.
 
 ### GitHub secrets
 
-Two, plus `EXPO_TOKEN` and `ANTHROPIC_API_KEY`:
+Just `EXPO_TOKEN` and `ANTHROPIC_API_KEY`.
 
-| Secret                    | Contents                             |
-| ------------------------- | ------------------------------------ |
-| `GOOGLE_SERVICES_ANDROID` | base64 of `google-services.json`     |
-| `GOOGLE_SERVICES_IOS`     | base64 of `GoogleService-Info.plist` |
+Firebase config files are **not** GitHub secrets. Native `eas build` runs on a
+remote worker that never sees a file decoded onto the CI runner, so the config
+lives in EAS **file-type** Environment Variables instead, scoped per tier:
 
-The Maps keys and `EXPO_PUBLIC_APP_ENV` are **not** GitHub secrets — they live
-in EAS's hosted Environment Variables instead, since `eas build`'s remote
-container never sees a GitHub Actions job's `env:` block at all. See "Where
-config values live" above.
+| EAS variable                   | Tier         | Value                                |
+| ------------------------------ | ------------ | ------------------------------------ |
+| `GOOGLE_SERVICES_ANDROID_FILE` | `preview`    | `./google-services.staging.json`     |
+| `GOOGLE_SERVICES_IOS_FILE`     | `preview`    | `./GoogleService-Info.staging.plist` |
+| `GOOGLE_SERVICES_ANDROID_FILE` | `production` | `./google-services.prod.json`        |
+| `GOOGLE_SERVICES_IOS_FILE`     | `production` | `./GoogleService-Info.prod.plist`    |
+
+The Maps keys and `EXPO_PUBLIC_APP_ENV` also live in EAS Environment Variables,
+for the same reason. See "Where config values live" above.
 
 Also worth knowing:
 
