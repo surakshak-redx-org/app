@@ -37,7 +37,10 @@ production ← staging ← develop ← feature/xxx | fix/xxx | chore/xxx
 
 - Juniors only open PRs targeting develop
 - Direct push to develop, staging, production: blocked for everyone including Dhruv
-- All PRs require: all pipeline checks pass + Claude bot review + 1 human approval
+- All PRs require: all pipeline checks pass + 1 human approval. Code review is
+  run on demand from Claude Code (`/code-review`) against the branch or PR —
+  there is no automated review workflow in CI (removed to stop API-token spend;
+  reviews now go through a Claude Code subscription).
 - Commit messages and PR descriptions: do NOT add `Co-Authored-By: Claude`,
   `Claude-Session:`, "Generated with Claude Code", or any other AI-attribution
   trailer/footer
@@ -230,8 +233,7 @@ assets/
 .github/
 ├── workflows/
 │ ├── pr-checks.yml
-│ ├── deploy.yml
-│ └── claude-review.yml
+│ └── deploy.yml
 ├── ISSUE_TEMPLATE/
 │ ├── bug_report.yml
 │ ├── feature_request.yml
@@ -458,11 +460,11 @@ the wrong build is simply unusable there. Don't mistake the presence of
 
 Three separate systems, easy to conflate:
 
-| System                    | Reaches                                                                                 | Set via                                 |
-| ------------------------- | --------------------------------------------------------------------------------------- | --------------------------------------- |
-| `.env.local`              | Local `yarn start` only                                                                 | hand-edited, gitignored                 |
-| GitHub Secrets            | GitHub Actions steps directly (Firebase file decode, `EXPO_TOKEN`, `ANTHROPIC_API_KEY`) | repo Settings → Secrets                 |
-| EAS Environment Variables | `eas build` (remote container) and `eas update` (via `--environment`)                   | `eas env:set` or the expo.dev dashboard |
+| System                    | Reaches                                                               | Set via                                 |
+| ------------------------- | --------------------------------------------------------------------- | --------------------------------------- |
+| `.env.local`              | Local `yarn start` only                                               | hand-edited, gitignored                 |
+| GitHub Secrets            | GitHub Actions steps directly (Firebase file decode, `EXPO_TOKEN`)    | repo Settings → Secrets                 |
+| EAS Environment Variables | `eas build` (remote container) and `eas update` (via `--environment`) | `eas env:set` or the expo.dev dashboard |
 
 **Why three, not one:** `eas build` runs entirely on Expo's own remote
 infrastructure — a GitHub Actions job's `env:` block never reaches that
@@ -611,7 +613,8 @@ code back to match the original text — CI will fail.
 
 ### GitHub secrets
 
-Just `EXPO_TOKEN` and `ANTHROPIC_API_KEY`.
+Just `EXPO_TOKEN`. (`ANTHROPIC_API_KEY` was only used by the now-removed
+`claude-review.yml`; it can be deleted from repo secrets.)
 
 Firebase config files are **not** GitHub secrets. Native `eas build` runs on a
 remote worker that never sees a file decoded onto the CI runner, so the config
