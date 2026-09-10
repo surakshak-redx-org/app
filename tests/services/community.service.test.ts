@@ -179,6 +179,30 @@ describe('community.service', () => {
     expect(where).not.toHaveBeenCalledWith('city', '==', expect.anything());
   });
 
+  it('ignores a null snapshot instead of throwing (listener error / index building)', () => {
+    jest.mocked(onSnapshot).mockImplementationOnce((_query, next) => {
+      (next as (snap: unknown) => void)(null);
+      return jest.fn();
+    });
+
+    const onUpdate = jest.fn();
+    expect(() => subscribeToCityPosts('Mumbai', onUpdate)).not.toThrow();
+    expect(onUpdate).not.toHaveBeenCalled();
+  });
+
+  it('forwards a listener error to the onError callback', () => {
+    const failure = new Error('failed-precondition: index not ready');
+    jest.mocked(onSnapshot).mockImplementationOnce((_query, _next, onError) => {
+      (onError as unknown as (error: Error) => void)(failure);
+      return jest.fn();
+    });
+
+    const onErrorSpy = jest.fn();
+    subscribeToCityPosts('Mumbai', jest.fn(), onErrorSpy);
+
+    expect(onErrorSpy).toHaveBeenCalledWith(failure);
+  });
+
   it('loadMoreCityPosts pages after the cursor timestamp', async () => {
     jest.mocked(getDocs).mockResolvedValueOnce({
       docs: [{ id: 'p2', data: () => ({ content: 'b' }) }],

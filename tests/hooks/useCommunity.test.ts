@@ -63,14 +63,17 @@ function makePost(id: string): CommunityPost {
 }
 
 let cityOnUpdate: ((posts: CommunityPost[]) => void) | undefined;
+let cityOnError: ((error: Error) => void) | undefined;
 let cityUnsub: jest.Mock;
 
 beforeEach(() => {
   jest.clearAllMocks();
   cityOnUpdate = undefined;
+  cityOnError = undefined;
   cityUnsub = jest.fn();
-  jest.mocked(subscribeToCityPosts).mockImplementation((_city, onUpdate) => {
+  jest.mocked(subscribeToCityPosts).mockImplementation((_city, onUpdate, onError) => {
     cityOnUpdate = onUpdate;
+    cityOnError = onError;
     return cityUnsub;
   });
   jest.mocked(subscribeToAllIndiaPosts).mockImplementation(() => jest.fn());
@@ -81,7 +84,11 @@ describe('useCommunity', () => {
   it('subscribes to the city feed on mount and surfaces pushed posts', async () => {
     const { result } = await renderHook(() => useCommunity());
 
-    expect(subscribeToCityPosts).toHaveBeenCalledWith('Mumbai', expect.any(Function));
+    expect(subscribeToCityPosts).toHaveBeenCalledWith(
+      'Mumbai',
+      expect.any(Function),
+      expect.any(Function),
+    );
 
     await act(() => {
       cityOnUpdate?.([makePost('p1')]);
@@ -102,6 +109,17 @@ describe('useCommunity', () => {
     expect(subscribeToAllIndiaPosts).toHaveBeenCalled();
     expect(result.current.activeTab).toBe('all_india');
     expect(trackCommunityTabSwitched).toHaveBeenCalledWith('all_india');
+  });
+
+  it('surfaces a listener error and stops loading', async () => {
+    const { result } = await renderHook(() => useCommunity());
+
+    await act(() => {
+      cityOnError?.(new Error('failed-precondition'));
+    });
+
+    expect(result.current.error).toBe('community.loadError');
+    expect(result.current.isLoading).toBe(false);
   });
 
   it('does not subscribe for a guest', async () => {

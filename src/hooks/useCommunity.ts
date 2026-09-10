@@ -45,11 +45,20 @@ interface FeedState {
   tail: CommunityPost[];
   hasMore: boolean;
   loaded: boolean;
+  /** An i18n key for a load failure on this key, or `null`. */
+  error: string | null;
 }
 
 const EMPTY: CommunityPost[] = [];
 
-const INITIAL_FEED: FeedState = { key: '', head: [], tail: [], hasMore: true, loaded: false };
+const INITIAL_FEED: FeedState = {
+  key: '',
+  head: [],
+  tail: [],
+  hasMore: true,
+  loaded: false,
+  error: null,
+};
 
 /** Owns the community feed: realtime first page, paged tail, and post actions. */
 export function useCommunity(): UseCommunityResult {
@@ -65,7 +74,6 @@ export function useCommunity(): UseCommunityResult {
   const [nonce, setNonce] = useState(0);
   const [feed, setFeed] = useState<FeedState>(INITIAL_FEED);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const unsubscribeRef = useRef<(() => void) | null>(null);
 
@@ -77,6 +85,7 @@ export function useCommunity(): UseCommunityResult {
   const tailPosts = onCurrentKey ? feed.tail : EMPTY;
   const isLoading = canFeed && !(onCurrentKey && feed.loaded);
   const hasMore = onCurrentKey ? feed.hasMore : true;
+  const error = onCurrentKey ? feed.error : null;
 
   const posts = useMemo<CommunityPost[]>(() => {
     const seen = new Set<string>();
@@ -100,13 +109,25 @@ export function useCommunity(): UseCommunityResult {
         tail: prev.key === key ? prev.tail : [],
         hasMore: next.length >= APP_CONFIG.COMMUNITY_PAGE_SIZE,
         loaded: true,
+        error: null,
       }));
+    };
+    const onError = (err: Error): void => {
+      captureException(err);
+      setFeed({
+        key,
+        head: [],
+        tail: [],
+        hasMore: false,
+        loaded: true,
+        error: 'community.loadError',
+      });
     };
 
     unsubscribeRef.current =
       activeTab === 'city'
-        ? subscribeToCityPosts(city, onUpdate)
-        : subscribeToAllIndiaPosts(onUpdate);
+        ? subscribeToCityPosts(city, onUpdate, onError)
+        : subscribeToAllIndiaPosts(onUpdate, onError);
 
     return (): void => {
       unsubscribeRef.current?.();
@@ -120,7 +141,6 @@ export function useCommunity(): UseCommunityResult {
   }, []);
 
   const refresh = useCallback((): void => {
-    setError(null);
     setNonce((current) => current + 1);
   }, []);
 
@@ -148,7 +168,7 @@ export function useCommunity(): UseCommunityResult {
       );
     } catch (err) {
       captureException(err);
-      setError('community.loadError');
+      setFeed((prev) => (prev.key === key ? { ...prev, error: 'community.loadError' } : prev));
     } finally {
       setIsLoadingMore(false);
     }
