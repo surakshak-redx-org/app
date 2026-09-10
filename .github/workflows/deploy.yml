@@ -2,7 +2,7 @@ name: Deploy
 
 on:
   push:
-    branches: [develop, staging, production]
+    branches: [staging, production]
 
 jobs:
   decide-deploy-type:
@@ -12,26 +12,85 @@ jobs:
       deploy_type: ${{ steps.check.outputs.type }}
       deploy_reason: ${{ steps.check.outputs.reason }}
       channel: ${{ steps.channel.outputs.name }}
-      app_env: ${{ steps.channel.outputs.app_env }}
+      # EAS's own "environment" tier (development/preview/production) — distinct
+      # from `channel` (develop/staging/production) and from our APP_ENV concept
+      # (staging/prod). Must stay in sync with each profile's `environment`
+      # field in eas.json, and with `eas env:list` on expo.dev.
+      eas_environment: ${{ steps.channel.outputs.eas_environment }}
 
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 2
 
-      - name: Set channel and app_env
+      # develop deliberately does NOT trigger this workflow (see the `on:`
+      # trigger above) -- it's the integration branch where every junior's PR
+      # lands, often several times a day, and a build/OTA on every single
+      # merge there is unnecessary cost and noise. develop still gets full
+      # pr-checks.yml coverage; it just never deploys anywhere. The `develop`
+      # EAS profile in eas.json is kept for on-demand local builds only
+      # (`eas build --profile develop`), not for anything automated.
+      - name: Set channel and EAS environment
         id: channel
         run: |
           BRANCH="${{ github.ref_name }}"
           if [ "$BRANCH" = "production" ]; then
             echo "name=production" >> $GITHUB_OUTPUT
-            echo "app_env=prod" >> $GITHUB_OUTPUT
+            echo "eas_environment=production" >> $GITHUB_OUTPUT
           elif [ "$BRANCH" = "staging" ]; then
             echo "name=staging" >> $GITHUB_OUTPUT
-            echo "app_env=staging" >> $GITHUB_OUTPUT
+            echo "eas_environment=preview" >> $GITHUB_OUTPUT
           else
-            echo "name=develop" >> $GITHUB_OUTPUT
-            echo "app_env=staging" >> $GITHUB_OUTPUT
+            echo "Unexpected branch '$BRANCH' -- this workflow only triggers on staging/production." >&2
+            exit 1
+          fi
+
+      # eas-cli is needed here (not just in the two downstream jobs) because
+      # the bootstrap check below has to ask EAS's own build history whether
+      # this profile has ever shipped a native build at all.
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+      - run: corepack enable
+      - uses: actions/cache@v4
+        with:
+          path: .yarn/cache
+          key: yarn-${{ hashFiles('yarn.lock') }}
+          restore-keys: yarn-
+      - run: yarn install --immutable
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      # An OTA update ships JS to an app shell that's already installed on a
+      # device. If this profile has never had a successful native build, no
+      # such shell exists anywhere — an "OTA" here would update nothing. Force
+      # a real build the first time, regardless of what files changed.
+      #
+      # `steps.channel.outputs.name` doubles as both the eas.json build
+      # profile's own key (develop/staging/production) AND that profile's
+      # `channel` value — this project deliberately keeps the two identical,
+      # confirmed for all three profiles. `--build-profile` filters by the
+      # former, which is exactly what's passed here.
+      - name: Check for an existing build on this profile
+        id: bootstrap
+        run: |
+          # GitHub Actions runs `run:` as `bash -e {0}` — a failing command
+          # substitution aborts the whole step, so `|| echo '[]'` has to sit
+          # INSIDE the substitution, not after it, or a genuine EAS outage
+          # hard-fails this job instead of falling back to "build anyway."
+          EXISTING=$(eas build:list \
+            --status finished \
+            --build-profile "${{ steps.channel.outputs.name }}" \
+            --limit 1 --non-interactive --json 2>/dev/null || echo '[]')
+
+          COUNT=$(echo "$EXISTING" | jq 'length' 2>/dev/null || echo 0)
+
+          if [ "$COUNT" -gt 0 ]; then
+            echo "has_build=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_build=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Check if native build required
@@ -50,8 +109,13 @@ jobs:
           if echo "$CHANGED" | grep -q "^eas\.json$"; then
             NEEDS_BUILD=true; REASON="eas.json changed"
           fi
-          if git diff HEAD~1 HEAD -- eas.json 2>/dev/null | grep -q "EXPO_PUBLIC_APP_ENV"; then
-            NEEDS_BUILD=true; REASON="APP_ENV changed in eas.json"
+
+          # Checked last, deliberately: each `if` above overwrites REASON when
+          # it matches, so whichever check runs last wins the summary. A first
+          # build is the rarer, more surprising case and deserves top billing
+          # over "package.json changed" even when both are true at once.
+          if [ "${{ steps.bootstrap.outputs.has_build }}" = "false" ]; then
+            NEEDS_BUILD=true; REASON="no finished build exists yet for this profile"
           fi
 
           if [ "$NEEDS_BUILD" = true ]; then
@@ -70,7 +134,7 @@ jobs:
             echo "| Type | **${{ steps.check.outputs.type }}** |"
             echo "| Reason | ${{ steps.check.outputs.reason }} |"
             echo "| Channel | ${{ steps.channel.outputs.name }} |"
-            echo "| APP_ENV | ${{ steps.channel.outputs.app_env }} |"
+            echo "| EAS environment | ${{ steps.channel.outputs.eas_environment }} |"
             echo "| Branch | ${{ github.ref_name }} |"
           } >> $GITHUB_STEP_SUMMARY
 
@@ -79,26 +143,21 @@ jobs:
     needs: decide-deploy-type
     if: needs.decide-deploy-type.outputs.deploy_type == 'ota'
     runs-on: ubuntu-latest
-    env:
-      EXPO_PUBLIC_APP_ENV: ${{ needs.decide-deploy-type.outputs.app_env }}
-      EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
     steps:
       - uses: actions/checkout@v4
 
-      # Decoded in THIS job on purpose: files and $GITHUB_ENV do not cross job
-      # boundaries, so a separate "write config" job would leave this runner
-      # with no Firebase config at all.
-      - name: Decode Firebase config
-        env:
-          GOOGLE_SERVICES_ANDROID: ${{ secrets.GOOGLE_SERVICES_ANDROID }}
-          GOOGLE_SERVICES_IOS: ${{ secrets.GOOGLE_SERVICES_IOS }}
-        run: |
-          echo "$GOOGLE_SERVICES_ANDROID" | base64 --decode > google-services.json
-          echo "$GOOGLE_SERVICES_IOS" | base64 --decode > GoogleService-Info.plist
+      # No Firebase config file is written here. An OTA update ships JS to an
+      # already-installed native shell — @react-native-firebase reads the
+      # google-services.json / GoogleService-Info.plist baked into that build,
+      # not anything on this runner. app.config.ts's googleServicesFile() helper
+      # returns {} when the path is absent, so config resolution doesn't throw.
+      # Per-tier config for NATIVE builds lives in EAS file-type Environment
+      # Variables (GOOGLE_SERVICES_ANDROID_FILE / _IOS_FILE), scoped to the
+      # preview and production tiers — see the eas-build job below.
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: '.nvmrc'
       - run: corepack enable
       - uses: actions/cache@v4
         with:
@@ -116,6 +175,7 @@ jobs:
         run: |
           eas update \
             --channel ${{ needs.decide-deploy-type.outputs.channel }} \
+            --environment ${{ needs.decide-deploy-type.outputs.eas_environment }} \
             --message "OTA: ${{ github.event.head_commit.message }}" \
             --non-interactive
 
@@ -124,23 +184,22 @@ jobs:
     needs: decide-deploy-type
     if: needs.decide-deploy-type.outputs.deploy_type == 'build'
     runs-on: ubuntu-latest
-    env:
-      EXPO_PUBLIC_APP_ENV: ${{ needs.decide-deploy-type.outputs.app_env }}
-      EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Decode Firebase config
-        env:
-          GOOGLE_SERVICES_ANDROID: ${{ secrets.GOOGLE_SERVICES_ANDROID }}
-          GOOGLE_SERVICES_IOS: ${{ secrets.GOOGLE_SERVICES_IOS }}
-        run: |
-          echo "$GOOGLE_SERVICES_ANDROID" | base64 --decode > google-services.json
-          echo "$GOOGLE_SERVICES_IOS" | base64 --decode > GoogleService-Info.plist
+      # No Firebase config file is decoded here. `eas build` runs on a REMOTE
+      # worker that never receives a gitignored file written to this runner's
+      # disk. The per-tier config reaches that worker only through EAS
+      # file-type Environment Variables — GOOGLE_SERVICES_ANDROID_FILE and
+      # GOOGLE_SERVICES_IOS_FILE, set on the `preview` tier (staging → the
+      # *.staging.* files) and the `production` tier (production → the *.prod.*
+      # files) at expo.dev. On the worker EAS materialises each to a temp path
+      # and exports it as process.env.<NAME>; app.config.ts reads that in
+      # preference to its ./google-services.<APP_ENV>.json fallback.
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: '.nvmrc'
       - run: corepack enable
       - uses: actions/cache@v4
         with:
@@ -154,14 +213,34 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
+      # No --environment flag here (build has none) and no job-level env: —
+      # `-e <profile>` is enough. Each profile in eas.json declares its own
+      # `environment`, which is how EAS Build knows which hosted variables to
+      # inject into the remote build container.
       - name: Build Android
         run: |
           eas build --platform android \
             --profile ${{ needs.decide-deploy-type.outputs.channel }} \
             --non-interactive --no-wait
 
+      # continue-on-error is TEMPORARY: no Apple Developer Program membership
+      # exists yet, so EAS has no way to provision iOS credentials at all --
+      # this step fails on every push until that's set up, independent of
+      # anything in this repo. Remove continue-on-error once membership is
+      # active and `eas credentials -p ios` has been run interactively for
+      # each profile, so a real iOS failure goes back to failing the job.
       - name: Build iOS
+        id: ios_build
+        continue-on-error: true
         run: |
           eas build --platform ios \
             --profile ${{ needs.decide-deploy-type.outputs.channel }} \
             --non-interactive --no-wait
+
+      # A green job here doesn't mean iOS actually built -- surface that
+      # explicitly rather than let a skipped platform hide in a passing run.
+      - name: Note skipped iOS build
+        if: steps.ios_build.outcome == 'failure'
+        run: |
+          echo "## ⚠️ iOS build skipped" >> $GITHUB_STEP_SUMMARY
+          echo "No Apple Developer Program membership yet -- Android built, iOS did not." >> $GITHUB_STEP_SUMMARY

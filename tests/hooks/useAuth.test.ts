@@ -1,5 +1,7 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, renderHook } from '@testing-library/react-native';
 
+import { STORAGE_KEYS } from '@/constants/storage';
 import { useAuth } from '@/hooks/useAuth';
 import { signOutUser } from '@/services/firebase/auth.service';
 import { useAuthStore } from '@/stores/auth.store';
@@ -36,6 +38,23 @@ describe('useAuth', () => {
     expect(result.current.isGuest).toBe(true);
   });
 
+  it('is not authenticated as a guest, but is with a real Firebase user', async () => {
+    const { result } = await renderHook(() => useAuth());
+
+    expect(result.current.isAuthenticated).toBe(false);
+
+    await act(() => {
+      useAuthStore.getState().setGuest(true);
+    });
+    expect(result.current.isAuthenticated).toBe(false);
+
+    await act(() => {
+      useAuthStore.getState().setGuest(false);
+      useAuthStore.getState().setUser({ uid: 'u1' } as never);
+    });
+    expect(result.current.isAuthenticated).toBe(true);
+  });
+
   it('clears both stores on sign out', async () => {
     const { result } = await renderHook(() => useAuth());
 
@@ -48,6 +67,7 @@ describe('useAuth', () => {
 
     expect(signOutUser).toHaveBeenCalled();
     expect(useAuthStore.getState().isGuest).toBe(false);
+    expect(AsyncStorage.removeItem).toHaveBeenCalledWith(STORAGE_KEYS.ONBOARDING_COMPLETE);
   });
 
   it('still clears local state when the network sign-out fails', async () => {

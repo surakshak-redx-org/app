@@ -10,7 +10,9 @@ import { z } from 'zod';
  */
 const envSchema = z.object({
   APP_ENV: z.enum(['dev', 'staging', 'prod']),
-  GOOGLE_MAPS_API_KEY: z.string().min(1),
+  // Two keys, not one — see CLAUDE.md "API Keys" for why.
+  GOOGLE_MAPS_API_KEY_ANDROID: z.string().min(1),
+  GOOGLE_MAPS_API_KEY_IOS: z.string().min(1),
   ONESIGNAL_APP_ID: z.string().min(1),
   MIXPANEL_TOKEN: z.string().min(1),
   SENTRY_DSN: z.url(),
@@ -24,7 +26,8 @@ const envSchema = z.object({
  */
 const rawEnv: Record<string, unknown> = {
   APP_ENV: process.env.EXPO_PUBLIC_APP_ENV,
-  GOOGLE_MAPS_API_KEY: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY,
+  GOOGLE_MAPS_API_KEY_ANDROID: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY_ANDROID,
+  GOOGLE_MAPS_API_KEY_IOS: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY_IOS,
   ONESIGNAL_APP_ID: process.env.EXPO_PUBLIC_ONESIGNAL_APP_ID,
   MIXPANEL_TOKEN: process.env.EXPO_PUBLIC_MIXPANEL_TOKEN,
   SENTRY_DSN: process.env.EXPO_PUBLIC_SENTRY_DSN,

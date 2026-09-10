@@ -35,4 +35,12 @@ export interface TrustedCircle {
   alertLevel: TrustedCircleAlertLevel;
 }
 
-export type CreateUserInput = Pick<User, 'name' | 'phone' | 'city' | 'language'>;
+/**
+ * Fields collected during onboarding. `state` is not asked for yet (a state
+ * picker is a later phase) — `createUserProfile` defaults it to `''` so the
+ * Firestore document still matches the schema.
+ */
+export type CreateUserInput = Pick<
+  User,
+  'name' | 'phone' | 'city' | 'language' | 'profilePhotoUrl'
+>;

@@ -1,6 +1,11 @@
+import { Linking } from 'react-native';
+
 const INDIA_COUNTRY_CODE = '+91';
 const INDIAN_MOBILE_LENGTH = 10;
 const VISIBLE_DIGITS_WHEN_MASKED = 4;
+
+/** Government helplines are 3–5 digit short codes and must be dialled verbatim. */
+const SHORT_CODE_PATTERN = /^\d{3,5}$/;
 
 /** Strips everything non-numeric and any leading country code / trunk zero. */
 function toNationalDigits(phone: string): string {
@@ -38,4 +43,21 @@ export function maskPhone(phone: string): string {
   const masked = 'X'.repeat(national.length - VISIBLE_DIGITS_WHEN_MASKED);
 
   return `${INDIA_COUNTRY_CODE}${masked}${visible}`;
+}
+
+/**
+ * Opens the phone dialer for a number. On Android with `CALL_PHONE` granted the
+ * OS places the call directly; on iOS the dialer opens with the number filled
+ * in and the user taps once to call (an Apple restriction). Short codes such as
+ * `112` / `1091` are dialled as-is; 10-digit numbers are normalised to E.164.
+ */
+export async function placeCall(phone: string): Promise<void> {
+  try {
+    const digits = phone.replace(/\D/g, '');
+    const target = SHORT_CODE_PATTERN.test(digits) ? digits : formatIndianPhone(phone);
+    await Linking.openURL(`tel:${target}`);
+  } catch (error) {
+    console.error('placeCall failed:', error);
+    throw error;
+  }
 }

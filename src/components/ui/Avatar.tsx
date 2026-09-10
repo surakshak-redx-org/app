@@ -5,8 +5,8 @@ import { Text as RNText, View } from 'react-native';
 export type AvatarSize = 'sm' | 'md' | 'lg';
 
 export interface AvatarProps {
-  uri?: string;
-  name?: string;
+  uri?: string | undefined;
+  name?: string | undefined;
   size?: AvatarSize;
   className?: string;
 }

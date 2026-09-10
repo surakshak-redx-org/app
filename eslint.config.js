@@ -107,6 +107,23 @@ module.exports = tseslint.config(
     },
   },
 
+  // One-off maintenance scripts are ESM run directly by Node (never bundled,
+  // never in tsconfig). They talk to `firebase-admin`, whose surface is loosely
+  // typed, and they log progress to stdout.
+  {
+    files: ['scripts/**/*.{js,mjs}'],
+    extends: [tseslint.configs.disableTypeChecked],
+    languageOptions: {
+      sourceType: 'module',
+      globals: { process: 'readonly', console: 'readonly', URL: 'readonly' },
+    },
+    rules: {
+      '@typescript-eslint/explicit-function-return-type': 'off',
+      '@typescript-eslint/explicit-module-boundary-types': 'off',
+      'no-console': 'off',
+    },
+  },
+
   // Tests may lean on untyped fixtures and inline arrow callbacks.
   {
     files: ['tests/**/*.{ts,tsx}'],

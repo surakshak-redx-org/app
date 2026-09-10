@@ -41,7 +41,7 @@ export function EmptyState({
           size="md"
           label={actionLabel}
           onPress={onAction}
-          className="mt-6"
+          className="mt-6 self-center"
         />
       )}
     </View>

@@ -10,32 +10,33 @@ Ask your lead for these before you start — you cannot finish without them:
 
 1. The values for `.env.local` (Maps key, OneSignal app id, MixPanel token,
    Sentry DSN — all staging).
-2. `google-services.json` (Android Firebase config).
-3. `GoogleService-Info.plist` (iOS Firebase config).
+2. `google-services.dev.json` (Android Firebase config, `com.surakshak.dev`).
+3. `GoogleService-Info.dev.plist` (iOS Firebase config, `com.surakshak.dev`).
 
-All three are secret and none are in git.
+All three are secret and none are in git. (There are `.staging.*` / `.prod.*`
+pairs too, but local dev only needs the `.dev.*` pair.)
 
 ---
 
-## Step 1 — Install Node 20
+## Step 1 — Install Node 22
 
 ### macOS
 
 ```bash
-brew install node@20
-node --version   # must print v20.x or newer
+brew install node@22
+node --version   # must print v22.x or newer
 ```
 
 Or with nvm:
 
 ```bash
-nvm install 20
-nvm use 20
+nvm install 22
+nvm use 22
 ```
 
 ### Windows
 
-Download the Node 20 LTS installer from <https://nodejs.org> and run it, then
+Download the Node 22 LTS installer from <https://nodejs.org> and run it, then
 in a **new** PowerShell window:
 
 ```powershell
@@ -94,14 +95,16 @@ Open `.env.local` and fill in every blank value from what your lead gave you.
 Leave `EXPO_PUBLIC_APP_ENV=dev` — local development is always `dev`.
 
 `.env.local` needs no Firebase keys. Firebase reads its native config files
-instead. Put both in the repo root:
+instead. Put the `.dev.*` pair in the repo root (this is what `APP_ENV=dev`
+builds resolve — see the `Record<AppEnv, string>` maps in `app.config.ts`):
 
 ```
-app/google-services.json
-app/GoogleService-Info.plist
+app/google-services.dev.json
+app/GoogleService-Info.dev.plist
 ```
 
-Both are gitignored, so you cannot commit them by accident.
+All `google-services*.json` / `GoogleService-Info*.plist` are gitignored, so you
+cannot commit them by accident.
 
 ---
 
@@ -160,7 +163,7 @@ version. See `npmMinimalAgeGate` in `.yarnrc.yml`.
 yarn start --clear
 ```
 
-### "Cannot find module 'google-services.json'"
+### "Cannot find module 'google-services.dev.json'"
 
 You skipped Step 4. The app runs without the file (the config guards for it),
 but anything touching Firebase will fail until it is in place.

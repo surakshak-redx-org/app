@@ -16,7 +16,23 @@ function envString(value: unknown, fallback = ''): string {
 
 const APP_ENV = envString(process.env.EXPO_PUBLIC_APP_ENV, 'dev') as AppEnv;
 
-const GOOGLE_MAPS_API_KEY = envString(process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY);
+// `eas init` / `eas update` can't write into a dynamic config (a .ts file,
+// not static JSON) — both print the value instead of setting it themselves,
+// which is why this is a hand-committed literal rather than something a CLI
+// manages. Real ID for surakshak-redx-org/app; `eas init --force` would mint
+// a different project rather than restore this line. One constant, not a
+// runtime app value, so it lives here rather than in src/constants/ — @/
+// imports do resolve inside app.config.ts (verified), but this identifier
+// has nothing to do with the app's runtime behavior that module documents.
+const EAS_PROJECT_ID = '720001ee-e12e-4c08-a278-7c22b660d6ea';
+
+/**
+ * Two separate Maps keys, not one: a Google Maps API key can only carry an
+ * Android app restriction OR an iOS app restriction, never both at once — see
+ * CLAUDE.md's Google Cloud APIs section for the exact restriction steps.
+ */
+const GOOGLE_MAPS_API_KEY_ANDROID = envString(process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY_ANDROID);
+const GOOGLE_MAPS_API_KEY_IOS = envString(process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY_IOS);
 
 const appNames: Record<AppEnv, string> = {
   dev: 'Surakshak-dev',
@@ -37,23 +53,48 @@ const iconColors: Record<AppEnv, string> = {
 };
 
 /**
- * One Firebase config per platform, shared by every APP_ENV.
+ * One Firebase config file per APP_ENV per platform, keyed by bundle id.
  *
- * NOTE: this collapses the per-environment split that CLAUDE.md's Environments
- * table describes — prod now reads the same Firebase project as dev/staging.
- * Deliberate: the project keeps a single GOOGLE_SERVICES secret per platform.
- * To split them again, restore the Record<AppEnv, string> maps here and add
- * per-environment secrets back to deploy.yml.
+ * There is still a single Firebase project (surakshak-2869a) behind all three
+ * tiers, but each bundle id (com.surakshak.dev / .staging / .app) is registered
+ * as its own app in it, so each needs its own google-services.json /
+ * GoogleService-Info.plist — the iOS plist in particular is per-bundle and
+ * cannot be shared. deploy.yml must supply the matching pair per APP_ENV.
+ *
+ * Local dev reads the plain file at the repo root (gitignored, placed by
+ * hand). `eas build` is different: it runs on a REMOTE worker that never
+ * receives a file merely decoded onto the calling CI runner's disk — the
+ * only way a file reaches that worker is EAS's own file-type Environment
+ * Variables, which resolve through `process.env.<NAME>` to a temp path that
+ * exists only on that specific build machine. GOOGLE_SERVICES_ANDROID_FILE /
+ * GOOGLE_SERVICES_IOS_FILE hold exactly that; prefer them when present.
  */
-const GOOGLE_SERVICES_ANDROID = './google-services.json';
-const GOOGLE_SERVICES_IOS = './GoogleService-Info.plist';
+const googleServicesAndroidByEnv: Record<AppEnv, string> = {
+  dev: './google-services.dev.json',
+  staging: './google-services.staging.json',
+  prod: './google-services.prod.json',
+};
+const googleServicesIosByEnv: Record<AppEnv, string> = {
+  dev: './GoogleService-Info.dev.plist',
+  staging: './GoogleService-Info.staging.plist',
+  prod: './GoogleService-Info.prod.plist',
+};
+
+const GOOGLE_SERVICES_ANDROID = envString(
+  process.env.GOOGLE_SERVICES_ANDROID_FILE,
+  googleServicesAndroidByEnv[APP_ENV],
+);
+const GOOGLE_SERVICES_IOS = envString(
+  process.env.GOOGLE_SERVICES_IOS_FILE,
+  googleServicesIosByEnv[APP_ENV],
+);
 
 /**
- * The native Firebase config files are gitignored and decoded from base64 in CI.
- * A fresh clone will not have them, and pointing `googleServicesFile` at a
- * missing path makes `expo start` / `expo config` throw. Only set the key when
- * the file is actually on disk. `exactOptionalPropertyTypes` forbids assigning
- * `undefined`, so this has to be a conditional spread rather than a ternary.
+ * A fresh clone (or a build with the EAS file variable not yet set) has
+ * neither the local file nor the EAS-provided one — pointing `googleServicesFile`
+ * at a missing path makes `expo start` / `expo config` throw. Only set the
+ * key when the file actually exists. `exactOptionalPropertyTypes` forbids
+ * assigning `undefined`, so this has to be a conditional spread, not a ternary.
  */
 function googleServicesFile(path: string): { googleServicesFile: string } | Record<string, never> {
   return fs.existsSync(path) ? { googleServicesFile: path } : {};
@@ -62,7 +103,10 @@ function googleServicesFile(path: string): { googleServicesFile: string } | Reco
 const config: ExpoConfig = {
   name: appNames[APP_ENV],
   slug: 'surakshak',
-  version: '1.0.0',
+  // Bumped for Phase 4: expo-task-manager + background-location native config.
+  // `runtimeVersion` is `appVersion`, so a native change needs a new version
+  // string or an OTA could ship to an incompatible native shell.
+  version: '1.1.0',
   orientation: 'portrait',
   scheme: `surakshak-${APP_ENV}`,
   userInterfaceStyle: 'automatic',
@@ -79,6 +123,10 @@ const config: ExpoConfig = {
       'android.permission.RECORD_AUDIO',
       'android.permission.ACCESS_FINE_LOCATION',
       'android.permission.ACCESS_BACKGROUND_LOCATION',
+      // Required by expo-location's background updates foreground service on
+      // Android 14+ (the typed permission is mandatory alongside the base one).
+      'android.permission.FOREGROUND_SERVICE',
+      'android.permission.FOREGROUND_SERVICE_LOCATION',
       'android.permission.CALL_PHONE',
       'android.permission.SEND_SMS',
       'android.permission.READ_PHONE_STATE',
@@ -87,7 +135,7 @@ const config: ExpoConfig = {
       'android.permission.READ_CONTACTS',
     ],
     config: {
-      googleMaps: { apiKey: GOOGLE_MAPS_API_KEY },
+      googleMaps: { apiKey: GOOGLE_MAPS_API_KEY_ANDROID },
     },
   },
   ios: {
@@ -95,9 +143,14 @@ const config: ExpoConfig = {
     supportsTablet: false,
     ...googleServicesFile(GOOGLE_SERVICES_IOS),
     config: {
-      googleMapsApiKey: GOOGLE_MAPS_API_KEY,
+      googleMapsApiKey: GOOGLE_MAPS_API_KEY_IOS,
     },
     infoPlist: {
+      // Suppresses App Store Connect's manual export-compliance prompt on
+      // every build. Standard HTTPS/TLS is exempt from this declaration —
+      // it only needs to be `true` if the app implements or modifies its
+      // own cryptographic algorithms, which nothing here does.
+      ITSAppUsesNonExemptEncryption: false,
       NSCameraUsageDescription: 'Surakshak needs camera access for evidence recording.',
       NSMicrophoneUsageDescription: 'Surakshak needs microphone for audio recording.',
       NSLocationWhenInUseUsageDescription:
@@ -105,6 +158,8 @@ const config: ExpoConfig = {
       NSLocationAlwaysAndWhenInUseUsageDescription:
         'Surakshak needs background location for safe journey monitoring.',
       NSContactsUsageDescription: 'Surakshak needs contacts access to add emergency contacts.',
+      // Lets the live-location task keep receiving fixes while backgrounded.
+      UIBackgroundModes: ['location'],
     },
   },
   plugins: [
@@ -125,11 +180,26 @@ const config: ExpoConfig = {
       {
         locationAlwaysAndWhenInUsePermission:
           'Surakshak needs background location for safe journey monitoring.',
+        isAndroidBackgroundLocationEnabled: true,
+        isAndroidForegroundServiceEnabled: true,
+        isIosBackgroundLocationEnabled: true,
       },
     ],
     ['expo-camera', { cameraPermission: 'Surakshak needs camera access for evidence recording.' }],
     ['expo-audio', { microphonePermission: 'Surakshak needs microphone for audio recording.' }],
-    '@react-native-firebase/app',
+    // iOS pods must link as static *frameworks*, not the CocoaPods default of
+    // static libraries: firebase-ios-sdk's Swift pods (FirebaseAuth,
+    // FirebaseFirestore, FirebaseStorage, FirebaseCoreInternal) depend on
+    // non-modular pods (GoogleUtilities, the *Interop pods) and can't be built
+    // as static libraries at all. react-native-maps + Google Maps needs
+    // use_frameworks! on iOS too.
+    ['expo-build-properties', { ios: { useFrameworks: 'static' } }],
+    // With use_frameworks! active, opt Firebase out of SPM (its SPM products
+    // collide under static linkage) so it resolves via CocoaPods podspecs...
+    ['@react-native-firebase/app', { ios: { disableSPM: true } }],
+    // ...and set $RNFirebaseAsStaticFramework = true, which those podspecs
+    // require under use_frameworks! and the RNFirebase plugin doesn't expose.
+    './plugins/withReactNativeFirebaseStaticFramework',
     '@react-native-firebase/auth',
     [
       '@sentry/react-native/expo',
@@ -143,8 +213,19 @@ const config: ExpoConfig = {
   experiments: {
     typedRoutes: true,
   },
+  // runtimeVersion "appVersion" ties OTA compatibility to the `version`
+  // field above: an update only reaches a native build sharing that exact
+  // version string. EAS's own recommended default, avoids fingerprint-based
+  // runtime versioning's extra complexity. Bump `version` on any native
+  // change, or an OTA could ship to an incompatible native shell.
+  updates: {
+    url: `https://u.expo.dev/${EAS_PROJECT_ID}`,
+  },
+  runtimeVersion: {
+    policy: 'appVersion',
+  },
   extra: {
-    eas: { projectId: 'REPLACE_AFTER_EAS_INIT' },
+    eas: { projectId: EAS_PROJECT_ID },
   },
 };
 

@@ -11,6 +11,8 @@
  * silently passing. `jest.mock` calls are hoisted above it by babel-jest, so
  * the mocks below still apply.
  */
+import type * as React from 'react';
+
 import '@/i18n';
 
 jest.mock('@react-native-firebase/app', () => ({
@@ -18,17 +20,129 @@ jest.mock('@react-native-firebase/app', () => ({
 }));
 
 jest.mock('@react-native-firebase/auth', () => ({
-  getAuth: jest.fn(() => ({})),
+  getAuth: jest.fn(() => ({ currentUser: null })),
   onAuthStateChanged: jest.fn(() => jest.fn()),
   signOut: jest.fn(() => Promise.resolve()),
+  signInWithPhoneNumber: jest.fn(() => Promise.resolve({ confirm: jest.fn() })),
+  deleteUser: jest.fn(() => Promise.resolve()),
 }));
 
 jest.mock('@react-native-firebase/firestore', () => ({
   getFirestore: jest.fn(() => ({})),
+  doc: jest.fn(() => ({})),
+  collection: jest.fn(() => ({})),
+  query: jest.fn((ref: unknown) => ref),
+  where: jest.fn(() => ({})),
+  orderBy: jest.fn(() => ({})),
+  limit: jest.fn(() => ({})),
+  getDoc: jest.fn(() =>
+    Promise.resolve({ exists: () => false, id: 'test-uid', data: () => undefined }),
+  ),
+  getDocs: jest.fn(() => Promise.resolve({ docs: [] })),
+  setDoc: jest.fn(() => Promise.resolve()),
+  updateDoc: jest.fn(() => Promise.resolve()),
+  deleteDoc: jest.fn(() => Promise.resolve()),
+  serverTimestamp: jest.fn(() => ({ __serverTimestamp: true })),
 }));
+
+jest.mock('expo-file-system', () => {
+  class MockFile {
+    exists = false;
+    text = jest.fn(() => Promise.resolve('{}'));
+    write = jest.fn();
+    create = jest.fn();
+    delete = jest.fn();
+  }
+  class MockDirectory {
+    exists = true;
+    create = jest.fn();
+  }
+  return { File: MockFile, Directory: MockDirectory, Paths: { cache: {} } };
+});
 
 jest.mock('@react-native-firebase/storage', () => ({
   getStorage: jest.fn(() => ({})),
+  ref: jest.fn(() => ({})),
+  putFile: jest.fn(() => Promise.resolve()),
+  getDownloadURL: jest.fn(() => Promise.resolve('https://example.com/avatar.jpg')),
+}));
+
+jest.mock('@react-native-async-storage/async-storage', () => ({
+  __esModule: true,
+  default: {
+    getItem: jest.fn(() => Promise.resolve(null)),
+    setItem: jest.fn(() => Promise.resolve()),
+    removeItem: jest.fn(() => Promise.resolve()),
+    multiGet: jest.fn(() => Promise.resolve([])),
+    multiSet: jest.fn(() => Promise.resolve()),
+    clear: jest.fn(() => Promise.resolve()),
+  },
+}));
+
+jest.mock('expo-image-picker', () => ({
+  launchImageLibraryAsync: jest.fn(() => Promise.resolve({ canceled: true })),
+}));
+
+// Native permission modules pulled in transitively by `@/utils/permissions.utils`.
+jest.mock('expo-audio', () => ({
+  requestRecordingPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false })),
+}));
+
+jest.mock('expo-camera', () => ({
+  Camera: {
+    requestCameraPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false })),
+  },
+}));
+
+jest.mock('expo-contacts', () => ({
+  requestPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false })),
+  getPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false })),
+}));
+
+jest.mock('expo-location', () => ({
+  requestForegroundPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false })),
+  requestBackgroundPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false })),
+  getForegroundPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false })),
+  getBackgroundPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false })),
+  getCurrentPositionAsync: jest.fn(() =>
+    Promise.resolve({
+      coords: { latitude: 19.076, longitude: 72.8777, accuracy: 5 },
+      timestamp: 1_700_000_000_000,
+    }),
+  ),
+  watchPositionAsync: jest.fn(() => Promise.resolve({ remove: jest.fn() })),
+  startLocationUpdatesAsync: jest.fn(() => Promise.resolve()),
+  stopLocationUpdatesAsync: jest.fn(() => Promise.resolve()),
+  hasStartedLocationUpdatesAsync: jest.fn(() => Promise.resolve(false)),
+  reverseGeocodeAsync: jest.fn(() =>
+    Promise.resolve([{ city: 'Mumbai', region: 'Maharashtra', subregion: 'Mumbai' }]),
+  ),
+  Accuracy: { Lowest: 1, Low: 2, Balanced: 3, High: 4, Highest: 5, BestForNavigation: 6 },
+}));
+
+jest.mock('expo-task-manager', () => ({
+  defineTask: jest.fn(),
+  isTaskDefined: jest.fn(() => false),
+  isTaskRegisteredAsync: jest.fn(() => Promise.resolve(false)),
+}));
+
+jest.mock('react-native-maps', () => {
+  const ReactActual = jest.requireActual<typeof import('react')>('react');
+  const RN = jest.requireActual<typeof import('react-native')>('react-native');
+  const Passthrough = (props: { children?: React.ReactNode }): React.ReactElement =>
+    ReactActual.createElement(RN.View, null, props.children);
+  return {
+    __esModule: true,
+    default: Passthrough,
+    Marker: Passthrough,
+    Circle: Passthrough,
+    PROVIDER_GOOGLE: 'google',
+  };
+});
+
+jest.mock('expo-notifications', () => ({
+  requestPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false })),
+  getPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false })),
 }));
 
 jest.mock('react-native-onesignal', () => ({

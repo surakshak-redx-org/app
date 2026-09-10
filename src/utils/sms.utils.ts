@@ -5,20 +5,85 @@ import type { Language } from '@/types/user.types';
  * 160-character-per-segment budget, so these stay short and lead with the
  * location link — the one piece a recipient acts on first.
  *
- * TODO: Phase 8 — Multilingual. `hi` and `mr` intentionally fall through to
- * English until translations are reviewed by a native speaker; a wrong
- * translation on an emergency message is worse than a correct English one.
+ * Messages are built as raw strings rather than through i18next: the on-screen
+ * catalogues (`hi`/`mr`) are still being translated, but an emergency SMS must
+ * be readable in the sender's language today. The templates below were provided
+ * with the Phase 3 brief and want a native-speaker review before a production
+ * release.
  */
-function resolveLanguage(language: Language): 'en' {
-  if (language !== 'en') {
-    // TODO: Phase 8 — translation
-  }
-  return 'en';
+interface SOSTemplateInput {
+  name: string;
+  locationUrl: string;
+  time: string;
 }
 
+interface LowBatteryTemplateInput {
+  name: string;
+  locationUrl: string;
+}
+
+interface SafeJourneyTemplateInput {
+  name: string;
+  destination: string;
+  etaTime: string;
+}
+
+const SOS_TEMPLATES: Record<Language, (input: SOSTemplateInput) => string> = {
+  en: ({ name, locationUrl, time }) =>
+    `🆘 EMERGENCY ALERT from ${name}. I need help immediately.\n` +
+    `My location: ${locationUrl}\n` +
+    `Time: ${time}\n` +
+    `— Sent via Surakshak (Har Kadam, Surakshit)`,
+  hi: ({ name, locationUrl, time }) =>
+    `🆘 आपातकालीन सूचना: ${name} को तुरंत मदद चाहिए।\n` +
+    `स्थान: ${locationUrl}\n` +
+    `समय: ${time}\n` +
+    `— सुरक्षक ऐप द्वारा भेजा गया`,
+  mr: ({ name, locationUrl, time }) =>
+    `🆘 आणीबाणी सूचना: ${name} ला तातडीने मदत हवी आहे।\n` +
+    `स्थान: ${locationUrl}\n` +
+    `वेळ: ${time}\n` +
+    `— सुरक्षक अ‍ॅपद्वारे पाठवले`,
+};
+
+const LOW_BATTERY_TEMPLATES: Record<Language, (input: LowBatteryTemplateInput) => string> = {
+  en: ({ name, locationUrl }) =>
+    `📱 ${name}'s phone battery is critically low (20%).\n` +
+    `She may become unreachable soon.\n` +
+    `Last known location: ${locationUrl}\n` +
+    `— Surakshak`,
+  hi: ({ name, locationUrl }) =>
+    `📱 ${name} के फोन की बैटरी बहुत कम (20%) है।\n` +
+    `वो जल्द ही संपर्क से बाहर हो सकती हैं।\n` +
+    `अंतिम स्थान: ${locationUrl}\n` +
+    `— सुरक्षक`,
+  mr: ({ name, locationUrl }) =>
+    `📱 ${name} च्या फोनची बॅटरी खूप कमी (20%) आहे।\n` +
+    `त्या लवकरच संपर्काबाहेर जाऊ शकतात।\n` +
+    `शेवटचे स्थान: ${locationUrl}\n` +
+    `— सुरक्षक`,
+};
+
+const SAFE_JOURNEY_TEMPLATES: Record<Language, (input: SafeJourneyTemplateInput) => string> = {
+  en: ({ name, destination, etaTime }) =>
+    `⚠️ ${name} has not checked in for her journey to ${destination}.\n` +
+    `She was expected to arrive by ${etaTime}.\n` +
+    `Please check on her immediately.\n` +
+    `— Surakshak`,
+  hi: ({ name, destination, etaTime }) =>
+    `⚠️ ${name} ने ${destination} की यात्रा के लिए चेक-इन नहीं किया।\n` +
+    `उन्हें ${etaTime} तक पहुँचना था।\n` +
+    `कृपया उनसे तुरंत संपर्क करें।\n` +
+    `— सुरक्षक`,
+  mr: ({ name, destination, etaTime }) =>
+    `⚠️ ${name} ने ${destination} च्या प्रवासासाठी चेक-इन केले नाही।\n` +
+    `त्यांना ${etaTime} पर्यंत पोहोचायचे होते।\n` +
+    `कृपया त्यांच्याशी तातडीने संपर्क साधा।\n` +
+    `— सुरक्षक`,
+};
+
 export function buildSOSMessage(name: string, locationUrl: string, language: Language): string {
-  resolveLanguage(language);
-  return `EMERGENCY: ${name} needs help right now. Live location: ${locationUrl} — Sent by Surakshak.`;
+  return SOS_TEMPLATES[language]({ name, locationUrl, time: new Date().toLocaleString() });
 }
 
 export function buildLowBatteryMessage(
@@ -26,8 +91,7 @@ export function buildLowBatteryMessage(
   locationUrl: string,
   language: Language,
 ): string {
-  resolveLanguage(language);
-  return `${name}'s phone battery is critically low. Last known location: ${locationUrl} — Sent by Surakshak.`;
+  return LOW_BATTERY_TEMPLATES[language]({ name, locationUrl });
 }
 
 export function buildSafeJourneyMessage(
@@ -36,6 +100,5 @@ export function buildSafeJourneyMessage(
   etaTime: string,
   language: Language,
 ): string {
-  resolveLanguage(language);
-  return `${name} is travelling to ${destination} and should arrive by ${etaTime}. You will be alerted if they do not check in. — Sent by Surakshak.`;
+  return SAFE_JOURNEY_TEMPLATES[language]({ name, destination, etaTime });
 }
