@@ -7477,6 +7477,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"expo-task-manager@npm:~57.0.16":
+  version: 57.0.16
+  resolution: "expo-task-manager@npm:57.0.16"
+  dependencies:
+    unimodules-app-loader: "npm:~57.0.1"
+  peerDependencies:
+    expo: "*"
+    react-native: "*"
+  checksum: 10c0/b404722937301cc96b87cc7f38eff6c49b22ca3360e8ea73e9a6b97d69de76145a4ff800b1a96b40c96c9a9301129380d0b4e52388420ea1e7ee13cf37c2e4cb
+  languageName: node
+  linkType: hard
+
 "expo-updates-interface@npm:~57.0.1":
   version: 57.0.1
   resolution: "expo-updates-interface@npm:57.0.1"
@@ -13465,6 +13477,7 @@ __metadata:
     expo-splash-screen: "npm:~57.0.8"
     expo-status-bar: "npm:~57.0.1"
     expo-system-ui: "npm:~57.0.3"
+    expo-task-manager: "npm:~57.0.16"
     expo-updates: "npm:~57.0.21"
     husky: "npm:^9.1.7"
     i18next: "npm:^26.4.2"
@@ -13941,6 +13954,13 @@ __metadata:
   version: 2.2.0
   resolution: "unicode-property-aliases-ecmascript@npm:2.2.0"
   checksum: 10c0/b338529831c988ac696f2bdbcd4579d1c5cc844b24eda7269973c457fa81989bdb49a366af37a448eb1a60f1dae89559ea2a5854db2797e972a0162eee0778c6
+  languageName: node
+  linkType: hard
+
+"unimodules-app-loader@npm:~57.0.1":
+  version: 57.0.1
+  resolution: "unimodules-app-loader@npm:57.0.1"
+  checksum: 10c0/68102400d2418508b08cacf5c421e61b5006370fbe20558ff85da34e817cd1b13b8d06ebd4e790ad65a8fe500962c2822c0ced006a4107e484161238efb5e278
   languageName: node
   linkType: hard
 

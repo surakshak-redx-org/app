@@ -5,12 +5,6 @@ import {
 } from '@/services/firebase/incident.service';
 import { getFaqs, getLawById, getLaws, getSafetyTips } from '@/services/firebase/laws.service';
 import { getNews, getNewsById } from '@/services/firebase/news.service';
-import {
-  cancelSafeJourney,
-  extendJourneyEta,
-  markJourneyArrived,
-  startSafeJourney,
-} from '@/services/firebase/safe-journey.service';
 
 describe('laws.service stubs', () => {
   it.each([
@@ -47,17 +41,6 @@ describe('incident.service stubs', () => {
           photoUrls: [],
         }),
     ],
-  ])('%s rejects until Phase 7 lands', async (_name, call) => {
-    await expect(call()).rejects.toThrow('Not implemented');
-  });
-});
-
-describe('safe-journey.service stubs', () => {
-  it.each([
-    ['startSafeJourney', () => startSafeJourney('user-1', 'Andheri', 19.1, 72.8, 30, ['user-2'])],
-    ['markJourneyArrived', () => markJourneyArrived('session-1')],
-    ['extendJourneyEta', () => extendJourneyEta('session-1', 15)],
-    ['cancelSafeJourney', () => cancelSafeJourney('session-1')],
   ])('%s rejects until Phase 7 lands', async (_name, call) => {
     await expect(call()).rejects.toThrow('Not implemented');
   });

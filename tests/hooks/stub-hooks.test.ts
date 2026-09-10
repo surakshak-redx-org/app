@@ -28,7 +28,7 @@ describe('useLocation', () => {
     );
   });
 
-  it('reports permission as not yet granted until Phase 4', async () => {
+  it('reports permission as denied when the OS prompt is declined', async () => {
     const { result } = await renderHook(() => useLocation());
     await expect(result.current.requestPermission()).resolves.toBe(false);
   });
@@ -41,14 +41,18 @@ describe('useLiveLocation', () => {
     const { result } = await renderHook(() => useLiveLocation());
     expect(result.current.isActive).toBe(false);
     expect(result.current.sessionId).toBeNull();
+    expect(result.current.expiresAt).toBeNull();
   });
 
-  it('rejects its Phase 4 actions', async () => {
+  it('refuses to start sharing without an authenticated user', async () => {
     const { result } = await renderHook(() => useLiveLocation());
+    await expect(result.current.startSharing([], 1)).rejects.toThrow('Not authenticated');
+  });
 
-    await expect(result.current.startSharing([], 1)).rejects.toThrow('Not implemented');
-    await expect(result.current.stopSharing()).rejects.toThrow('Not implemented');
-    await expect(result.current.extendTime(1)).rejects.toThrow('Not implemented');
+  it('no-ops stop / extend when there is no active session', async () => {
+    const { result } = await renderHook(() => useLiveLocation());
+    await expect(result.current.stopSharing()).resolves.toBeUndefined();
+    await expect(result.current.extendTime(1)).resolves.toBeUndefined();
   });
 });
 

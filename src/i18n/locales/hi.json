@@ -175,7 +175,8 @@
     "alertTypeSafeJourney": "",
     "alertSentSummary": "",
     "viewLocation": "",
-    "clearHistory": ""
+    "clearHistory": "",
+    "alertTypeLiveLocation": "लाइव लोकेशन"
   },
   "map": {
     "title": "",
@@ -199,7 +200,8 @@
     "legend": "",
     "legendPending": "",
     "legendApproved": "",
-    "noUnsafeAreas": ""
+    "noUnsafeAreas": "",
+    "guestCannotReport": "असुरक्षित क्षेत्रों की रिपोर्ट या वोट करने के लिए साइन इन करें"
   },
   "community": {
     "title": "",
@@ -267,7 +269,20 @@
     "open": "",
     "closed": "",
     "call": "",
-    "directions": ""
+    "directions": "",
+    "sharingNotification": "आपकी लाइव लोकेशन साझा की जा रही है",
+    "stopSharingConfirm": "लाइव लोकेशन साझा करना बंद करें?",
+    "addContactsFirst": "पहले एक आपातकालीन संपर्क जोड़ें",
+    "hoursShort": "{{count}} घंटे",
+    "minutesShort": "{{count}} मिनट",
+    "arrivalTime": "अपेक्षित पहुँच समय",
+    "iArrivedConfirm": "इस यात्रा को पूर्ण चिह्नित करें?",
+    "cancelJourney": "यात्रा रद्द करें",
+    "cancelJourneyConfirm": "इस यात्रा को रद्द करें? आपके संपर्कों को सूचित नहीं किया जाएगा।",
+    "plus15Min": "+15 मिनट",
+    "plus30Min": "+30 मिनट",
+    "nearbyHelpError": "आस-पास के स्थान लोड नहीं हो सके। कनेक्शन जाँचें और पुनः प्रयास करें।",
+    "noPlacesFound": "आस-पास कोई स्थान नहीं मिला"
   },
   "settings": {
     "title": "",

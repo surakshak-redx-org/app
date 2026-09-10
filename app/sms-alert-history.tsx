@@ -20,6 +20,7 @@ const TYPE_BADGE: Record<SMSAlertType, { variant: BadgeVariant; labelKey: string
   sos: { variant: 'error', labelKey: 'emergency.alertTypeSos' },
   low_battery: { variant: 'warning', labelKey: 'emergency.alertTypeLowBattery' },
   safe_journey: { variant: 'info', labelKey: 'emergency.alertTypeSafeJourney' },
+  live_location: { variant: 'info', labelKey: 'emergency.alertTypeLiveLocation' },
 };
 
 export default function SmsAlertHistoryScreen(): React.JSX.Element {

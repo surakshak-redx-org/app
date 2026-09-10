@@ -17,9 +17,18 @@ export const ANALYTICS_EVENTS = {
   EMERGENCY_CONTACT_DELETED: 'emergency_contact_deleted',
   LOW_BATTERY_ALERT_SENT: 'low_battery_alert_sent',
   LIVE_LOCATION_STARTED: 'live_location_started',
+  LIVE_LOCATION_STOPPED: 'live_location_stopped',
+  LIVE_LOCATION_EXTENDED: 'live_location_extended',
   SAFE_JOURNEY_STARTED: 'safe_journey_started',
+  SAFE_JOURNEY_ARRIVED: 'safe_journey_arrived',
+  SAFE_JOURNEY_ALERT_SENT: 'safe_journey_alert_sent',
   COMMUNITY_POST_CREATED: 'community_post_created',
   UNSAFE_AREA_REPORTED: 'unsafe_area_reported',
+  UNSAFE_AREA_UPVOTED: 'unsafe_area_upvoted',
+  UNSAFE_AREA_DOWNVOTED: 'unsafe_area_downvoted',
+  NEARBY_HELP_VIEWED: 'nearby_help_viewed',
+  NEARBY_HELP_CALLED: 'nearby_help_called',
+  NEARBY_HELP_DIRECTIONS: 'nearby_help_directions',
   INCIDENT_REPORTED: 'incident_reported',
   LANGUAGE_CHANGED: 'language_changed',
   OTP_REQUESTED: 'otp_requested',
@@ -94,4 +103,59 @@ export function trackEmergencyContactChange(action: 'added' | 'updated' | 'delet
 
 export function trackLowBatteryAlertSent(batteryLevel: number): void {
   trackEvent(ANALYTICS_EVENTS.LOW_BATTERY_ALERT_SENT, { battery_level: batteryLevel });
+}
+
+/* ------------------------- location & maps ------------------------- */
+
+export function trackLiveLocationStarted(contactsCount: number, durationHours: number): void {
+  trackEvent(ANALYTICS_EVENTS.LIVE_LOCATION_STARTED, {
+    contacts_count: contactsCount,
+    duration_hours: durationHours,
+  });
+}
+
+export function trackLiveLocationStopped(): void {
+  trackEvent(ANALYTICS_EVENTS.LIVE_LOCATION_STOPPED, {});
+}
+
+export function trackLiveLocationExtended(hours: number): void {
+  trackEvent(ANALYTICS_EVENTS.LIVE_LOCATION_EXTENDED, { hours });
+}
+
+export function trackSafeJourneyStarted(etaMinutes: number, contactsCount: number): void {
+  trackEvent(ANALYTICS_EVENTS.SAFE_JOURNEY_STARTED, {
+    eta_minutes: etaMinutes,
+    contacts_count: contactsCount,
+  });
+}
+
+export function trackSafeJourneyArrived(): void {
+  trackEvent(ANALYTICS_EVENTS.SAFE_JOURNEY_ARRIVED, {});
+}
+
+export function trackSafeJourneyAlertSent(): void {
+  trackEvent(ANALYTICS_EVENTS.SAFE_JOURNEY_ALERT_SENT, {});
+}
+
+export function trackUnsafeAreaReported(category: string): void {
+  trackEvent(ANALYTICS_EVENTS.UNSAFE_AREA_REPORTED, { category });
+}
+
+export function trackUnsafeAreaVoted(vote: 'up' | 'down'): void {
+  trackEvent(
+    vote === 'up' ? ANALYTICS_EVENTS.UNSAFE_AREA_UPVOTED : ANALYTICS_EVENTS.UNSAFE_AREA_DOWNVOTED,
+    {},
+  );
+}
+
+export function trackNearbyHelpViewed(category: string): void {
+  trackEvent(ANALYTICS_EVENTS.NEARBY_HELP_VIEWED, { category });
+}
+
+export function trackNearbyHelpCalled(category: string): void {
+  trackEvent(ANALYTICS_EVENTS.NEARBY_HELP_CALLED, { category });
+}
+
+export function trackNearbyHelpDirections(category: string): void {
+  trackEvent(ANALYTICS_EVENTS.NEARBY_HELP_DIRECTIONS, { category });
 }

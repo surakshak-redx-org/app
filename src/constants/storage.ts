@@ -11,6 +11,12 @@ export const STORAGE_KEYS = {
   LOW_BATTERY_ENABLED: 'surakshak_low_battery_enabled',
   /** `JSON.stringify`'d `SMSAlertRecord[]`, newest first, capped at 50. */
   SMS_HISTORY: 'surakshak_sms_history',
+  /**
+   * Id of the currently active live-location session. Read by the background
+   * location task (which has no access to the Zustand store) to know which
+   * Firestore document to push coordinates into.
+   */
+  LIVE_LOCATION_SESSION_ID: 'surakshak_live_session_id',
 } as const;
 
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];

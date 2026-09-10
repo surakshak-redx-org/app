@@ -175,7 +175,8 @@
     "alertTypeSafeJourney": "Safe Journey",
     "alertSentSummary": "Sent to {{sent}} · Failed {{failed}}",
     "viewLocation": "View location",
-    "clearHistory": "Clear History"
+    "clearHistory": "Clear History",
+    "alertTypeLiveLocation": "Live Location"
   },
   "map": {
     "title": "Safety Map",
@@ -199,7 +200,8 @@
     "legend": "Map Legend",
     "legendPending": "Reported — pending review",
     "legendApproved": "Verified unsafe area",
-    "noUnsafeAreas": "No unsafe areas reported in this region"
+    "noUnsafeAreas": "No unsafe areas reported in this region",
+    "guestCannotReport": "Sign in to report or vote on unsafe areas"
   },
   "community": {
     "title": "Community",
@@ -267,7 +269,20 @@
     "open": "Open",
     "closed": "Closed",
     "call": "Call",
-    "directions": "Directions"
+    "directions": "Directions",
+    "sharingNotification": "Sharing your live location",
+    "stopSharingConfirm": "Stop sharing your live location?",
+    "addContactsFirst": "Add an emergency contact first",
+    "hoursShort": "{{count}}h",
+    "minutesShort": "{{count}} min",
+    "arrivalTime": "Expected arrival",
+    "iArrivedConfirm": "Mark this journey as arrived?",
+    "cancelJourney": "Cancel Journey",
+    "cancelJourneyConfirm": "Cancel this journey? Your contacts will not be alerted.",
+    "plus15Min": "+15 min",
+    "plus30Min": "+30 min",
+    "nearbyHelpError": "Could not load nearby places. Check your connection and try again.",
+    "noPlacesFound": "No places found nearby"
   },
   "settings": {
     "title": "Settings",

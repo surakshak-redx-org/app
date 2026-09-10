@@ -13,7 +13,7 @@ export interface SMSAlertResult {
   failed: string[];
 }
 
-export type SMSAlertType = 'sos' | 'low_battery' | 'safe_journey';
+export type SMSAlertType = 'sos' | 'low_battery' | 'safe_journey' | 'live_location';
 
 export interface SMSAlertRecord {
   id: string;
