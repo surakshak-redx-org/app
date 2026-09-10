@@ -9,13 +9,12 @@ import { Card } from '@/components/ui/Card';
 import { Text } from '@/components/ui/Text';
 import { COLORS } from '@/constants/colors';
 import { ROUTES } from '@/constants/routes';
+import { ICON_SIZE } from '@/constants/ui';
 
 export interface GuestBannerProps {
   /** Overrides the default "sign in to access all features" copy. */
-  message?: string;
+  message?: string | undefined;
 }
-
-const ICON_SIZE = 24;
 
 export function GuestBanner({ message }: GuestBannerProps): React.JSX.Element {
   const { t } = useTranslation();
@@ -27,7 +26,7 @@ export function GuestBanner({ message }: GuestBannerProps): React.JSX.Element {
 
   return (
     <Card padding="md" className="flex-row items-center gap-3">
-      <MaterialIcons name="lock" size={ICON_SIZE} color={COLORS.SAFFRON} />
+      <MaterialIcons name="lock" size={ICON_SIZE.BANNER} color={COLORS.SAFFRON} />
       <View className="flex-1">
         <Text variant="body">{message ?? t('profile.guestBanner')}</Text>
       </View>

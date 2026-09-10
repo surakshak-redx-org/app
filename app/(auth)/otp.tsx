@@ -8,17 +8,16 @@ import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { SafeScreen } from '@/components/ui/SafeScreen';
 import { Spinner } from '@/components/ui/Spinner';
 import { Text } from '@/components/ui/Text';
-import { BACK_ICON_SIZE, OTP_LENGTH, OTP_RESEND_SECONDS } from '@/constants/auth';
+import { OTP_LENGTH, OTP_RESEND_SECONDS } from '@/constants/auth';
 import { COLORS } from '@/constants/colors';
 import { ROUTES } from '@/constants/routes';
+import { ICON_SIZE, TIMING } from '@/constants/ui';
 import { ANALYTICS_EVENTS, trackEvent } from '@/services/analytics.service';
 import { AuthError, sendOtp, verifyOtp } from '@/services/firebase/auth.service';
 import { doesUserExist } from '@/services/firebase/user.service';
 import { maskPhone } from '@/utils/phone.utils';
 
 import { getStoredConfirmation, setStoredConfirmation } from './phone';
-
-const TICK_MS = 1000;
 
 function emptyDigits(): string[] {
   return Array<string>(OTP_LENGTH).fill('');
@@ -42,7 +41,7 @@ export default function OtpScreen(): React.JSX.Element {
       setCountdown((current) => current - 1);
     }
 
-    const timer = setInterval(tick, TICK_MS);
+    const timer = setInterval(tick, TIMING.SECOND_MS);
     return (): void => clearInterval(timer);
   }, [countdown]);
 
@@ -138,7 +137,7 @@ export default function OtpScreen(): React.JSX.Element {
           accessibilityRole="button"
           accessibilityLabel={t('common.back')}
         >
-          <MaterialIcons name="arrow-back" size={BACK_ICON_SIZE} color={COLORS.DEEP_INK} />
+          <MaterialIcons name="arrow-back" size={ICON_SIZE.BACK} color={COLORS.DEEP_INK} />
         </Pressable>
 
         <Text variant="h2" tKey="auth.enterOtp" className="mb-2 mt-6" />

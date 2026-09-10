@@ -12,9 +12,6 @@ export const PHONE_PREFIX_LABEL = '🇮🇳  +91';
 /** How many trailing digits identify a number in an analytics property. */
 export const PHONE_LAST_DIGITS = 4;
 
-/** `MaterialIcons` size for a screen's top-left back chevron. */
-export const BACK_ICON_SIZE = 24;
-
 /** Version string shown on Settings when `expoConfig.version` is unavailable. */
 export const FALLBACK_APP_VERSION = '1.0.0';
 

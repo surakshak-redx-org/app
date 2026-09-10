@@ -13,13 +13,11 @@ import { Text } from '@/components/ui/Text';
 import { COLORS } from '@/constants/colors';
 import { languageLabel } from '@/constants/languages';
 import { ROUTES } from '@/constants/routes';
+import { ICON_SIZE } from '@/constants/ui';
 import { useAuth } from '@/hooks/useAuth';
 import { ANALYTICS_EVENTS, trackEvent } from '@/services/analytics.service';
 import { formatTimestamp } from '@/utils/date.utils';
 import { maskPhone } from '@/utils/phone.utils';
-
-const ROW_ICON_SIZE = 22;
-const CHEVRON_SIZE = 20;
 
 interface SettingsRow {
   icon: keyof typeof MaterialIcons.glyphMap;
@@ -77,7 +75,7 @@ export default function ProfileScreen(): React.JSX.Element {
             <Card padding="md" className="mt-4">
               {rows.map((row) => (
                 <View key={row.labelKey} className="flex-row items-center gap-3 py-3">
-                  <MaterialIcons name="lock" size={ROW_ICON_SIZE} color={COLORS.STONE} />
+                  <MaterialIcons name="lock" size={ICON_SIZE.ROW} color={COLORS.STONE} />
                   <Text variant="body" tKey={row.labelKey} className="flex-1 text-stone" />
                 </View>
               ))}
@@ -120,7 +118,7 @@ export default function ProfileScreen(): React.JSX.Element {
                 >
                   <MaterialIcons
                     name={row.icon}
-                    size={ROW_ICON_SIZE}
+                    size={ICON_SIZE.ROW}
                     color={COLORS.SHAKTI_PURPLE}
                   />
                   <Text variant="body" tKey={row.labelKey} className="flex-1" />
@@ -129,7 +127,11 @@ export default function ProfileScreen(): React.JSX.Element {
                       {row.value}
                     </Text>
                   ) : null}
-                  <MaterialIcons name="chevron-right" size={CHEVRON_SIZE} color={COLORS.STONE} />
+                  <MaterialIcons
+                    name="chevron-right"
+                    size={ICON_SIZE.CHEVRON}
+                    color={COLORS.STONE}
+                  />
                 </Pressable>
               ))}
             </Card>

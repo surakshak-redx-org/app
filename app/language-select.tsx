@@ -10,6 +10,7 @@ import { Text } from '@/components/ui/Text';
 import { captureException } from '@/config/sentry';
 import { COLORS } from '@/constants/colors';
 import { LANGUAGE_OPTIONS } from '@/constants/languages';
+import { ICON_SIZE } from '@/constants/ui';
 import { useAuth } from '@/hooks/useAuth';
 import { changeLanguage } from '@/i18n';
 import { ANALYTICS_EVENTS, trackEvent } from '@/services/analytics.service';
@@ -18,8 +19,6 @@ import { updateUserProfile } from '@/services/firebase/user.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { useUserStore } from '@/stores/user.store';
 import type { Language } from '@/types/user.types';
-
-const CHECK_ICON_SIZE = 22;
 
 export default function LanguageSelectScreen(): React.JSX.Element {
   const { t, i18n } = useTranslation();
@@ -87,7 +86,7 @@ export default function LanguageSelectScreen(): React.JSX.Element {
                 {option.native}
               </Text>
               {isCurrent ? (
-                <MaterialIcons name="check" size={CHECK_ICON_SIZE} color={COLORS.SHAKTI_PURPLE} />
+                <MaterialIcons name="check" size={ICON_SIZE.STATUS} color={COLORS.SHAKTI_PURPLE} />
               ) : null}
             </Pressable>
           );

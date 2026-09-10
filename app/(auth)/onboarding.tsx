@@ -32,6 +32,7 @@ import { COLORS } from '@/constants/colors';
 import { LANGUAGE_OPTIONS } from '@/constants/languages';
 import { ROUTES } from '@/constants/routes';
 import { STORAGE_FLAG_ON, STORAGE_KEYS } from '@/constants/storage';
+import { ICON_SIZE } from '@/constants/ui';
 import { changeLanguage, detectDeviceLanguage } from '@/i18n';
 import { ANALYTICS_EVENTS, identifyUser, trackEvent } from '@/services/analytics.service';
 import { getCurrentUser } from '@/services/firebase/auth.service';
@@ -94,8 +95,14 @@ const PERMISSION_ITEMS: readonly PermissionItem[] = [
 ];
 
 const profileSchema = z.object({
-  name: z.string().min(NAME_MIN).max(NAME_MAX),
-  city: z.string().min(CITY_MIN).max(CITY_MAX),
+  name: z
+    .string()
+    .min(NAME_MIN, { message: 'onboarding.nameInvalid' })
+    .max(NAME_MAX, { message: 'onboarding.nameInvalid' }),
+  city: z
+    .string()
+    .min(CITY_MIN, { message: 'onboarding.cityInvalid' })
+    .max(CITY_MAX, { message: 'onboarding.cityInvalid' }),
 });
 
 type ProfileForm = z.infer<typeof profileSchema>;
@@ -103,8 +110,6 @@ type ProfileForm = z.infer<typeof profileSchema>;
 const LANGUAGE_STEP = 1;
 const PERMISSIONS_STEP = 2;
 const PROFILE_STEP = 3;
-const PERMISSION_ICON_SIZE = 24;
-const CHECK_ICON_SIZE = 22;
 
 export default function OnboardingScreen(): React.JSX.Element {
   const { t } = useTranslation();
@@ -122,7 +127,7 @@ export default function OnboardingScreen(): React.JSX.Element {
   const {
     control,
     handleSubmit,
-    formState: { isValid },
+    formState: { isValid, errors },
   } = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
     mode: 'onChange',
@@ -285,7 +290,7 @@ export default function OnboardingScreen(): React.JSX.Element {
                 <Card key={item.key} padding="md" className="mb-3 flex-row items-center gap-3">
                   <MaterialIcons
                     name={item.icon}
-                    size={PERMISSION_ICON_SIZE}
+                    size={ICON_SIZE.PERMISSION}
                     color={COLORS.SHAKTI_PURPLE}
                   />
                   <View className="flex-1">
@@ -300,7 +305,7 @@ export default function OnboardingScreen(): React.JSX.Element {
                   {isGranted ? (
                     <MaterialIcons
                       name="check-circle"
-                      size={CHECK_ICON_SIZE}
+                      size={ICON_SIZE.STATUS}
                       color={COLORS.FOREST_GREEN}
                     />
                   ) : (
@@ -364,6 +369,7 @@ export default function OnboardingScreen(): React.JSX.Element {
                   value={field.value}
                   onBlur={field.onBlur}
                   onChangeText={field.onChange}
+                  error={errors.name ? t(errors.name.message ?? 'errors.generic') : undefined}
                 />
               )}
             />
@@ -377,6 +383,7 @@ export default function OnboardingScreen(): React.JSX.Element {
                   value={field.value}
                   onBlur={field.onBlur}
                   onChangeText={field.onChange}
+                  error={errors.city ? t(errors.city.message ?? 'errors.generic') : undefined}
                 />
               )}
             />

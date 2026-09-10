@@ -10,11 +10,10 @@ import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { Text } from '@/components/ui/Text';
 import { COLORS } from '@/constants/colors';
 import { ROUTES } from '@/constants/routes';
+import { ICON_SIZE } from '@/constants/ui';
 import { ANALYTICS_EVENTS, trackEvent } from '@/services/analytics.service';
 import { getCurrentUser } from '@/services/firebase/auth.service';
 import { useAuthStore } from '@/stores/auth.store';
-
-const LOGO_SIZE = 80;
 
 export default function WelcomeScreen(): React.JSX.Element {
   const { t } = useTranslation();
@@ -41,7 +40,7 @@ export default function WelcomeScreen(): React.JSX.Element {
     <ErrorBoundary>
       <SafeAreaView className="flex-1 bg-off-white" edges={['top', 'bottom', 'left', 'right']}>
         <View className="flex-1 items-center justify-center px-6">
-          <MaterialIcons name="security" size={LOGO_SIZE} color={COLORS.PRIMARY_RED} />
+          <MaterialIcons name="security" size={ICON_SIZE.BRAND} color={COLORS.PRIMARY_RED} />
           <Text variant="h1" tKey="home.title" className="mt-4" />
           <Text variant="body" tKey="home.tagline" className="mt-2 text-stone" />
           <Text variant="caption" tKey="auth.tagline" className="mt-1 text-stone" />

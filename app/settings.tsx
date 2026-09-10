@@ -14,7 +14,13 @@ import { captureException } from '@/config/sentry';
 import { FALLBACK_APP_VERSION } from '@/constants/auth';
 import { COLORS } from '@/constants/colors';
 import { ROUTES } from '@/constants/routes';
-import { STORAGE_FLAG_OFF, STORAGE_KEYS } from '@/constants/storage';
+import {
+  STORAGE_FLAG_OFF,
+  STORAGE_FLAG_ON,
+  STORAGE_KEYS,
+  type StorageKey,
+} from '@/constants/storage';
+import { DANGER_ROW_HITSLOP, ICON_SIZE } from '@/constants/ui';
 import {
   ANALYTICS_EVENTS,
   resetUser as resetAnalytics,
@@ -23,9 +29,6 @@ import {
 import { AuthError, deleteAccount } from '@/services/firebase/auth.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { useUserStore } from '@/stores/user.store';
-
-const CHEVRON_SIZE = 20;
-const DELETE_HITSLOP = 12;
 
 export default function SettingsScreen(): React.JSX.Element {
   const { t } = useTranslation();
@@ -44,12 +47,18 @@ export default function SettingsScreen(): React.JSX.Element {
       .catch((error: unknown) => captureException(error));
   }, []);
 
-  function persistToggle(key: string, value: boolean, revert: (previous: boolean) => void): void {
-    AsyncStorage.setItem(key, String(value)).catch((error: unknown) => {
-      captureException(error);
-      // The write failed — don't let the switch claim a setting that isn't saved.
-      revert(!value);
-    });
+  function persistToggle(
+    key: StorageKey,
+    value: boolean,
+    revert: (previous: boolean) => void,
+  ): void {
+    AsyncStorage.setItem(key, value ? STORAGE_FLAG_ON : STORAGE_FLAG_OFF).catch(
+      (error: unknown) => {
+        captureException(error);
+        // The write failed — don't let the switch claim a setting that isn't saved.
+        revert(!value);
+      },
+    );
   }
 
   function handleShakeToggle(value: boolean): void {
@@ -115,7 +124,7 @@ export default function SettingsScreen(): React.JSX.Element {
             className="flex-row items-center justify-between py-3"
           >
             <Text variant="body" tKey="settings.language" />
-            <MaterialIcons name="chevron-right" size={CHEVRON_SIZE} color={COLORS.STONE} />
+            <MaterialIcons name="chevron-right" size={ICON_SIZE.CHEVRON} color={COLORS.STONE} />
           </Pressable>
 
           <View className="flex-row items-center justify-between py-3">
@@ -154,7 +163,7 @@ export default function SettingsScreen(): React.JSX.Element {
             onPress={handleDeleteAccount}
             accessibilityRole="button"
             className="py-3"
-            hitSlop={DELETE_HITSLOP}
+            hitSlop={DANGER_ROW_HITSLOP}
           >
             <Text variant="body" tKey="settings.deleteAccount" className="text-error-red" />
           </Pressable>

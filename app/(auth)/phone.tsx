@@ -13,7 +13,6 @@ import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { SafeScreen } from '@/components/ui/SafeScreen';
 import { Text } from '@/components/ui/Text';
 import {
-  BACK_ICON_SIZE,
   PHONE_DIGITS,
   PHONE_E164_PREFIX,
   PHONE_LAST_DIGITS,
@@ -21,6 +20,7 @@ import {
 } from '@/constants/auth';
 import { COLORS } from '@/constants/colors';
 import { ROUTES } from '@/constants/routes';
+import { ICON_SIZE } from '@/constants/ui';
 import { ANALYTICS_EVENTS, trackEvent } from '@/services/analytics.service';
 import { AuthError, sendOtp } from '@/services/firebase/auth.service';
 
@@ -93,7 +93,7 @@ export default function PhoneScreen(): React.JSX.Element {
           accessibilityRole="button"
           accessibilityLabel={t('common.back')}
         >
-          <MaterialIcons name="arrow-back" size={BACK_ICON_SIZE} color={COLORS.DEEP_INK} />
+          <MaterialIcons name="arrow-back" size={ICON_SIZE.BACK} color={COLORS.DEEP_INK} />
         </Pressable>
 
         <Text variant="h2" tKey="auth.enterPhone" className="mb-2 mt-6" />
