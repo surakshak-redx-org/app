@@ -31,6 +31,7 @@ const FIREBASE_ERROR_TO_I18N: Record<string, string> = {
   'auth/too-many-requests': 'auth.tooManyRequests',
   'auth/invalid-verification-code': 'auth.otpInvalid',
   'auth/code-expired': 'auth.otpExpired',
+  'auth/requires-recent-login': 'errors.sessionExpired',
 };
 
 /** Reads a `.code` string off an unknown thrown value, if it has one. */
@@ -139,6 +140,9 @@ export async function deleteAccount(): Promise<void> {
     await deleteUser(user);
   } catch (error) {
     console.error('deleteAccount failed:', error);
-    throw error;
+    if (error instanceof AuthError) throw error;
+    // Firebase requires a fresh login to delete an account after ~5 minutes;
+    // surface that as `errors.sessionExpired` rather than a generic failure.
+    throw mapFirebaseAuthError(firebaseErrorCode(error));
   }
 }

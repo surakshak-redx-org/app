@@ -5,6 +5,7 @@ import { OTP_LENGTH } from '@/constants/auth';
 import { AuthError, verifyOtp } from '@/services/firebase/auth.service';
 import { doesUserExist } from '@/services/firebase/user.service';
 import OtpScreen from '@app/(auth)/otp';
+import { getStoredConfirmation } from '@app/(auth)/phone';
 
 const mockReplace = jest.fn();
 
@@ -14,7 +15,7 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('@app/(auth)/phone', () => ({
-  getStoredConfirmation: () => ({ confirm: jest.fn() }),
+  getStoredConfirmation: jest.fn(() => ({ confirm: jest.fn() })),
   setStoredConfirmation: jest.fn(),
 }));
 
@@ -36,6 +37,7 @@ jest.mock('@/services/firebase/user.service', () => ({
 describe('OtpScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(getStoredConfirmation).mockReturnValue({ confirm: jest.fn() } as never);
   });
 
   it('renders one input box per OTP digit and the masked destination', async () => {
@@ -77,5 +79,21 @@ describe('OtpScreen', () => {
     );
 
     expect(await findByText('Enter the 6-digit OTP')).toBeTruthy();
+  });
+
+  it('bounces back to the phone screen when the confirmation was lost', async () => {
+    jest.mocked(getStoredConfirmation).mockReturnValue(null);
+
+    const { getAllByLabelText, findByText } = await render(<OtpScreen />);
+
+    await [0, 1, 2, 3, 4, 5].reduce(
+      (chain, i) =>
+        chain.then(() => fireEvent.changeText(getAllByLabelText('Enter OTP')[i] as never, '1')),
+      Promise.resolve(),
+    );
+
+    expect(await findByText('Your session has expired. Please sign in again.')).toBeTruthy();
+    expect(mockReplace).toHaveBeenCalledWith('/(auth)/phone');
+    expect(verifyOtp).not.toHaveBeenCalled();
   });
 });

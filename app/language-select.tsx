@@ -20,7 +20,6 @@ import { useUserStore } from '@/stores/user.store';
 import type { Language } from '@/types/user.types';
 
 const CHECK_ICON_SIZE = 22;
-const FLAG_MARGIN = 'mr-3';
 
 export default function LanguageSelectScreen(): React.JSX.Element {
   const { t, i18n } = useTranslation();
@@ -38,7 +37,13 @@ export default function LanguageSelectScreen(): React.JSX.Element {
 
     try {
       await changeLanguage(code);
+    } catch (error) {
+      captureException(error);
+      Alert.alert(t('errors.generic'));
+      return;
+    }
 
+    try {
       const user = getCurrentUser();
       if (surakshakUser !== null && user !== null) {
         await updateUserProfile(user.uid, { language: code });
@@ -51,6 +56,8 @@ export default function LanguageSelectScreen(): React.JSX.Element {
       router.back();
     } catch (error) {
       captureException(error);
+      // The catalogue swapped but the choice didn't persist — put the UI back.
+      await changeLanguage(previous as Language);
       Alert.alert(t('errors.generic'));
     }
   }
@@ -73,7 +80,7 @@ export default function LanguageSelectScreen(): React.JSX.Element {
                   : 'border-stone/20 bg-white'
               }`}
             >
-              <Text variant="h3" className={FLAG_MARGIN}>
+              <Text variant="h3" className="mr-3">
                 {option.flag}
               </Text>
               <Text variant="body" className="flex-1">

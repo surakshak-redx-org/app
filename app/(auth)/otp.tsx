@@ -8,7 +8,7 @@ import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { SafeScreen } from '@/components/ui/SafeScreen';
 import { Spinner } from '@/components/ui/Spinner';
 import { Text } from '@/components/ui/Text';
-import { OTP_LENGTH, OTP_RESEND_SECONDS } from '@/constants/auth';
+import { BACK_ICON_SIZE, OTP_LENGTH, OTP_RESEND_SECONDS } from '@/constants/auth';
 import { COLORS } from '@/constants/colors';
 import { ROUTES } from '@/constants/routes';
 import { ANALYTICS_EVENTS, trackEvent } from '@/services/analytics.service';
@@ -48,7 +48,13 @@ export default function OtpScreen(): React.JSX.Element {
 
   async function handleVerify(code: string): Promise<void> {
     const confirmation = getStoredConfirmation();
-    if (confirmation === null) return;
+    if (confirmation === null) {
+      // The confirmation lives in module memory and is lost if the app is
+      // killed mid-flow — send the user back to re-request an OTP.
+      setError('errors.sessionExpired');
+      router.replace(ROUTES.PHONE);
+      return;
+    }
 
     setIsVerifying(true);
     setError(null);
@@ -68,6 +74,8 @@ export default function OtpScreen(): React.JSX.Element {
   }
 
   function handleDigitChange(value: string, index: number): void {
+    if (isVerifying) return;
+
     const sanitized = value.replace(/[^0-9]/g, '');
 
     // A full code pasted into the first box.
@@ -91,6 +99,8 @@ export default function OtpScreen(): React.JSX.Element {
   }
 
   function handleKeyPress(key: string, index: number): void {
+    if (isVerifying) return;
+
     const isEmpty = digits[index] === undefined || digits[index] === '';
     if (key === 'Backspace' && isEmpty && index > 0) {
       const next = [...digits];
@@ -128,7 +138,7 @@ export default function OtpScreen(): React.JSX.Element {
           accessibilityRole="button"
           accessibilityLabel={t('common.back')}
         >
-          <MaterialIcons name="arrow-back" size={24} color={COLORS.DEEP_INK} />
+          <MaterialIcons name="arrow-back" size={BACK_ICON_SIZE} color={COLORS.DEEP_INK} />
         </Pressable>
 
         <Text variant="h2" tKey="auth.enterOtp" className="mb-2 mt-6" />
@@ -139,29 +149,28 @@ export default function OtpScreen(): React.JSX.Element {
           className="text-stone"
         />
 
-        {isVerifying ? (
-          <Spinner size="lg" className="mb-4 mt-8 items-center" />
-        ) : (
-          <View className="mb-4 mt-8 flex-row justify-between">
-            {digits.map((digit, index) => (
-              <TextInput
-                key={`otp-${index}`}
-                ref={(element) => {
-                  inputRefs.current[index] = element;
-                }}
-                className={`h-14 w-12 rounded-xl border-2 text-center text-xl font-semibold text-ink ${
-                  digit !== '' ? 'border-shakti-purple' : 'border-stone/30'
-                }`}
-                keyboardType="number-pad"
-                maxLength={index === 0 ? OTP_LENGTH : 1}
-                value={digit}
-                onChangeText={(value) => handleDigitChange(value, index)}
-                onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
-                accessibilityLabel={t('auth.enterOtp')}
-              />
-            ))}
-          </View>
-        )}
+        <View className="mb-4 mt-8 flex-row justify-between">
+          {digits.map((digit, index) => (
+            <TextInput
+              key={`otp-${index}`}
+              ref={(element) => {
+                inputRefs.current[index] = element;
+              }}
+              className={`h-14 w-12 rounded-xl border-2 text-center text-xl font-semibold text-ink ${
+                digit !== '' ? 'border-shakti-purple' : 'border-stone/30'
+              }`}
+              editable={!isVerifying}
+              keyboardType="number-pad"
+              maxLength={index === 0 ? OTP_LENGTH : 1}
+              value={digit}
+              onChangeText={(value) => handleDigitChange(value, index)}
+              onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
+              accessibilityLabel={t('auth.enterOtp')}
+            />
+          ))}
+        </View>
+
+        {isVerifying ? <Spinner size="lg" className="mb-4 items-center" /> : null}
 
         {error !== null ? (
           <Text variant="caption" className="text-center text-error-red">

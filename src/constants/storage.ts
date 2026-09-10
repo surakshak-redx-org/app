@@ -12,3 +12,9 @@ export const STORAGE_KEYS = {
 } as const;
 
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];
+
+/** Canonical truthy value written for boolean-style flags. */
+export const STORAGE_FLAG_ON = 'true';
+
+/** A boolean flag counts as disabled only when it was explicitly set to this. */
+export const STORAGE_FLAG_OFF = 'false';

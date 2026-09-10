@@ -1,3 +1,4 @@
+import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
@@ -10,20 +11,21 @@ import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { SafeScreen } from '@/components/ui/SafeScreen';
 import { Text } from '@/components/ui/Text';
 import { captureException } from '@/config/sentry';
+import { FALLBACK_APP_VERSION } from '@/constants/auth';
 import { COLORS } from '@/constants/colors';
 import { ROUTES } from '@/constants/routes';
-import { STORAGE_KEYS } from '@/constants/storage';
+import { STORAGE_FLAG_OFF, STORAGE_KEYS } from '@/constants/storage';
 import {
   ANALYTICS_EVENTS,
   resetUser as resetAnalytics,
   trackEvent,
 } from '@/services/analytics.service';
-import { deleteAccount } from '@/services/firebase/auth.service';
+import { AuthError, deleteAccount } from '@/services/firebase/auth.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { useUserStore } from '@/stores/user.store';
 
-const FALLBACK_VERSION = '1.0.0';
-const ROW_ICON_SIZE = 20;
+const CHEVRON_SIZE = 20;
+const DELETE_HITSLOP = 12;
 
 export default function SettingsScreen(): React.JSX.Element {
   const { t } = useTranslation();
@@ -33,28 +35,41 @@ export default function SettingsScreen(): React.JSX.Element {
   const [lowBatteryEnabled, setLowBatteryEnabled] = useState(true);
 
   useEffect(() => {
-    void AsyncStorage.multiGet([STORAGE_KEYS.SHAKE_ENABLED, STORAGE_KEYS.LOW_BATTERY_ENABLED]).then(
-      (entries) => {
+    AsyncStorage.multiGet([STORAGE_KEYS.SHAKE_ENABLED, STORAGE_KEYS.LOW_BATTERY_ENABLED])
+      .then((entries) => {
         const stored = new Map<string, string | null>(entries);
-        setShakeEnabled(stored.get(STORAGE_KEYS.SHAKE_ENABLED) !== 'false');
-        setLowBatteryEnabled(stored.get(STORAGE_KEYS.LOW_BATTERY_ENABLED) !== 'false');
-      },
-    );
+        setShakeEnabled(stored.get(STORAGE_KEYS.SHAKE_ENABLED) !== STORAGE_FLAG_OFF);
+        setLowBatteryEnabled(stored.get(STORAGE_KEYS.LOW_BATTERY_ENABLED) !== STORAGE_FLAG_OFF);
+      })
+      .catch((error: unknown) => captureException(error));
   }, []);
+
+  function persistToggle(key: string, value: boolean, revert: (previous: boolean) => void): void {
+    AsyncStorage.setItem(key, String(value)).catch((error: unknown) => {
+      captureException(error);
+      // The write failed — don't let the switch claim a setting that isn't saved.
+      revert(!value);
+    });
+  }
 
   function handleShakeToggle(value: boolean): void {
     setShakeEnabled(value);
-    void AsyncStorage.setItem(STORAGE_KEYS.SHAKE_ENABLED, String(value));
+    persistToggle(STORAGE_KEYS.SHAKE_ENABLED, value, setShakeEnabled);
   }
 
   function handleBatteryToggle(value: boolean): void {
     setLowBatteryEnabled(value);
-    void AsyncStorage.setItem(STORAGE_KEYS.LOW_BATTERY_ENABLED, String(value));
+    persistToggle(STORAGE_KEYS.LOW_BATTERY_ENABLED, value, setLowBatteryEnabled);
   }
 
   async function runDelete(): Promise<void> {
     try {
       await deleteAccount();
+      await AsyncStorage.multiRemove([
+        STORAGE_KEYS.ONBOARDING_COMPLETE,
+        STORAGE_KEYS.SHAKE_ENABLED,
+        STORAGE_KEYS.LOW_BATTERY_ENABLED,
+      ]);
       useAuthStore.getState().reset();
       useUserStore.getState().reset();
       resetAnalytics();
@@ -62,7 +77,7 @@ export default function SettingsScreen(): React.JSX.Element {
       router.replace(ROUTES.WELCOME);
     } catch (error) {
       captureException(error);
-      Alert.alert(t('errors.generic'));
+      Alert.alert(t(error instanceof AuthError ? error.i18nKey : 'errors.generic'));
     }
   }
 
@@ -86,7 +101,7 @@ export default function SettingsScreen(): React.JSX.Element {
     ]);
   }
 
-  const appVersion = Constants.expoConfig?.version ?? FALLBACK_VERSION;
+  const appVersion = Constants.expoConfig?.version ?? FALLBACK_APP_VERSION;
 
   return (
     <ErrorBoundary>
@@ -100,9 +115,7 @@ export default function SettingsScreen(): React.JSX.Element {
             className="flex-row items-center justify-between py-3"
           >
             <Text variant="body" tKey="settings.language" />
-            <Text variant="caption" className="text-stone">
-              ›
-            </Text>
+            <MaterialIcons name="chevron-right" size={CHEVRON_SIZE} color={COLORS.STONE} />
           </Pressable>
 
           <View className="flex-row items-center justify-between py-3">
@@ -141,7 +154,7 @@ export default function SettingsScreen(): React.JSX.Element {
             onPress={handleDeleteAccount}
             accessibilityRole="button"
             className="py-3"
-            hitSlop={ROW_ICON_SIZE}
+            hitSlop={DELETE_HITSLOP}
           >
             <Text variant="body" tKey="settings.deleteAccount" className="text-error-red" />
           </Pressable>

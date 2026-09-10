@@ -49,6 +49,18 @@ describe('ProfileScreen', () => {
     expect(getByText('+91XXXXXX3210')).toBeTruthy();
   });
 
+  it('does not crash when createdAt is still a pending server timestamp', async () => {
+    useAuthStore.getState().setUser({ uid: 'u1' } as never);
+    useAuthStore.getState().setSurakshakUser({
+      ...FAKE_USER,
+      createdAt: null,
+    } as unknown as typeof FAKE_USER);
+
+    const { getByText } = await render(<ProfileScreen />);
+
+    expect(getByText('Priya')).toBeTruthy();
+  });
+
   it('confirms before signing out', async () => {
     const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     useAuthStore.getState().setUser({ uid: 'u1' } as never);

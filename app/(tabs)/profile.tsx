@@ -33,6 +33,14 @@ export default function ProfileScreen(): React.JSX.Element {
   const router = useRouter();
   const { surakshakUser, isGuest, signOut } = useAuth();
 
+  // `createdAt` is a pending server timestamp right after onboarding and can be
+  // null locally until the write round-trips.
+  const createdAt = surakshakUser?.createdAt;
+  const memberSince =
+    createdAt != null && typeof createdAt.toDate === 'function'
+      ? formatTimestamp(createdAt.toDate())
+      : '';
+
   const rows: SettingsRow[] = [
     { icon: 'contacts', labelKey: 'profile.emergencyContacts', route: ROUTES.EMERGENCY_CONTACTS },
     {
@@ -97,10 +105,7 @@ export default function ProfileScreen(): React.JSX.Element {
               <Text
                 variant="caption"
                 tKey="profile.memberSince"
-                tOptions={{
-                  date:
-                    surakshakUser !== null ? formatTimestamp(surakshakUser.createdAt.toDate()) : '',
-                }}
+                tOptions={{ date: memberSince }}
                 className="mt-1 text-stone"
               />
             </Card>

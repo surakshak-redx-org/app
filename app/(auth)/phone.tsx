@@ -12,15 +12,17 @@ import { Button } from '@/components/ui/Button';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { SafeScreen } from '@/components/ui/SafeScreen';
 import { Text } from '@/components/ui/Text';
-import { PHONE_DIGITS } from '@/constants/auth';
+import {
+  BACK_ICON_SIZE,
+  PHONE_DIGITS,
+  PHONE_E164_PREFIX,
+  PHONE_LAST_DIGITS,
+  PHONE_PREFIX_LABEL,
+} from '@/constants/auth';
 import { COLORS } from '@/constants/colors';
 import { ROUTES } from '@/constants/routes';
 import { ANALYTICS_EVENTS, trackEvent } from '@/services/analytics.service';
 import { AuthError, sendOtp } from '@/services/firebase/auth.service';
-
-const PHONE_PREFIX_LABEL = '🇮🇳  +91';
-const PHONE_E164_PREFIX = '+91';
-const LAST_DIGITS = 4;
 
 /**
  * Survives the navigation from this screen to the OTP screen. A Firebase
@@ -66,7 +68,7 @@ export default function PhoneScreen(): React.JSX.Element {
     try {
       const confirmation = await sendOtp(phone);
       setStoredConfirmation(confirmation);
-      trackEvent(ANALYTICS_EVENTS.OTP_REQUESTED, { phone_last4: phone.slice(-LAST_DIGITS) });
+      trackEvent(ANALYTICS_EVENTS.OTP_REQUESTED, { phone_last4: phone.slice(-PHONE_LAST_DIGITS) });
       router.push({
         pathname: ROUTES.OTP,
         params: { phone: `${PHONE_E164_PREFIX}${phone}` },
@@ -91,7 +93,7 @@ export default function PhoneScreen(): React.JSX.Element {
           accessibilityRole="button"
           accessibilityLabel={t('common.back')}
         >
-          <MaterialIcons name="arrow-back" size={24} color={COLORS.DEEP_INK} />
+          <MaterialIcons name="arrow-back" size={BACK_ICON_SIZE} color={COLORS.DEEP_INK} />
         </Pressable>
 
         <Text variant="h2" tKey="auth.enterPhone" className="mb-2 mt-6" />

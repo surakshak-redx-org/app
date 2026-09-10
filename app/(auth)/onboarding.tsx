@@ -31,7 +31,7 @@ import {
 import { COLORS } from '@/constants/colors';
 import { LANGUAGE_OPTIONS } from '@/constants/languages';
 import { ROUTES } from '@/constants/routes';
-import { STORAGE_KEYS } from '@/constants/storage';
+import { STORAGE_FLAG_ON, STORAGE_KEYS } from '@/constants/storage';
 import { changeLanguage, detectDeviceLanguage } from '@/i18n';
 import { ANALYTICS_EVENTS, identifyUser, trackEvent } from '@/services/analytics.service';
 import { getCurrentUser } from '@/services/firebase/auth.service';
@@ -114,7 +114,7 @@ export default function OnboardingScreen(): React.JSX.Element {
 
   const [step, setStep] = useState<number>(LANGUAGE_STEP);
   const [selectedLanguage, setSelectedLanguage] = useState<Language>(detectDeviceLanguage);
-  const [grantedPermissions, setGrantedPermissions] = useState<string[]>([]);
+  const [grantedPermissions, setGrantedPermissions] = useState<PermissionKey[]>([]);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
   const [isPhotoUploading, setIsPhotoUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -131,15 +131,19 @@ export default function OnboardingScreen(): React.JSX.Element {
 
   function handleSelectLanguage(code: Language): void {
     setSelectedLanguage(code);
-    void changeLanguage(code);
+    changeLanguage(code).catch((languageError: unknown) => captureException(languageError));
   }
 
   async function handleRequestPermission(item: PermissionItem): Promise<void> {
-    const granted = await item.request();
-    if (granted) {
-      setGrantedPermissions((previous) =>
-        previous.includes(item.key) ? previous : [...previous, item.key],
-      );
+    try {
+      const granted = await item.request();
+      if (granted) {
+        setGrantedPermissions((previous) =>
+          previous.includes(item.key) ? previous : [...previous, item.key],
+        );
+      }
+    } catch (permissionError) {
+      captureException(permissionError);
     }
   }
 
@@ -153,20 +157,19 @@ export default function OnboardingScreen(): React.JSX.Element {
   }
 
   async function handlePickPhoto(): Promise<void> {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: PROFILE_PHOTO_ASPECT,
-      quality: PROFILE_PHOTO_QUALITY,
-    });
-    if (result.canceled) return;
-
-    const asset = result.assets[0];
-    const user = getCurrentUser();
-    if (asset === undefined || user === null) return;
-
     setIsPhotoUploading(true);
     try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: PROFILE_PHOTO_ASPECT,
+        quality: PROFILE_PHOTO_QUALITY,
+      });
+
+      const asset = result.canceled ? undefined : result.assets[0];
+      const user = getCurrentUser();
+      if (asset === undefined || user === null) return;
+
       const url = await uploadProfilePhoto(user.uid, asset.uri);
       setProfilePhotoUrl(url);
     } catch (uploadError) {
@@ -179,7 +182,12 @@ export default function OnboardingScreen(): React.JSX.Element {
 
   async function handleComplete({ name, city }: ProfileForm): Promise<void> {
     const user = getCurrentUser();
-    if (user === null) return;
+    if (user === null) {
+      // Auth state was lost between OTP and here — restart the sign-in flow.
+      Alert.alert(t('errors.sessionExpired'));
+      router.replace(ROUTES.PHONE);
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -190,7 +198,7 @@ export default function OnboardingScreen(): React.JSX.Element {
         phone: user.phoneNumber ?? '',
         profilePhotoUrl: profilePhotoUrl ?? '',
       });
-      await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_COMPLETE, 'true');
+      await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_COMPLETE, STORAGE_FLAG_ON);
       setSurakshakUser(profile);
       setProfileMirror(profile);
       identifyUser(user.uid);
@@ -283,6 +291,11 @@ export default function OnboardingScreen(): React.JSX.Element {
                   <View className="flex-1">
                     <Text variant="label" tKey={item.titleKey} className="text-ink" />
                     <Text variant="caption" tKey={item.reasonKey} className="text-stone" />
+                    <Text
+                      variant="caption"
+                      tKey={item.required ? 'onboarding.required' : 'onboarding.recommended'}
+                      className={item.required ? 'text-primary-red' : 'text-stone'}
+                    />
                   </View>
                   {isGranted ? (
                     <MaterialIcons
@@ -294,7 +307,7 @@ export default function OnboardingScreen(): React.JSX.Element {
                     <Button
                       variant="outline"
                       size="sm"
-                      label={t(item.required ? 'onboarding.allow' : 'onboarding.skip')}
+                      label={t('onboarding.allow')}
                       onPress={() => void handleRequestPermission(item)}
                     />
                   )}

@@ -3,6 +3,21 @@ import type { PermissionKey } from '@/utils/permissions.utils';
 /** Digits in the OTP Firebase sends for phone sign-in. */
 export const OTP_LENGTH = 6;
 
+/** India country code in E.164 form, prepended before the 10 national digits. */
+export const PHONE_E164_PREFIX = '+91';
+
+/** Non-editable prefix shown on the phone-entry field. */
+export const PHONE_PREFIX_LABEL = '🇮🇳  +91';
+
+/** How many trailing digits identify a number in an analytics property. */
+export const PHONE_LAST_DIGITS = 4;
+
+/** `MaterialIcons` size for a screen's top-left back chevron. */
+export const BACK_ICON_SIZE = 24;
+
+/** Version string shown on Settings when `expoConfig.version` is unavailable. */
+export const FALLBACK_APP_VERSION = '1.0.0';
+
 /** Seconds the user must wait before "Resend OTP" becomes available. */
 export const OTP_RESEND_SECONDS = 60;
 

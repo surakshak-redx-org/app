@@ -1,5 +1,5 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { useRouter } from 'expo-router';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -19,6 +19,7 @@ const ICON_SIZE = 24;
 
 export function GuestBanner({ message }: GuestBannerProps): React.JSX.Element {
   const { t } = useTranslation();
+  const router = useRouter();
 
   function handleSignIn(): void {
     router.push(ROUTES.WELCOME);

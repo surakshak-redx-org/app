@@ -1,5 +1,7 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, renderHook } from '@testing-library/react-native';
 
+import { STORAGE_KEYS } from '@/constants/storage';
 import { useAuth } from '@/hooks/useAuth';
 import { signOutUser } from '@/services/firebase/auth.service';
 import { useAuthStore } from '@/stores/auth.store';
@@ -65,6 +67,7 @@ describe('useAuth', () => {
 
     expect(signOutUser).toHaveBeenCalled();
     expect(useAuthStore.getState().isGuest).toBe(false);
+    expect(AsyncStorage.removeItem).toHaveBeenCalledWith(STORAGE_KEYS.ONBOARDING_COMPLETE);
   });
 
   it('still clears local state when the network sign-out fails', async () => {

@@ -1,6 +1,8 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { User as FirebaseUser } from '@react-native-firebase/auth';
 import { useCallback } from 'react';
 
+import { STORAGE_KEYS } from '@/constants/storage';
 import { resetUser as resetAnalytics } from '@/services/analytics.service';
 import { signOutUser } from '@/services/firebase/auth.service';
 import { useAuthStore } from '@/stores/auth.store';
@@ -36,6 +38,9 @@ export function useAuth(): UseAuthResult {
       resetAuth();
       resetUserStore();
       resetAnalytics();
+      // The onboarding gate keys off this flag; a different account signing in
+      // next must not inherit "onboarding already done".
+      await AsyncStorage.removeItem(STORAGE_KEYS.ONBOARDING_COMPLETE).catch(() => undefined);
     }
   }, [resetAuth, resetUserStore]);
 
