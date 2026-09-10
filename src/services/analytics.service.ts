@@ -36,6 +36,11 @@ export const ANALYTICS_EVENTS = {
   NEARBY_HELP_CALLED: 'nearby_help_called',
   NEARBY_HELP_DIRECTIONS: 'nearby_help_directions',
   INCIDENT_REPORTED: 'incident_reported',
+  LAW_VIEWED: 'law_viewed',
+  FAQ_VIEWED: 'faq_viewed',
+  TIPS_VIEWED: 'tips_viewed',
+  NEWS_VIEWED: 'news_viewed',
+  INFO_SECTION_OPENED: 'info_section_opened',
   LANGUAGE_CHANGED: 'language_changed',
   OTP_REQUESTED: 'otp_requested',
   OTP_VERIFIED: 'otp_verified',
@@ -190,4 +195,28 @@ export function trackCommunityImageShared(): void {
 
 export function trackCommunityLocationShared(): void {
   trackEvent(ANALYTICS_EVENTS.COMMUNITY_LOCATION_SHARED, {});
+}
+
+/* ------------------------- information hub ------------------------- */
+
+export type InfoSection = 'laws' | 'faq' | 'tips' | 'news';
+
+export function trackInfoSectionOpened(section: InfoSection): void {
+  trackEvent(ANALYTICS_EVENTS.INFO_SECTION_OPENED, { section });
+}
+
+export function trackLawViewed(lawId: string, category: string): void {
+  trackEvent(ANALYTICS_EVENTS.LAW_VIEWED, { law_id: lawId, category });
+}
+
+export function trackFaqViewed(faqId: string, category: string): void {
+  trackEvent(ANALYTICS_EVENTS.FAQ_VIEWED, { faq_id: faqId, category });
+}
+
+export function trackTipsViewed(category: string): void {
+  trackEvent(ANALYTICS_EVENTS.TIPS_VIEWED, { category });
+}
+
+export function trackNewsViewed(newsId: string, category: string): void {
+  trackEvent(ANALYTICS_EVENTS.NEWS_VIEWED, { news_id: newsId, category });
 }

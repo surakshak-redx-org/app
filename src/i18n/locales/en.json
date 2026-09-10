@@ -247,7 +247,16 @@
     "readMore": "Read More",
     "noContent": "No content available",
     "offlineBanner": "Viewing cached content — last updated {{date}}",
-    "allCategories": "All"
+    "allCategories": "All",
+    "search": "Search",
+    "loadError": "Couldn't load content. Pull to refresh or try later.",
+    "lastSynced": "Available offline · Last synced {{date}}",
+    "noLawsFound": "No laws found",
+    "noLawsFoundSubtitle": "Try a different search term or category",
+    "noFaqsFound": "No questions found",
+    "noTipsFound": "No tips available",
+    "legalHelpTitle": "Need legal help?",
+    "legalHelpBody": "Call 1091 (Women Helpline) or 181 (Mahila Helpline) for free legal guidance."
   },
   "location": {
     "liveLocation": "Live Location",

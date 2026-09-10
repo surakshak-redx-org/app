@@ -18,8 +18,11 @@ export const ROUTES = {
   SETTINGS: '/settings',
   SMS_ALERT_HISTORY: '/sms-alert-history',
   LANGUAGE_SELECT: '/language-select',
+  LAWS: '/laws',
+  FAQS: '/faqs',
+  TIPS: '/tips',
+  NEWS: '/news',
   LAW_DETAIL: '/law',
-  NEWS_DETAIL: '/news',
 } as const;
 
 export type RouteKey = keyof typeof ROUTES;

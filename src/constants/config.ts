@@ -23,6 +23,10 @@ export const APP_CONFIG = {
   MAX_COMMUNITY_IMAGE_MB: 5,
   UNSAFE_AREA_SEARCH_RADIUS_KM: 50,
   CACHE_EXPIRY_HOURS: 24,
+  /** Newest-first cap on the Information Hub news feed. */
+  NEWS_FEED_LIMIT: 30,
+  /** Tags shown on a law list card before the rest are hidden. */
+  LAW_CARD_TAG_PREVIEW_COUNT: 3,
   LIVE_LOCATION_DISTANCE_INTERVAL_METERS: 10,
   SAFE_JOURNEY_ETA_MIN_MINUTES: 5,
   SAFE_JOURNEY_ETA_MAX_MINUTES: 480,
@@ -67,6 +71,13 @@ export const LOCATION_UNAVAILABLE = 'Location unavailable';
 
 /** Newest-first cap on the locally persisted SMS alert history. */
 export const SMS_HISTORY_LIMIT = 50;
+
+/**
+ * Sentinel for the "show everything" chip in the Information Hub category
+ * filters. A string, so it lives outside the numeric `APP_CONFIG` object; its
+ * visible label comes from `t('info.allCategories')`.
+ */
+export const ALL_CATEGORIES = 'all';
 
 /**
  * 4:3 crop the picker applies to an attached community image. Kept out of
