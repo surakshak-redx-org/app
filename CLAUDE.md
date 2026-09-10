@@ -12,6 +12,25 @@
 - App Repo: surakshak-redx-org/app
 - Other Repos: landing, admin, functions, docs, design
 
+## Repositories
+
+| Repo      | URL                                     | Purpose                               |
+| --------- | --------------------------------------- | ------------------------------------- |
+| app       | github.com/surakshak-redx-org/app       | React Native / Expo mobile app        |
+| functions | github.com/surakshak-redx-org/functions | Firebase Cloud Functions              |
+| admin     | github.com/surakshak-redx-org/admin     | Web CMS and moderation dashboard      |
+| landing   | github.com/surakshak-redx-org/landing   | Marketing landing page                |
+| design    | github.com/surakshak-redx-org/design    | Figma exports, brand assets, tokens   |
+| docs      | github.com/surakshak-redx-org/docs      | Internal docs, architecture decisions |
+
+## Cross-Repo Rules
+
+- Cloud Functions NEVER live in the app repo — always in surakshak-redx-org/functions
+- App repo only contains mobile app code
+- When a phase requires a Cloud Function, a separate prompt is run in the functions repo
+- Functions and app are deployed independently
+- Shared types between app and functions are documented in docs repo
+
 ## Environments
 
 | APP_ENV | Firebase Project     | App Name          | Bundle ID             | Icon            | MixPanel | Sentry |
