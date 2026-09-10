@@ -5,6 +5,10 @@ import { useAuthStore } from '@/stores/auth.store';
 import type { CommunityPost } from '@/types/community.types';
 import CommunityScreen from '@app/(tabs)/community';
 
+// The first cold render of this screen (FlatList + vector-icon glyph maps +
+// NativeWind JIT) can exceed Jest's 5s default on a loaded CI runner.
+jest.setTimeout(20000);
+
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
 }));

@@ -279,105 +279,102 @@ export default function CommunityScreen(): React.JSX.Element {
           </Pressable>
         )}
 
-        <Modal
-          visible={composeOpen}
-          transparent
-          animationType="slide"
-          onRequestClose={closeCompose}
-        >
-          <View className="flex-1 justify-end bg-near-black/40">
-            <View className="rounded-t-3xl bg-off-white px-4 pb-8 pt-6">
-              <Text variant="h2" tKey="community.compose" className="mb-3" />
+        {composeOpen && (
+          <Modal visible transparent animationType="slide" onRequestClose={closeCompose}>
+            <View className="flex-1 justify-end bg-near-black/40">
+              <View className="rounded-t-3xl bg-off-white px-4 pb-8 pt-6">
+                <Text variant="h2" tKey="community.compose" className="mb-3" />
 
-              <View className="flex-row items-center justify-between">
-                <View className="flex-1 pr-3">
-                  <Text variant="label" tKey="community.anonymous" />
-                  <Text variant="caption">
-                    {t(isAnonymous ? 'community.anonymousOn' : 'community.anonymousOff')}
-                  </Text>
+                <View className="flex-row items-center justify-between">
+                  <View className="flex-1 pr-3">
+                    <Text variant="label" tKey="community.anonymous" />
+                    <Text variant="caption">
+                      {t(isAnonymous ? 'community.anonymousOn' : 'community.anonymousOff')}
+                    </Text>
+                  </View>
+                  <Switch
+                    value={isAnonymous}
+                    onValueChange={setIsAnonymous}
+                    trackColor={{ true: COLORS.SHAKTI_PURPLE, false: COLORS.STONE }}
+                  />
                 </View>
-                <Switch
-                  value={isAnonymous}
-                  onValueChange={setIsAnonymous}
-                  trackColor={{ true: COLORS.SHAKTI_PURPLE, false: COLORS.STONE }}
+
+                <View className="mt-4 flex-row gap-3">
+                  {(Object.keys(TYPE_ICON) as PostType[]).map((type) => {
+                    const selected = postType === type;
+                    return (
+                      <Pressable
+                        key={type}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected }}
+                        accessibilityLabel={t(TYPE_LABEL_KEY[type])}
+                        onPress={() => selectType(type)}
+                        className={`rounded-xl p-3 ${selected ? 'bg-shakti-purple' : 'bg-stone/10'}`}
+                      >
+                        <MaterialIcons
+                          name={TYPE_ICON[type]}
+                          size={ICON_SIZE.ROW}
+                          color={selected ? COLORS.WHITE : COLORS.STONE}
+                        />
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                {isUploading && (
+                  <Text variant="caption" className="mt-3" tKey="community.uploadingImage" />
+                )}
+                {imageUrl !== null && (
+                  <Image source={{ uri: imageUrl }} className="mt-3 h-24 w-24 rounded-lg" />
+                )}
+                {locationUrl !== null && (
+                  <Text
+                    variant="caption"
+                    className="mt-3 text-shakti-purple"
+                    tKey="community.viewOnMap"
+                  />
+                )}
+
+                <TextInput
+                  multiline
+                  maxLength={APP_CONFIG.COMMUNITY_POST_MAX_LENGTH}
+                  placeholder={t('community.typeMessage')}
+                  placeholderTextColor={COLORS.STONE}
+                  value={content}
+                  onChangeText={setContent}
+                  className="mt-3 min-h-24 rounded-xl border border-stone/30 p-3 text-base text-ink"
+                />
+                <Text variant="caption" className="mt-1 self-end">
+                  {t('community.charCount', {
+                    count: content.length,
+                    max: APP_CONFIG.COMMUNITY_POST_MAX_LENGTH,
+                  })}
+                </Text>
+
+                <Button
+                  variant="primary"
+                  size="lg"
+                  fullWidth
+                  className="mt-3"
+                  label={t('community.post')}
+                  loading={isPosting}
+                  disabled={content.trim().length === 0 || isUploading}
+                  onPress={() => {
+                    void handleSubmit();
+                  }}
+                />
+                <Button
+                  variant="ghost"
+                  size="md"
+                  fullWidth
+                  className="mt-2"
+                  label={t('common.cancel')}
+                  onPress={closeCompose}
                 />
               </View>
-
-              <View className="mt-4 flex-row gap-3">
-                {(Object.keys(TYPE_ICON) as PostType[]).map((type) => {
-                  const selected = postType === type;
-                  return (
-                    <Pressable
-                      key={type}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected }}
-                      accessibilityLabel={t(TYPE_LABEL_KEY[type])}
-                      onPress={() => selectType(type)}
-                      className={`rounded-xl p-3 ${selected ? 'bg-shakti-purple' : 'bg-stone/10'}`}
-                    >
-                      <MaterialIcons
-                        name={TYPE_ICON[type]}
-                        size={ICON_SIZE.ROW}
-                        color={selected ? COLORS.WHITE : COLORS.STONE}
-                      />
-                    </Pressable>
-                  );
-                })}
-              </View>
-
-              {isUploading && (
-                <Text variant="caption" className="mt-3" tKey="community.uploadingImage" />
-              )}
-              {imageUrl !== null && (
-                <Image source={{ uri: imageUrl }} className="mt-3 h-24 w-24 rounded-lg" />
-              )}
-              {locationUrl !== null && (
-                <Text
-                  variant="caption"
-                  className="mt-3 text-shakti-purple"
-                  tKey="community.viewOnMap"
-                />
-              )}
-
-              <TextInput
-                multiline
-                maxLength={APP_CONFIG.COMMUNITY_POST_MAX_LENGTH}
-                placeholder={t('community.typeMessage')}
-                placeholderTextColor={COLORS.STONE}
-                value={content}
-                onChangeText={setContent}
-                className="mt-3 min-h-24 rounded-xl border border-stone/30 p-3 text-base text-ink"
-              />
-              <Text variant="caption" className="mt-1 self-end">
-                {t('community.charCount', {
-                  count: content.length,
-                  max: APP_CONFIG.COMMUNITY_POST_MAX_LENGTH,
-                })}
-              </Text>
-
-              <Button
-                variant="primary"
-                size="lg"
-                fullWidth
-                className="mt-3"
-                label={t('community.post')}
-                loading={isPosting}
-                disabled={content.trim().length === 0 || isUploading}
-                onPress={() => {
-                  void handleSubmit();
-                }}
-              />
-              <Button
-                variant="ghost"
-                size="md"
-                fullWidth
-                className="mt-2"
-                label={t('common.cancel')}
-                onPress={closeCompose}
-              />
             </View>
-          </View>
-        </Modal>
+          </Modal>
+        )}
 
         <ImageViewer uri={viewerUri} onClose={() => setViewerUri(null)} />
       </SafeScreen>
