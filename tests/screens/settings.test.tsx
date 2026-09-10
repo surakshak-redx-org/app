@@ -19,6 +19,7 @@ describe('SettingsScreen', () => {
 
     expect(getByText('Settings')).toBeTruthy();
     expect(getByText('Shake to SOS')).toBeTruthy();
+    expect(getByText('SMS Alert History')).toBeTruthy();
     expect(getByText('Low Battery Alert')).toBeTruthy();
     expect(getByText('Delete Account')).toBeTruthy();
   });

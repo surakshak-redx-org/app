@@ -9,6 +9,8 @@ export const STORAGE_KEYS = {
   SHAKE_ENABLED: 'surakshak_shake_enabled',
   /** `'false'` disables the low-battery alert; absent means enabled. */
   LOW_BATTERY_ENABLED: 'surakshak_low_battery_enabled',
+  /** `JSON.stringify`'d `SMSAlertRecord[]`, newest first, capped at 50. */
+  SMS_HISTORY: 'surakshak_sms_history',
 } as const;
 
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];

@@ -23,3 +23,10 @@ export interface SMSAlertRecord {
   type: SMSAlertType;
   locationUrl: string;
 }
+
+/** The fields the add/edit-contact form collects before an `EmergencyContact` is built. */
+export interface EmergencyContactFormValues {
+  name: string;
+  phone: string;
+  relationship: string;
+}

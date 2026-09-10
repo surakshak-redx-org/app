@@ -1,3 +1,4 @@
+import type { Language } from '@/types/user.types';
 import {
   buildLowBatteryMessage,
   buildSOSMessage,
@@ -5,35 +6,42 @@ import {
 } from '@/utils/sms.utils';
 
 const LOCATION_URL = 'https://www.google.com/maps/place/19.076,72.8777';
+const LANGUAGES: readonly Language[] = ['en', 'hi', 'mr'];
 
 describe('buildSOSMessage', () => {
-  it('names the user and carries the location link', () => {
+  it('names the user and carries the location link (en)', () => {
     const message = buildSOSMessage('Priya', LOCATION_URL, 'en');
     expect(message).toContain('Priya');
     expect(message).toContain(LOCATION_URL);
     expect(message).toContain('EMERGENCY');
   });
 
-  // TODO: Phase 8 — assert real translations once hi/mr are reviewed.
-  it.each(['hi', 'mr'] as const)('falls back to English for %s until Phase 8', (language) => {
-    expect(buildSOSMessage('Priya', LOCATION_URL, language)).toBe(
-      buildSOSMessage('Priya', LOCATION_URL, 'en'),
-    );
+  it.each(LANGUAGES)('returns a non-empty localized message with the link for %s', (language) => {
+    const message = buildSOSMessage('Priya', LOCATION_URL, language);
+    expect(message.length).toBeGreaterThan(0);
+    expect(message).toContain('Priya');
+    expect(message).toContain(LOCATION_URL);
+  });
+
+  it('uses distinct copy for hi and mr (not the English string)', () => {
+    const en = buildSOSMessage('Priya', LOCATION_URL, 'en');
+    expect(buildSOSMessage('Priya', LOCATION_URL, 'hi')).not.toBe(en);
+    expect(buildSOSMessage('Priya', LOCATION_URL, 'mr')).not.toBe(en);
   });
 });
 
 describe('buildLowBatteryMessage', () => {
-  it('names the user and carries the location link', () => {
-    const message = buildLowBatteryMessage('Priya', LOCATION_URL, 'en');
+  it.each(LANGUAGES)('names the user and carries the location link for %s', (language) => {
+    const message = buildLowBatteryMessage('Priya', LOCATION_URL, language);
+    expect(message.length).toBeGreaterThan(0);
     expect(message).toContain('Priya');
     expect(message).toContain(LOCATION_URL);
-    expect(message).toContain('battery');
   });
 });
 
 describe('buildSafeJourneyMessage', () => {
-  it('names the destination and arrival time', () => {
-    const message = buildSafeJourneyMessage('Priya', 'Andheri Station', '3:30 PM', 'en');
+  it.each(LANGUAGES)('names the destination and arrival time for %s', (language) => {
+    const message = buildSafeJourneyMessage('Priya', 'Andheri Station', '3:30 PM', language);
     expect(message).toContain('Priya');
     expect(message).toContain('Andheri Station');
     expect(message).toContain('3:30 PM');

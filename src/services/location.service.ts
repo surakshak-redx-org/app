@@ -1,11 +1,40 @@
+import * as Location from 'expo-location';
+
 import type { LocationData } from '@/types/location.types';
+import { getLocationUrl } from '@/utils/location.utils';
+import { requestLocationPermission } from '@/utils/permissions.utils';
 
 /**
- * Reads the device's current position.
- * @phase Phase 4 — Location & Maps
+ * Reads the device's current position. Used by the SOS fan-out and the
+ * low-battery alert to attach a shareable location link.
+ * @phase Phase 3 — Emergency Core (foreground fix only; watching is Phase 4)
  */
-export function getCurrentLocation(): Promise<LocationData> {
-  return Promise.reject(new Error('Not implemented — Phase 4'));
+export async function getCurrentLocation(): Promise<LocationData> {
+  try {
+    const granted = await requestLocationPermission();
+    if (!granted) {
+      throw new Error('errors.locationPermissionDenied');
+    }
+
+    const position = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+    });
+
+    return {
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude,
+      timestamp: position.timestamp,
+      ...(position.coords.accuracy != null ? { accuracy: position.coords.accuracy } : {}),
+    };
+  } catch (error) {
+    console.error('getCurrentLocation failed:', error);
+    throw error;
+  }
+}
+
+/** The one canonical share-link format for a coordinate. */
+export function buildLocationUrl(latitude: number, longitude: number): string {
+  return getLocationUrl(latitude, longitude);
 }
 
 /**

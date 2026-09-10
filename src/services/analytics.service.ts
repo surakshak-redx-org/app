@@ -1,4 +1,5 @@
 import { identify, resetAnalytics, track } from '@/config/mixpanel';
+import type { SMSAlertType, SOSTriggerMethod } from '@/types/emergency.types';
 
 /**
  * Named events so screens never pass raw strings — absolute rule 6.
@@ -6,6 +7,15 @@ import { identify, resetAnalytics, track } from '@/config/mixpanel';
 export const ANALYTICS_EVENTS = {
   SOS_TRIGGERED: 'sos_triggered',
   SOS_CANCELLED: 'sos_cancelled',
+  SMS_ALERT_SENT: 'sms_alert_sent',
+  SIREN_TOGGLED: 'siren_toggled',
+  FAKE_CALL_SCHEDULED: 'fake_call_scheduled',
+  FAKE_CALL_TRIGGERED: 'fake_call_triggered',
+  EMERGENCY_CALL_PLACED: 'emergency_call_placed',
+  EMERGENCY_CONTACT_ADDED: 'emergency_contact_added',
+  EMERGENCY_CONTACT_UPDATED: 'emergency_contact_updated',
+  EMERGENCY_CONTACT_DELETED: 'emergency_contact_deleted',
+  LOW_BATTERY_ALERT_SENT: 'low_battery_alert_sent',
   LIVE_LOCATION_STARTED: 'live_location_started',
   SAFE_JOURNEY_STARTED: 'safe_journey_started',
   COMMUNITY_POST_CREATED: 'community_post_created',
@@ -33,4 +43,55 @@ export function identifyUser(userId: string): void {
 
 export function resetUser(): void {
   resetAnalytics();
+}
+
+/* ------------------------------------------------------------------ *
+ * Typed helpers — call these from features so an event name and its
+ * payload shape can never drift apart.
+ * ------------------------------------------------------------------ */
+
+export function trackSosTriggered(method: SOSTriggerMethod): void {
+  trackEvent(ANALYTICS_EVENTS.SOS_TRIGGERED, { method });
+}
+
+export function trackSosCancelled(method: SOSTriggerMethod | null): void {
+  trackEvent(ANALYTICS_EVENTS.SOS_CANCELLED, { method });
+}
+
+export function trackSmsAlertSent(type: SMSAlertType, sent: number, failed: number): void {
+  trackEvent(ANALYTICS_EVENTS.SMS_ALERT_SENT, {
+    alert_type: type,
+    contacts_count: sent,
+    failed_count: failed,
+  });
+}
+
+export function trackSirenToggled(active: boolean): void {
+  trackEvent(ANALYTICS_EVENTS.SIREN_TOGGLED, { active });
+}
+
+export function trackFakeCallScheduled(delaySeconds: number): void {
+  trackEvent(ANALYTICS_EVENTS.FAKE_CALL_SCHEDULED, { delay_seconds: delaySeconds });
+}
+
+export function trackFakeCallTriggered(): void {
+  trackEvent(ANALYTICS_EVENTS.FAKE_CALL_TRIGGERED, {});
+}
+
+export function trackEmergencyCallPlaced(target: 'predefined' | 'custom'): void {
+  trackEvent(ANALYTICS_EVENTS.EMERGENCY_CALL_PLACED, { number_type: target });
+}
+
+export function trackEmergencyContactChange(action: 'added' | 'updated' | 'deleted'): void {
+  const event =
+    action === 'added'
+      ? ANALYTICS_EVENTS.EMERGENCY_CONTACT_ADDED
+      : action === 'updated'
+        ? ANALYTICS_EVENTS.EMERGENCY_CONTACT_UPDATED
+        : ANALYTICS_EVENTS.EMERGENCY_CONTACT_DELETED;
+  trackEvent(event, {});
+}
+
+export function trackLowBatteryAlertSent(batteryLevel: number): void {
+  trackEvent(ANALYTICS_EVENTS.LOW_BATTERY_ALERT_SENT, { battery_level: batteryLevel });
 }
