@@ -8,6 +8,12 @@ jest.mock('expo-router', () => ({
   useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
 }));
 
+jest.mock('@/services/location.service', () => ({
+  getCurrentLocation: jest.fn(() => Promise.resolve({ latitude: 19, longitude: 72, timestamp: 0 })),
+  autocompletePlaces: jest.fn(() => Promise.resolve([])),
+  getPlaceLocation: jest.fn(),
+}));
+
 const mockGetActiveJourney = jest.fn(() => Promise.resolve(null));
 jest.mock('@/services/firebase/safe-journey.service', () => ({
   getActiveJourneySession: () => mockGetActiveJourney(),

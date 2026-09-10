@@ -9,6 +9,7 @@ import { z } from 'zod';
 
 import { GuestBanner } from '@/components/features/auth/GuestBanner';
 import { ContactMultiSelect } from '@/components/features/location/ContactMultiSelect';
+import { DestinationAutocomplete } from '@/components/features/location/DestinationAutocomplete';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
@@ -39,7 +40,7 @@ import { recordSMSAlert, sendSafeJourneyAlert } from '@/services/sms.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { useLocationStore } from '@/stores/location.store';
 import { useUserStore } from '@/stores/user.store';
-import type { SafeJourneySession } from '@/types/location.types';
+import type { PlaceLocation, SafeJourneySession } from '@/types/location.types';
 import { formatDuration, formatEta } from '@/utils/date.utils';
 import { getLocationUrl } from '@/utils/location.utils';
 
@@ -72,7 +73,24 @@ export default function SafeJourneyScreen(): React.JSX.Element {
   const [selectedContactIds, setSelectedContactIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const [destinationCoords, setDestinationCoords] = useState<PlaceLocation | null>(null);
+  const [biasCoords, setBiasCoords] = useState<{ latitude: number; longitude: number } | undefined>(
+    undefined,
+  );
   const alertFiredRef = useRef(false);
+
+  // One-shot current location, only to bias the destination autocomplete.
+  useEffect(() => {
+    let active = true;
+    void getCurrentLocation()
+      .then((fix) => {
+        if (active) setBiasCoords({ latitude: fix.latitude, longitude: fix.longitude });
+      })
+      .catch(() => undefined);
+    return (): void => {
+      active = false;
+    };
+  }, []);
 
   const schema = useMemo(
     () =>
@@ -202,11 +220,15 @@ export default function SafeJourneyScreen(): React.JSX.Element {
       try {
         setIsLoading(true);
         const fix = await getCurrentLocation();
+        // Prefer the picked place's coordinates; fall back to the current
+        // position when the user typed a destination without picking one.
+        const destLat = destinationCoords?.latitude ?? fix.latitude;
+        const destLng = destinationCoords?.longitude ?? fix.longitude;
         const sessionId = await createSafeJourneySession(
           userId,
           values.destination.trim(),
-          fix.latitude,
-          fix.longitude,
+          destLat,
+          destLng,
           values.etaMinutes,
           selectedContactIds,
         );
@@ -245,6 +267,7 @@ export default function SafeJourneyScreen(): React.JSX.Element {
       contactsFor,
       setSafeJourneyActive,
       refreshActiveSession,
+      destinationCoords,
       t,
     ],
   );
@@ -399,21 +422,27 @@ export default function SafeJourneyScreen(): React.JSX.Element {
           <View className="mt-2">
             {isGuest && <GuestBanner />}
 
-            <Controller
-              control={control}
-              name="destination"
-              render={({ field, fieldState }) => (
-                <Input
-                  label={t('location.destination')}
-                  placeholder={t('location.destinationPlaceholder')}
-                  value={field.value}
-                  onBlur={field.onBlur}
-                  onChangeText={field.onChange}
-                  error={fieldState.error?.message}
-                  className="mt-4"
-                />
-              )}
-            />
+            <View className="mt-4">
+              <Controller
+                control={control}
+                name="destination"
+                render={({ field, fieldState }) => (
+                  <DestinationAutocomplete
+                    value={field.value}
+                    onChangeText={(text) => {
+                      field.onChange(text);
+                      setDestinationCoords(null);
+                    }}
+                    onSelectPlace={(place) => {
+                      field.onChange(place.name);
+                      setDestinationCoords(place);
+                    }}
+                    bias={biasCoords}
+                    error={fieldState.error?.message}
+                  />
+                )}
+              />
+            </View>
 
             <Text variant="label" tKey="location.etaMinutes" className="mb-2" />
             <View className="flex-row flex-wrap gap-2">

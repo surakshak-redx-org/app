@@ -42,7 +42,7 @@ export interface SafeJourneySession {
 /** Categories of nearby assistance the Nearby Help screen can search for. */
 export type HelpCategory = 'police' | 'hospital' | 'fire_station' | 'pharmacy';
 
-/** A single place returned by the Google Places Nearby Search API, normalised. */
+/** A single place from Places API (New) Nearby Search, normalised for the UI. */
 export interface NearbyPlace {
   id: string;
   name: string;
@@ -53,24 +53,54 @@ export interface NearbyPlace {
   isOpen: boolean | null;
   /** Straight-line distance from the user, in kilometres. */
   distanceKm: number;
-  /** Nearby Search never returns a phone number — present only if enriched later. */
+  /** `nationalPhoneNumber` when the API returned one. */
   phoneNumber?: string;
 }
 
-/** The shape of one entry in a Places Nearby Search response. */
-export interface PlacesApiResult {
-  place_id: string;
-  name: string;
-  vicinity?: string;
-  geometry: { location: { lat: number; lng: number } };
-  opening_hours?: { open_now?: boolean };
+/* ---------------- Places API (New) response shapes ---------------- */
+
+/** One place object in a Places API (New) response (only the fields we mask in). */
+export interface PlacesNewPlace {
+  id: string;
+  displayName?: { text?: string };
+  formattedAddress?: string;
+  location?: { latitude: number; longitude: number };
+  currentOpeningHours?: { openNow?: boolean };
+  regularOpeningHours?: { openNow?: boolean };
+  nationalPhoneNumber?: string;
 }
 
-/** The top-level Places Nearby Search response. */
-export interface PlacesApiResponse {
-  status: string;
-  results: PlacesApiResult[];
-  error_message?: string;
+export interface PlacesSearchNearbyResponse {
+  places?: PlacesNewPlace[];
+  error?: { code: number; message: string; status: string };
+}
+
+/** A place suggestion for the destination autocomplete field. */
+export interface PlaceSuggestion {
+  placeId: string;
+  primaryText: string;
+  secondaryText: string;
+}
+
+export interface PlacesAutocompleteResponse {
+  suggestions?: {
+    placePrediction?: {
+      placeId: string;
+      text?: { text?: string };
+      structuredFormat?: {
+        mainText?: { text?: string };
+        secondaryText?: { text?: string };
+      };
+    };
+  }[];
+  error?: { code: number; message: string; status: string };
+}
+
+/** A resolved destination: display name plus coordinates. */
+export interface PlaceLocation {
+  name: string;
+  latitude: number;
+  longitude: number;
 }
 
 /** Mirrors Firestore `unsafeAreas/{areaId}`. */

@@ -9,12 +9,18 @@ import type {
   HelpCategory,
   LocationData,
   NearbyPlace,
-  PlacesApiResponse,
+  PlaceLocation,
+  PlaceSuggestion,
+  PlacesAutocompleteResponse,
+  PlacesNewPlace,
+  PlacesSearchNearbyResponse,
 } from '@/types/location.types';
 import { getDistanceKm, getLocationUrl } from '@/utils/location.utils';
 import { requestLocationPermission } from '@/utils/permissions.utils';
 
-const PLACES_NEARBY_URL = 'https://maps.googleapis.com/maps/api/place/nearbysearch/json';
+// Places API (New) — the legacy `maps.googleapis.com/.../place/*` endpoints are
+// not enable-able on newer GCP projects. Enable "Places API (New)" in GCP.
+const PLACES_BASE_URL = 'https://places.googleapis.com/v1';
 
 /**
  * Reads the device's current position. Used by the SOS fan-out and the
@@ -100,25 +106,30 @@ export async function reverseGeocode(
   }
 }
 
-/** The platform-restricted Maps key, plus the header Google needs to honour it. */
-function placesAuth(): { key: string; headers: Record<string, string> } {
-  if (Platform.OS === 'ios') {
-    const bundleId = Constants.expoConfig?.ios?.bundleIdentifier ?? '';
-    return {
-      key: ENV.GOOGLE_MAPS_API_KEY_IOS,
-      headers: { 'X-Ios-Bundle-Identifier': bundleId },
-    };
-  }
-  const androidPackage = Constants.expoConfig?.android?.package ?? '';
+/**
+ * Headers for a Places API (New) request: the API key plus the app-identity
+ * header Google needs to honour the key's Android/iOS application restriction.
+ */
+function placesHeaders(fieldMask: string): Record<string, string> {
+  const isIOS = Platform.OS === 'ios';
+  const identity = isIOS
+    ? { 'X-Ios-Bundle-Identifier': Constants.expoConfig?.ios?.bundleIdentifier ?? '' }
+    : { 'X-Android-Package': Constants.expoConfig?.android?.package ?? '' };
   return {
-    key: ENV.GOOGLE_MAPS_API_KEY_ANDROID,
-    headers: { 'X-Android-Package': androidPackage },
+    'Content-Type': 'application/json',
+    'X-Goog-Api-Key': isIOS ? ENV.GOOGLE_MAPS_API_KEY_IOS : ENV.GOOGLE_MAPS_API_KEY_ANDROID,
+    'X-Goog-FieldMask': fieldMask,
+    ...identity,
   };
 }
 
+function openNowOf(place: PlacesNewPlace): boolean | null {
+  return place.currentOpeningHours?.openNow ?? place.regularOpeningHours?.openNow ?? null;
+}
+
 /**
- * Finds nearby police stations, hospitals, fire stations or pharmacies via the
- * Google Places Nearby Search API, sorted by distance from the user.
+ * Finds nearby police stations, hospitals, fire stations or pharmacies via
+ * Places API (New) Nearby Search, sorted by distance from the user.
  * @phase Phase 4 — Location & Maps
  */
 export async function fetchNearbyPlaces(
@@ -127,39 +138,134 @@ export async function fetchNearbyPlaces(
   category: HelpCategory,
 ): Promise<NearbyPlace[]> {
   try {
-    const { key, headers } = placesAuth();
-    const url =
-      `${PLACES_NEARBY_URL}?location=${latitude},${longitude}` +
-      `&radius=${APP_CONFIG.NEARBY_HELP_SEARCH_RADIUS_METERS}` +
-      `&type=${HELP_PLACES_TYPE[category]}` +
-      `&key=${key}`;
+    const response = await fetch(`${PLACES_BASE_URL}/places:searchNearby`, {
+      method: 'POST',
+      headers: placesHeaders(
+        'places.id,places.displayName,places.formattedAddress,places.location,' +
+          'places.currentOpeningHours.openNow,places.regularOpeningHours.openNow,' +
+          'places.nationalPhoneNumber',
+      ),
+      body: JSON.stringify({
+        includedTypes: [HELP_PLACES_TYPE[category]],
+        maxResultCount: APP_CONFIG.NEARBY_HELP_MAX_RESULTS,
+        locationRestriction: {
+          circle: {
+            center: { latitude, longitude },
+            radius: APP_CONFIG.NEARBY_HELP_SEARCH_RADIUS_METERS,
+          },
+        },
+      }),
+    });
 
-    const response = await fetch(url, { headers });
-    if (!response.ok) throw new Error('errors.networkError');
-
-    const data = (await response.json()) as PlacesApiResponse;
-    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
-      throw new Error(data.error_message ?? `Places API error: ${data.status}`);
+    const data = (await response.json()) as PlacesSearchNearbyResponse;
+    if (!response.ok || data.error !== undefined) {
+      throw new Error(data.error?.message ?? 'errors.networkError');
     }
 
-    return data.results
+    return (data.places ?? [])
+      .filter(
+        (place): place is PlacesNewPlace & { location: { latitude: number; longitude: number } } =>
+          place.location !== undefined,
+      )
       .map((place) => ({
-        id: place.place_id,
-        name: place.name,
-        address: place.vicinity ?? '',
-        latitude: place.geometry.location.lat,
-        longitude: place.geometry.location.lng,
-        isOpen: place.opening_hours?.open_now ?? null,
+        id: place.id,
+        name: place.displayName?.text ?? '',
+        address: place.formattedAddress ?? '',
+        latitude: place.location.latitude,
+        longitude: place.location.longitude,
+        isOpen: openNowOf(place),
         distanceKm: getDistanceKm(
           latitude,
           longitude,
-          place.geometry.location.lat,
-          place.geometry.location.lng,
+          place.location.latitude,
+          place.location.longitude,
         ),
+        ...(place.nationalPhoneNumber !== undefined
+          ? { phoneNumber: place.nationalPhoneNumber }
+          : {}),
       }))
       .sort((a, b) => a.distanceKm - b.distanceKm);
   } catch (error) {
     console.error('fetchNearbyPlaces failed:', error);
+    throw error;
+  }
+}
+
+/**
+ * Autocomplete suggestions for a destination query, biased to the user's area.
+ * @phase Phase 4 — Location & Maps
+ */
+export async function autocompletePlaces(
+  input: string,
+  bias?: { latitude: number; longitude: number },
+): Promise<PlaceSuggestion[]> {
+  try {
+    const response = await fetch(`${PLACES_BASE_URL}/places:autocomplete`, {
+      method: 'POST',
+      // Autocomplete's field mask is fixed by the endpoint; send an empty one.
+      headers: placesHeaders('*'),
+      body: JSON.stringify({
+        input,
+        includedRegionCodes: ['in'],
+        ...(bias !== undefined
+          ? {
+              locationBias: {
+                circle: {
+                  center: bias,
+                  radius: APP_CONFIG.PLACE_AUTOCOMPLETE_BIAS_RADIUS_METERS,
+                },
+              },
+            }
+          : {}),
+      }),
+    });
+
+    const data = (await response.json()) as PlacesAutocompleteResponse;
+    if (!response.ok || data.error !== undefined) {
+      throw new Error(data.error?.message ?? 'errors.networkError');
+    }
+
+    return (data.suggestions ?? [])
+      .map((suggestion) => suggestion.placePrediction)
+      .filter(
+        (prediction): prediction is NonNullable<typeof prediction> => prediction !== undefined,
+      )
+      .map((prediction) => ({
+        placeId: prediction.placeId,
+        primaryText: prediction.structuredFormat?.mainText?.text ?? prediction.text?.text ?? '',
+        secondaryText: prediction.structuredFormat?.secondaryText?.text ?? '',
+      }));
+  } catch (error) {
+    console.error('autocompletePlaces failed:', error);
+    throw error;
+  }
+}
+
+/**
+ * Resolves an autocomplete `placeId` to a display name and coordinates.
+ * @phase Phase 4 — Location & Maps
+ */
+export async function getPlaceLocation(placeId: string): Promise<PlaceLocation> {
+  try {
+    const response = await fetch(`${PLACES_BASE_URL}/places/${placeId}`, {
+      method: 'GET',
+      headers: placesHeaders('id,displayName,location'),
+    });
+
+    const data = (await response.json()) as PlacesNewPlace & {
+      error?: { message: string };
+    };
+    if (!response.ok || data.error !== undefined || data.location === undefined) {
+      throw new Error(data.error?.message ?? 'errors.networkError');
+    }
+
+    return {
+      name: data.displayName?.text ?? '',
+      latitude: data.location.latitude,
+      longitude: data.location.longitude,
+    };
+  } catch (error) {
+    console.error('getPlaceLocation failed:', error);
     throw error;
   }
 }

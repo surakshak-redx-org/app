@@ -1,9 +1,11 @@
 import * as Location from 'expo-location';
 
 import {
+  autocompletePlaces,
   buildLocationUrl,
   fetchNearbyPlaces,
   getCurrentLocation,
+  getPlaceLocation,
   reverseGeocode,
   watchLocation,
 } from '@/services/location.service';
@@ -99,60 +101,114 @@ describe('reverseGeocode', () => {
   });
 });
 
-describe('fetchNearbyPlaces', () => {
+describe('Places API (New)', () => {
   const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
   afterAll(() => errorSpy.mockRestore());
   beforeEach(() => jest.clearAllMocks());
 
-  function mockPlacesResponse(ok: boolean, body: unknown): void {
+  function mockResponse(ok: boolean, body: unknown): void {
     global.fetch = jest.fn(() =>
       Promise.resolve({ ok, json: () => Promise.resolve(body) }),
     ) as unknown as typeof fetch;
   }
 
-  it('returns places sorted by ascending distance from the user', async () => {
-    mockPlacesResponse(true, {
-      status: 'OK',
-      results: [
-        {
-          place_id: 'far',
-          name: 'Far station',
-          vicinity: 'Far road',
-          geometry: { location: { lat: 19.2, lng: 72.9 } },
-        },
-        {
-          place_id: 'near',
-          name: 'Near station',
-          vicinity: 'Near road',
-          geometry: { location: { lat: 19.08, lng: 72.88 } },
-          opening_hours: { open_now: true },
-        },
-      ],
+  describe('fetchNearbyPlaces', () => {
+    it('normalises and sorts places by ascending distance', async () => {
+      mockResponse(true, {
+        places: [
+          {
+            id: 'far',
+            displayName: { text: 'Far station' },
+            formattedAddress: 'Far road',
+            location: { latitude: 19.2, longitude: 72.9 },
+          },
+          {
+            id: 'near',
+            displayName: { text: 'Near station' },
+            formattedAddress: 'Near road',
+            location: { latitude: 19.08, longitude: 72.88 },
+            currentOpeningHours: { openNow: true },
+            nationalPhoneNumber: '022 1234 5678',
+          },
+        ],
+      });
+
+      const result = await fetchNearbyPlaces(19.076, 72.8777, 'police');
+
+      expect(result.map((place) => place.id)).toEqual(['near', 'far']);
+      expect(result[0]?.isOpen).toBe(true);
+      expect(result[0]?.phoneNumber).toBe('022 1234 5678');
+      expect(result[1]?.isOpen).toBeNull();
+      expect(result[1]).not.toHaveProperty('phoneNumber');
+      expect(result[0]?.distanceKm).toBeLessThan(result[1]?.distanceKm ?? Infinity);
     });
 
-    const result = await fetchNearbyPlaces(19.076, 72.8777, 'police');
+    it('throws with the API message when the request is rejected', async () => {
+      mockResponse(false, {
+        error: { code: 403, message: 'API not enabled', status: 'PERMISSION_DENIED' },
+      });
+      await expect(fetchNearbyPlaces(19.076, 72.8777, 'hospital')).rejects.toThrow(
+        'API not enabled',
+      );
+    });
 
-    expect(result.map((place) => place.id)).toEqual(['near', 'far']);
-    expect(result[0]?.isOpen).toBe(true);
-    expect(result[1]?.isOpen).toBeNull();
-    expect(result[0]?.distanceKm).toBeLessThan(result[1]?.distanceKm ?? Infinity);
+    it('returns an empty list when there are no places', async () => {
+      mockResponse(true, {});
+      await expect(fetchNearbyPlaces(19.076, 72.8777, 'fire_station')).resolves.toEqual([]);
+    });
   });
 
-  it('throws when the HTTP response is not ok', async () => {
-    mockPlacesResponse(false, {});
-    await expect(fetchNearbyPlaces(19.076, 72.8777, 'hospital')).rejects.toThrow(
-      'errors.networkError',
-    );
+  describe('autocompletePlaces', () => {
+    it('flattens suggestions to id + primary/secondary text', async () => {
+      mockResponse(true, {
+        suggestions: [
+          {
+            placePrediction: {
+              placeId: 'p1',
+              text: { text: 'Andheri Station, Mumbai' },
+              structuredFormat: {
+                mainText: { text: 'Andheri Station' },
+                secondaryText: { text: 'Mumbai, Maharashtra' },
+              },
+            },
+          },
+          { queryPrediction: { text: { text: 'ignored' } } },
+        ],
+      });
+
+      const result = await autocompletePlaces('andheri', { latitude: 19, longitude: 72 });
+      expect(result).toEqual([
+        { placeId: 'p1', primaryText: 'Andheri Station', secondaryText: 'Mumbai, Maharashtra' },
+      ]);
+    });
+
+    it('throws when the API errors', async () => {
+      mockResponse(false, {
+        error: { code: 400, message: 'bad input', status: 'INVALID_ARGUMENT' },
+      });
+      await expect(autocompletePlaces('x')).rejects.toThrow('bad input');
+    });
   });
 
-  it('throws when the Places API rejects the request', async () => {
-    mockPlacesResponse(true, { status: 'REQUEST_DENIED', results: [], error_message: 'bad key' });
-    await expect(fetchNearbyPlaces(19.076, 72.8777, 'pharmacy')).rejects.toThrow('bad key');
-  });
+  describe('getPlaceLocation', () => {
+    it('resolves a placeId to a name and coordinates', async () => {
+      mockResponse(true, {
+        id: 'p1',
+        displayName: { text: 'Andheri Station' },
+        location: { latitude: 19.119, longitude: 72.846 },
+      });
 
-  it('treats ZERO_RESULTS as an empty list, not an error', async () => {
-    mockPlacesResponse(true, { status: 'ZERO_RESULTS', results: [] });
-    await expect(fetchNearbyPlaces(19.076, 72.8777, 'fire_station')).resolves.toEqual([]);
+      await expect(getPlaceLocation('p1')).resolves.toEqual({
+        name: 'Andheri Station',
+        latitude: 19.119,
+        longitude: 72.846,
+      });
+    });
+
+    it('throws when the place has no location', async () => {
+      mockResponse(true, { id: 'p1', displayName: { text: 'x' } });
+      await expect(getPlaceLocation('p1')).rejects.toThrow('errors.networkError');
+    });
   });
 });

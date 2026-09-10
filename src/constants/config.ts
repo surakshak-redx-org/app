@@ -27,6 +27,13 @@ export const APP_CONFIG = {
   SAFE_JOURNEY_ALERT_WARN_SECONDS: 300,
   UNSAFE_AREA_DEFAULT_RADIUS_METERS: 200,
   NEARBY_HELP_SEARCH_RADIUS_METERS: 5000,
+  NEARBY_HELP_MAX_RESULTS: 20,
+  /** Bias radius for destination autocomplete around the user's location. */
+  PLACE_AUTOCOMPLETE_BIAS_RADIUS_METERS: 50000,
+  /** Don't hit the autocomplete API until the query is at least this long. */
+  PLACE_AUTOCOMPLETE_MIN_CHARS: 3,
+  /** Debounce between keystrokes and the autocomplete request. */
+  PLACE_AUTOCOMPLETE_DEBOUNCE_MS: 300,
   /** Region span used when centring the map on a fresh fix. */
   MAP_DEFAULT_LATITUDE_DELTA: 0.02,
   MAP_DEFAULT_LONGITUDE_DELTA: 0.02,
