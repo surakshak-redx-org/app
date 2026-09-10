@@ -247,7 +247,16 @@
     "readMore": "",
     "noContent": "",
     "offlineBanner": "",
-    "allCategories": ""
+    "allCategories": "",
+    "search": "",
+    "loadError": "",
+    "lastSynced": "",
+    "noLawsFound": "",
+    "noLawsFoundSubtitle": "",
+    "noFaqsFound": "",
+    "noTipsFound": "",
+    "legalHelpTitle": "",
+    "legalHelpBody": ""
   },
   "location": {
     "liveLocation": "",

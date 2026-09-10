@@ -3,28 +3,9 @@ import {
   submitIncidentReport,
   uploadIncidentPhoto,
 } from '@/services/firebase/incident.service';
-import { getFaqs, getLawById, getLaws, getSafetyTips } from '@/services/firebase/laws.service';
-import { getNews, getNewsById } from '@/services/firebase/news.service';
 
-describe('laws.service stubs', () => {
-  it.each([
-    ['getLaws', () => getLaws()],
-    ['getLawById', () => getLawById('law-1')],
-    ['getSafetyTips', () => getSafetyTips()],
-    ['getFaqs', () => getFaqs()],
-  ])('%s rejects until Phase 6 lands', async (_name, call) => {
-    await expect(call()).rejects.toThrow('Not implemented');
-  });
-});
-
-describe('news.service stubs', () => {
-  it.each([
-    ['getNews', () => getNews(10)],
-    ['getNewsById', () => getNewsById('news-1')],
-  ])('%s rejects until Phase 6 lands', async (_name, call) => {
-    await expect(call()).rejects.toThrow('Not implemented');
-  });
-});
+// laws.service and news.service landed in Phase 6 — see laws.service.test.ts
+// and news.service.test.ts for their behaviour tests.
 
 describe('incident.service stubs', () => {
   it.each([

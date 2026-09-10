@@ -25,8 +25,13 @@ import {
   trackCommunityPostCreated,
   trackCommunityPostReported,
   trackCommunityTabSwitched,
+  trackFaqViewed,
+  trackInfoSectionOpened,
+  trackLawViewed,
+  trackNewsViewed,
   trackSosCancelled,
   trackSosTriggered,
+  trackTipsViewed,
   trackUnsafeAreaReported,
   trackUnsafeAreaVoted,
 } from '@/services/analytics.service';
@@ -149,6 +154,32 @@ describe('analytics.service', () => {
 
     trackCommunityLocationShared();
     expect(track).toHaveBeenLastCalledWith('community_location_shared', {});
+  });
+
+  it('maps the information-hub helpers to their events and payloads', () => {
+    trackInfoSectionOpened('laws');
+    expect(track).toHaveBeenLastCalledWith('info_section_opened', { section: 'laws' });
+
+    trackLawViewed('law_1', 'Personal Safety');
+    expect(track).toHaveBeenLastCalledWith('law_viewed', {
+      law_id: 'law_1',
+      category: 'Personal Safety',
+    });
+
+    trackFaqViewed('faq_1', 'Legal Help');
+    expect(track).toHaveBeenLastCalledWith('faq_viewed', {
+      faq_id: 'faq_1',
+      category: 'Legal Help',
+    });
+
+    trackTipsViewed('Travel');
+    expect(track).toHaveBeenLastCalledWith('tips_viewed', { category: 'Travel' });
+
+    trackNewsViewed('news_1', 'App News');
+    expect(track).toHaveBeenLastCalledWith('news_viewed', {
+      news_id: 'news_1',
+      category: 'App News',
+    });
   });
 
   it('routes contact-change actions to the matching event', () => {

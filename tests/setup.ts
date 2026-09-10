@@ -30,14 +30,35 @@ jest.mock('@react-native-firebase/auth', () => ({
 jest.mock('@react-native-firebase/firestore', () => ({
   getFirestore: jest.fn(() => ({})),
   doc: jest.fn(() => ({})),
+  collection: jest.fn(() => ({})),
+  query: jest.fn((ref: unknown) => ref),
+  where: jest.fn(() => ({})),
+  orderBy: jest.fn(() => ({})),
+  limit: jest.fn(() => ({})),
   getDoc: jest.fn(() =>
     Promise.resolve({ exists: () => false, id: 'test-uid', data: () => undefined }),
   ),
+  getDocs: jest.fn(() => Promise.resolve({ docs: [] })),
   setDoc: jest.fn(() => Promise.resolve()),
   updateDoc: jest.fn(() => Promise.resolve()),
   deleteDoc: jest.fn(() => Promise.resolve()),
   serverTimestamp: jest.fn(() => ({ __serverTimestamp: true })),
 }));
+
+jest.mock('expo-file-system', () => {
+  class MockFile {
+    exists = false;
+    text = jest.fn(() => Promise.resolve('{}'));
+    write = jest.fn();
+    create = jest.fn();
+    delete = jest.fn();
+  }
+  class MockDirectory {
+    exists = true;
+    create = jest.fn();
+  }
+  return { File: MockFile, Directory: MockDirectory, Paths: { cache: {} } };
+});
 
 jest.mock('@react-native-firebase/storage', () => ({
   getStorage: jest.fn(() => ({})),
