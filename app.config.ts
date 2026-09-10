@@ -175,10 +175,19 @@ const config: ExpoConfig = {
     ],
     ['expo-camera', { cameraPermission: 'Surakshak needs camera access for evidence recording.' }],
     ['expo-audio', { microphonePermission: 'Surakshak needs microphone for audio recording.' }],
-    // SPM + `use_frameworks! :linkage => :static` (forced by onesignal-expo-plugin)
-    // collide as duplicate Firebase symbols at link time. Opt Firebase out of SPM
-    // so it resolves via CocoaPods podspecs and links cleanly under static frameworks.
+    // iOS pods must link as static *frameworks*, not the CocoaPods default of
+    // static libraries: firebase-ios-sdk's Swift pods (FirebaseAuth,
+    // FirebaseFirestore, FirebaseStorage, FirebaseCoreInternal) depend on
+    // non-modular pods (GoogleUtilities, the *Interop pods) and can't be built
+    // as static libraries at all. react-native-maps + Google Maps needs
+    // use_frameworks! on iOS too.
+    ['expo-build-properties', { ios: { useFrameworks: 'static' } }],
+    // With use_frameworks! active, opt Firebase out of SPM (its SPM products
+    // collide under static linkage) so it resolves via CocoaPods podspecs...
     ['@react-native-firebase/app', { ios: { disableSPM: true } }],
+    // ...and set $RNFirebaseAsStaticFramework = true, which those podspecs
+    // require under use_frameworks! and the RNFirebase plugin doesn't expose.
+    './plugins/withReactNativeFirebaseStaticFramework',
     '@react-native-firebase/auth',
     [
       '@sentry/react-native/expo',
