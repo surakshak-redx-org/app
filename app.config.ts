@@ -53,13 +53,13 @@ const iconColors: Record<AppEnv, string> = {
 };
 
 /**
- * One Firebase config per platform, shared by every APP_ENV.
+ * One Firebase config file per APP_ENV per platform, keyed by bundle id.
  *
- * NOTE: this collapses the per-environment split that CLAUDE.md's Environments
- * table describes — prod now reads the same Firebase project as dev/staging.
- * Deliberate: the project keeps a single GOOGLE_SERVICES secret per platform.
- * To split them again, restore the Record<AppEnv, string> maps here and add
- * per-environment secrets back to deploy.yml.
+ * There is still a single Firebase project (surakshak-2869a) behind all three
+ * tiers, but each bundle id (com.surakshak.dev / .staging / .app) is registered
+ * as its own app in it, so each needs its own google-services.json /
+ * GoogleService-Info.plist — the iOS plist in particular is per-bundle and
+ * cannot be shared. deploy.yml must supply the matching pair per APP_ENV.
  *
  * Local dev reads the plain file at the repo root (gitignored, placed by
  * hand). `eas build` is different: it runs on a REMOTE worker that never
@@ -69,13 +69,24 @@ const iconColors: Record<AppEnv, string> = {
  * exists only on that specific build machine. GOOGLE_SERVICES_ANDROID_FILE /
  * GOOGLE_SERVICES_IOS_FILE hold exactly that; prefer them when present.
  */
+const googleServicesAndroidByEnv: Record<AppEnv, string> = {
+  dev: './google-services.dev.json',
+  staging: './google-services.staging.json',
+  prod: './google-services.prod.json',
+};
+const googleServicesIosByEnv: Record<AppEnv, string> = {
+  dev: './GoogleService-Info.dev.plist',
+  staging: './GoogleService-Info.staging.plist',
+  prod: './GoogleService-Info.prod.plist',
+};
+
 const GOOGLE_SERVICES_ANDROID = envString(
   process.env.GOOGLE_SERVICES_ANDROID_FILE,
-  './google-services.json',
+  googleServicesAndroidByEnv[APP_ENV],
 );
 const GOOGLE_SERVICES_IOS = envString(
   process.env.GOOGLE_SERVICES_IOS_FILE,
-  './GoogleService-Info.plist',
+  googleServicesIosByEnv[APP_ENV],
 );
 
 /**
@@ -164,7 +175,10 @@ const config: ExpoConfig = {
     ],
     ['expo-camera', { cameraPermission: 'Surakshak needs camera access for evidence recording.' }],
     ['expo-audio', { microphonePermission: 'Surakshak needs microphone for audio recording.' }],
-    '@react-native-firebase/app',
+    // SPM + `use_frameworks! :linkage => :static` (forced by onesignal-expo-plugin)
+    // collide as duplicate Firebase symbols at link time. Opt Firebase out of SPM
+    // so it resolves via CocoaPods podspecs and links cleanly under static frameworks.
+    ['@react-native-firebase/app', { ios: { disableSPM: true } }],
     '@react-native-firebase/auth',
     [
       '@sentry/react-native/expo',

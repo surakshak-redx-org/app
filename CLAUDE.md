@@ -25,8 +25,11 @@
 - Local development: always APP_ENV=dev, always staging Firebase credentials
 - MixPanel and Sentry must NOT initialize when APP_ENV=dev — log console.warn instead
 - app.json does NOT exist — app.config.ts is the only config file
-- google-services.json and GoogleService-Info.plist are never committed to git
-- In CI they are decoded from base64 GitHub secrets at build time
+- google-services\*.json and GoogleService-Info\*.plist are never committed to git
+- One config-file pair per APP_ENV (dev/staging/prod), selected by bundle id in
+  app.config.ts. CI native builds read them from EAS file-type Environment
+  Variables (GOOGLE_SERVICES_ANDROID_FILE / _IOS_FILE), scoped per tier — not
+  from GitHub secrets. OTA deploys need no Firebase file at all.
 
 ## Branch Strategy
 
@@ -584,27 +587,38 @@ code back to match the original text — CI will fail.
 | `SOSButton`       | `components/ui/` in the brief                                         | **`components/features/sos/`**                  | this file is the source of truth                                                    |
 | Package manager   | unspecified                                                           | **Yarn 4**                                      | see the Tech Stack table                                                            |
 
-> ⚠️ **The single Firebase config overrides the Environments table above.**
-> `prod` now reads the _same_ Firebase project as `dev` and `staging`, because
-> there is only one `google-services.json` / `GoogleService-Info.plist` pair.
+> ⚠️ **One Firebase project, three registered apps — overrides the Environments table above.**
+> Every tier uses a single Firebase project (`surakshak-2869a`; the
+> `surakshak-staging` / `surakshak-production` names in the table are labels,
+> not real project IDs). Within it each bundle id (`com.surakshak.dev` /
+> `.staging` / `.app`) is registered as its own app, so there are three
+> `google-services.<env>.json` + three `GoogleService-Info.<env>.plist` files at
+> the repo root (all gitignored), selected by `APP_ENV` through the
+> `Record<AppEnv, string>` maps in `app.config.ts`. Per-tier config reaches CI
+> native builds via EAS file-type env vars (`GOOGLE_SERVICES_ANDROID_FILE` /
+> `_IOS_FILE` on the `preview` and `production` tiers).
 > The APP_ENV split still governs app name, bundle id, icon colour, EAS channel
-> and whether MixPanel/Sentry initialise — just not the Firebase project.
-> To separate them later: restore the `Record<AppEnv, string>` maps in
-> `app.config.ts` and add per-environment secrets back to `deploy.yml`.
+> and whether MixPanel/Sentry initialise. To split into separate Firebase
+> _projects_ later: point each map entry at that project's file and update the
+> per-tier EAS file variables to match.
 
 ### GitHub secrets
 
-Two, plus `EXPO_TOKEN` and `ANTHROPIC_API_KEY`:
+Just `EXPO_TOKEN` and `ANTHROPIC_API_KEY`.
 
-| Secret                    | Contents                             |
-| ------------------------- | ------------------------------------ |
-| `GOOGLE_SERVICES_ANDROID` | base64 of `google-services.json`     |
-| `GOOGLE_SERVICES_IOS`     | base64 of `GoogleService-Info.plist` |
+Firebase config files are **not** GitHub secrets. Native `eas build` runs on a
+remote worker that never sees a file decoded onto the CI runner, so the config
+lives in EAS **file-type** Environment Variables instead, scoped per tier:
 
-The Maps keys and `EXPO_PUBLIC_APP_ENV` are **not** GitHub secrets — they live
-in EAS's hosted Environment Variables instead, since `eas build`'s remote
-container never sees a GitHub Actions job's `env:` block at all. See "Where
-config values live" above.
+| EAS variable                   | Tier         | Value                                |
+| ------------------------------ | ------------ | ------------------------------------ |
+| `GOOGLE_SERVICES_ANDROID_FILE` | `preview`    | `./google-services.staging.json`     |
+| `GOOGLE_SERVICES_IOS_FILE`     | `preview`    | `./GoogleService-Info.staging.plist` |
+| `GOOGLE_SERVICES_ANDROID_FILE` | `production` | `./google-services.prod.json`        |
+| `GOOGLE_SERVICES_IOS_FILE`     | `production` | `./GoogleService-Info.prod.plist`    |
+
+The Maps keys and `EXPO_PUBLIC_APP_ENV` also live in EAS Environment Variables,
+for the same reason. See "Where config values live" above.
 
 Also worth knowing:
 

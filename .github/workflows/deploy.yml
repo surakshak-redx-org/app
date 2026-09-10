@@ -146,20 +146,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Decoded in THIS job on purpose: files and $GITHUB_ENV do not cross job
-      # boundaries, so a separate "write config" job would leave this runner
-      # with no Firebase config at all. APP_ENV and the Maps keys are NOT set
-      # here — `eas update --environment` below pulls them from EAS's own
-      # hosted Environment Variables instead. Job-level `env:` here would only
-      # ever have reached local bundling, never `eas build`'s remote worker,
-      # so hosted variables are the only mechanism that works for both paths.
-      - name: Decode Firebase config
-        env:
-          GOOGLE_SERVICES_ANDROID: ${{ secrets.GOOGLE_SERVICES_ANDROID }}
-          GOOGLE_SERVICES_IOS: ${{ secrets.GOOGLE_SERVICES_IOS }}
-        run: |
-          echo "$GOOGLE_SERVICES_ANDROID" | base64 --decode > google-services.json
-          echo "$GOOGLE_SERVICES_IOS" | base64 --decode > GoogleService-Info.plist
+      # No Firebase config file is written here. An OTA update ships JS to an
+      # already-installed native shell — @react-native-firebase reads the
+      # google-services.json / GoogleService-Info.plist baked into that build,
+      # not anything on this runner. app.config.ts's googleServicesFile() helper
+      # returns {} when the path is absent, so config resolution doesn't throw.
+      # Per-tier config for NATIVE builds lives in EAS file-type Environment
+      # Variables (GOOGLE_SERVICES_ANDROID_FILE / _IOS_FILE), scoped to the
+      # preview and production tiers — see the eas-build job below.
 
       - uses: actions/setup-node@v4
         with:
@@ -193,13 +187,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Decode Firebase config
-        env:
-          GOOGLE_SERVICES_ANDROID: ${{ secrets.GOOGLE_SERVICES_ANDROID }}
-          GOOGLE_SERVICES_IOS: ${{ secrets.GOOGLE_SERVICES_IOS }}
-        run: |
-          echo "$GOOGLE_SERVICES_ANDROID" | base64 --decode > google-services.json
-          echo "$GOOGLE_SERVICES_IOS" | base64 --decode > GoogleService-Info.plist
+      # No Firebase config file is decoded here. `eas build` runs on a REMOTE
+      # worker that never receives a gitignored file written to this runner's
+      # disk. The per-tier config reaches that worker only through EAS
+      # file-type Environment Variables — GOOGLE_SERVICES_ANDROID_FILE and
+      # GOOGLE_SERVICES_IOS_FILE, set on the `preview` tier (staging → the
+      # *.staging.* files) and the `production` tier (production → the *.prod.*
+      # files) at expo.dev. On the worker EAS materialises each to a temp path
+      # and exports it as process.env.<NAME>; app.config.ts reads that in
+      # preference to its ./google-services.<APP_ENV>.json fallback.
 
       - uses: actions/setup-node@v4
         with:
