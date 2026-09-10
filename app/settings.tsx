@@ -1,16 +1,173 @@
-// TODO: Implemented in Phase 8 — Multilingual
-import React from 'react';
+import { MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Alert, Pressable, Switch, View } from 'react-native';
 
+import { Card } from '@/components/ui/Card';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { SafeScreen } from '@/components/ui/SafeScreen';
 import { Text } from '@/components/ui/Text';
+import { captureException } from '@/config/sentry';
+import { FALLBACK_APP_VERSION } from '@/constants/auth';
+import { COLORS } from '@/constants/colors';
+import { ROUTES } from '@/constants/routes';
+import {
+  STORAGE_FLAG_OFF,
+  STORAGE_FLAG_ON,
+  STORAGE_KEYS,
+  type StorageKey,
+} from '@/constants/storage';
+import { DANGER_ROW_HITSLOP, ICON_SIZE } from '@/constants/ui';
+import {
+  ANALYTICS_EVENTS,
+  resetUser as resetAnalytics,
+  trackEvent,
+} from '@/services/analytics.service';
+import { AuthError, deleteAccount } from '@/services/firebase/auth.service';
+import { useAuthStore } from '@/stores/auth.store';
+import { useUserStore } from '@/stores/user.store';
 
 export default function SettingsScreen(): React.JSX.Element {
+  const { t } = useTranslation();
+  const router = useRouter();
+
+  const [shakeEnabled, setShakeEnabled] = useState(true);
+  const [lowBatteryEnabled, setLowBatteryEnabled] = useState(true);
+
+  useEffect(() => {
+    AsyncStorage.multiGet([STORAGE_KEYS.SHAKE_ENABLED, STORAGE_KEYS.LOW_BATTERY_ENABLED])
+      .then((entries) => {
+        const stored = new Map<string, string | null>(entries);
+        setShakeEnabled(stored.get(STORAGE_KEYS.SHAKE_ENABLED) !== STORAGE_FLAG_OFF);
+        setLowBatteryEnabled(stored.get(STORAGE_KEYS.LOW_BATTERY_ENABLED) !== STORAGE_FLAG_OFF);
+      })
+      .catch((error: unknown) => captureException(error));
+  }, []);
+
+  function persistToggle(
+    key: StorageKey,
+    value: boolean,
+    revert: (previous: boolean) => void,
+  ): void {
+    AsyncStorage.setItem(key, value ? STORAGE_FLAG_ON : STORAGE_FLAG_OFF).catch(
+      (error: unknown) => {
+        captureException(error);
+        // The write failed — don't let the switch claim a setting that isn't saved.
+        revert(!value);
+      },
+    );
+  }
+
+  function handleShakeToggle(value: boolean): void {
+    setShakeEnabled(value);
+    persistToggle(STORAGE_KEYS.SHAKE_ENABLED, value, setShakeEnabled);
+  }
+
+  function handleBatteryToggle(value: boolean): void {
+    setLowBatteryEnabled(value);
+    persistToggle(STORAGE_KEYS.LOW_BATTERY_ENABLED, value, setLowBatteryEnabled);
+  }
+
+  async function runDelete(): Promise<void> {
+    try {
+      await deleteAccount();
+      await AsyncStorage.multiRemove([
+        STORAGE_KEYS.ONBOARDING_COMPLETE,
+        STORAGE_KEYS.SHAKE_ENABLED,
+        STORAGE_KEYS.LOW_BATTERY_ENABLED,
+      ]);
+      useAuthStore.getState().reset();
+      useUserStore.getState().reset();
+      resetAnalytics();
+      trackEvent(ANALYTICS_EVENTS.ACCOUNT_DELETED, {});
+      router.replace(ROUTES.WELCOME);
+    } catch (error) {
+      captureException(error);
+      Alert.alert(t(error instanceof AuthError ? error.i18nKey : 'errors.generic'));
+    }
+  }
+
+  function handleDeleteAccount(): void {
+    Alert.alert(t('settings.deleteAccount'), t('settings.deleteAccountWarning'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('common.delete'),
+        style: 'destructive',
+        onPress: (): void => {
+          Alert.alert(t('settings.deleteAccount'), t('profile.deleteAccountConfirm'), [
+            { text: t('common.cancel'), style: 'cancel' },
+            {
+              text: t('settings.deleteAccountConfirmFinal'),
+              style: 'destructive',
+              onPress: (): void => void runDelete(),
+            },
+          ]);
+        },
+      },
+    ]);
+  }
+
+  const appVersion = Constants.expoConfig?.version ?? FALLBACK_APP_VERSION;
+
   return (
     <ErrorBoundary>
-      <SafeScreen>
-        <Text variant="h1" tKey="settings.title" className="mt-4" />
-        <Text variant="body" tKey="common.comingSoon" className="mt-2" />
+      <SafeScreen scrollable>
+        <Text variant="h1" tKey="settings.title" className="mb-4 mt-4" />
+
+        <Card padding="md">
+          <Pressable
+            onPress={() => router.push(ROUTES.LANGUAGE_SELECT)}
+            accessibilityRole="button"
+            className="flex-row items-center justify-between py-3"
+          >
+            <Text variant="body" tKey="settings.language" />
+            <MaterialIcons name="chevron-right" size={ICON_SIZE.CHEVRON} color={COLORS.STONE} />
+          </Pressable>
+
+          <View className="flex-row items-center justify-between py-3">
+            <Text variant="body" tKey="settings.shakeToSos" className="flex-1" />
+            <Switch
+              value={shakeEnabled}
+              onValueChange={handleShakeToggle}
+              trackColor={{ true: COLORS.SHAKTI_PURPLE, false: COLORS.STONE }}
+            />
+          </View>
+
+          <View className="flex-row items-center justify-between py-3">
+            <Text variant="body" tKey="settings.lowBatteryAlert" className="flex-1" />
+            <Switch
+              value={lowBatteryEnabled}
+              onValueChange={handleBatteryToggle}
+              trackColor={{ true: COLORS.SHAKTI_PURPLE, false: COLORS.STONE }}
+            />
+          </View>
+        </Card>
+
+        <Card padding="md" className="mt-4">
+          <Text variant="label" tKey="settings.about" className="mb-2" />
+          <Text
+            variant="caption"
+            tKey="settings.version"
+            tOptions={{ version: appVersion }}
+            className="py-2 text-stone"
+          />
+          <Text variant="body" tKey="settings.terms" className="py-2 text-shakti-purple" />
+          <Text variant="body" tKey="settings.privacyPolicy" className="py-2 text-shakti-purple" />
+        </Card>
+
+        <Card padding="md" className="mt-4">
+          <Pressable
+            onPress={handleDeleteAccount}
+            accessibilityRole="button"
+            className="py-3"
+            hitSlop={DANGER_ROW_HITSLOP}
+          >
+            <Text variant="body" tKey="settings.deleteAccount" className="text-error-red" />
+          </Pressable>
+        </Card>
       </SafeScreen>
     </ErrorBoundary>
   );

@@ -99,8 +99,10 @@
     "cannotSkipRequired": "",
     "nameLabel": "",
     "namePlaceholder": "",
+    "nameInvalid": "",
     "cityLabel": "",
     "cityPlaceholder": "",
+    "cityInvalid": "",
     "addPhoto": "",
     "changePhoto": "",
     "getStarted": "",
@@ -264,7 +266,8 @@
     "terms": "",
     "privacyPolicy": "",
     "deleteAccount": "",
-    "deleteAccountWarning": ""
+    "deleteAccountWarning": "",
+    "deleteAccountConfirmFinal": ""
   },
   "errors": {
     "networkError": "",

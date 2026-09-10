@@ -4,9 +4,9 @@ import { Text as RNText, TextInput, View, type TextInputProps } from 'react-nati
 import { COLORS } from '@/constants/colors';
 
 export interface InputProps extends TextInputProps {
-  label?: string;
-  error?: string;
-  helper?: string;
+  label?: string | undefined;
+  error?: string | undefined;
+  helper?: string | undefined;
   className?: string;
 }
 

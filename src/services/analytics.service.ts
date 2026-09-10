@@ -12,6 +12,12 @@ export const ANALYTICS_EVENTS = {
   UNSAFE_AREA_REPORTED: 'unsafe_area_reported',
   INCIDENT_REPORTED: 'incident_reported',
   LANGUAGE_CHANGED: 'language_changed',
+  OTP_REQUESTED: 'otp_requested',
+  OTP_VERIFIED: 'otp_verified',
+  ONBOARDING_COMPLETED: 'onboarding_completed',
+  GUEST_SESSION_STARTED: 'guest_session_started',
+  SIGN_OUT: 'sign_out',
+  ACCOUNT_DELETED: 'account_deleted',
 } as const;
 
 export type AnalyticsEvent = (typeof ANALYTICS_EVENTS)[keyof typeof ANALYTICS_EVENTS];
