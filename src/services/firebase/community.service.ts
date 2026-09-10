@@ -40,6 +40,25 @@ function mapPost(snapshot: PostSnapshot): CommunityPost {
   return { id: snapshot.id, ...(snapshot.data() as Omit<CommunityPost, 'id'>) };
 }
 
+type PostQuerySnapshot = { docs: PostSnapshot[] } | null;
+
+/**
+ * `onSnapshot` next handler. RNFirebase hands a `null` snapshot when the listener
+ * errors (e.g. a missing composite index), so guard before reading `.docs`.
+ */
+function handleSnapshot(
+  snapshot: PostQuerySnapshot,
+  onUpdate: (posts: CommunityPost[]) => void,
+): void {
+  if (snapshot === null) return;
+  onUpdate(snapshot.docs.map(mapPost));
+}
+
+function handleListenerError(error: Error, onError?: (error: Error) => void): void {
+  if (onError) onError(error);
+  else console.warn('community listener error:', error);
+}
+
 /**
  * Live feed of visible posts in a city, newest first. Returns the unsubscribe.
  * @phase Phase 5 — Community
@@ -47,6 +66,7 @@ function mapPost(snapshot: PostSnapshot): CommunityPost {
 export function subscribeToCityPosts(
   city: string,
   onUpdate: (posts: CommunityPost[]) => void,
+  onError?: (error: Error) => void,
 ): () => void {
   return onSnapshot(
     query(
@@ -56,9 +76,8 @@ export function subscribeToCityPosts(
       orderBy('createdAt', 'desc'),
       limit(APP_CONFIG.COMMUNITY_PAGE_SIZE),
     ),
-    (snapshot): void => {
-      onUpdate(snapshot.docs.map(mapPost));
-    },
+    (snapshot: PostQuerySnapshot): void => handleSnapshot(snapshot, onUpdate),
+    (error: Error): void => handleListenerError(error, onError),
   );
 }
 
@@ -66,7 +85,10 @@ export function subscribeToCityPosts(
  * Live feed of visible posts across every city, newest first.
  * @phase Phase 5 — Community
  */
-export function subscribeToAllIndiaPosts(onUpdate: (posts: CommunityPost[]) => void): () => void {
+export function subscribeToAllIndiaPosts(
+  onUpdate: (posts: CommunityPost[]) => void,
+  onError?: (error: Error) => void,
+): () => void {
   return onSnapshot(
     query(
       communityCollection(),
@@ -74,9 +96,8 @@ export function subscribeToAllIndiaPosts(onUpdate: (posts: CommunityPost[]) => v
       orderBy('createdAt', 'desc'),
       limit(APP_CONFIG.COMMUNITY_PAGE_SIZE),
     ),
-    (snapshot): void => {
-      onUpdate(snapshot.docs.map(mapPost));
-    },
+    (snapshot: PostQuerySnapshot): void => handleSnapshot(snapshot, onUpdate),
+    (error: Error): void => handleListenerError(error, onError),
   );
 }
 
