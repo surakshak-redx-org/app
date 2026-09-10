@@ -38,6 +38,9 @@ production ← staging ← develop ← feature/xxx | fix/xxx | chore/xxx
 - Juniors only open PRs targeting develop
 - Direct push to develop, staging, production: blocked for everyone including Dhruv
 - All PRs require: all pipeline checks pass + Claude bot review + 1 human approval
+- Commit messages and PR descriptions: do NOT add `Co-Authored-By: Claude`,
+  `Claude-Session:`, "Generated with Claude Code", or any other AI-attribution
+  trailer/footer
 - develop CI: pr-checks.yml only (typecheck/lint/prettier/no-eslint-disable/test)
   — **no build, no OTA**. develop is the integration branch every PR lands on,
   often several times a day; deploying on every merge there is unnecessary
