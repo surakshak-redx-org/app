@@ -1,10 +1,11 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
+import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Alert, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import MapView, { Circle, Marker, PROVIDER_GOOGLE, type Region } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { z } from 'zod';
@@ -15,6 +16,7 @@ import { Card } from '@/components/ui/Card';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { Input } from '@/components/ui/Input';
 import { Text } from '@/components/ui/Text';
+import { ENV } from '@/config/env';
 import { captureException } from '@/config/sentry';
 import { COLORS } from '@/constants/colors';
 import { APP_CONFIG } from '@/constants/config';
@@ -37,6 +39,7 @@ import {
 import { getCurrentLocation } from '@/services/location.service';
 import { useAuthStore } from '@/stores/auth.store';
 import type { UnsafeArea, UnsafeAreaCategory } from '@/types/location.types';
+import { debugLog } from '@/utils/debug-log';
 
 interface ReportFormValues {
   title: string;
@@ -70,24 +73,52 @@ export default function MapScreen(): React.JSX.Element {
   const [isReportModalVisible, setReportModalVisible] = useState(false);
   const [isSubmitting, setSubmitting] = useState(false);
 
+  // --- iOS blank-map diagnostics (dev only; remove once resolved) ---
   useEffect(() => {
-    void requestPermission();
+    const nativeIosMapsKey = Constants.expoConfig?.ios?.config?.googleMapsApiKey;
+    debugLog('MapScreen', 'mounted', {
+      platform: Platform.OS,
+      provider: PROVIDER_GOOGLE,
+      // The key the native Google Maps SDK actually uses on iOS — baked at
+      // build/prebuild time from app.config.ts. Blank map ⇒ this is missing.
+      nativeIosMapsKeySet: typeof nativeIosMapsKey === 'string' && nativeIosMapsKey.length > 0,
+      nativeIosMapsKeyPrefix: nativeIosMapsKey?.slice(0, 8) ?? null,
+      // The key the JS layer uses for the Places REST calls (works already).
+      jsIosMapsKeyPrefix: ENV.GOOGLE_MAPS_API_KEY_IOS.slice(0, 8),
+      appOwnership: Constants.appOwnership,
+      executionEnvironment: Constants.executionEnvironment,
+    });
+  }, []);
+
+  useEffect(() => {
+    void requestPermission()
+      .then((granted) => debugLog('MapScreen', 'location permission granted:', granted))
+      .catch((error: unknown) => debugLog('MapScreen', 'requestPermission failed:', error));
   }, [requestPermission]);
 
   useEffect(() => {
-    const unsubscribe = subscribeToUnsafeAreas(setUnsafeAreas);
+    debugLog('MapScreen', 'currentLocation:', currentLocation);
+  }, [currentLocation]);
+
+  useEffect(() => {
+    debugLog('MapScreen', 'subscribing to unsafe areas');
+    const unsubscribe = subscribeToUnsafeAreas((areas) => {
+      debugLog('MapScreen', 'unsafe areas received:', areas.length);
+      setUnsafeAreas(areas);
+    });
     return unsubscribe;
   }, []);
 
-  const initialRegion: Region = useMemo(
-    () => ({
+  const initialRegion: Region = useMemo(() => {
+    const region = {
       latitude: currentLocation?.latitude ?? APP_CONFIG.MAP_FALLBACK_LATITUDE,
       longitude: currentLocation?.longitude ?? APP_CONFIG.MAP_FALLBACK_LONGITUDE,
       latitudeDelta: APP_CONFIG.MAP_DEFAULT_LATITUDE_DELTA,
       longitudeDelta: APP_CONFIG.MAP_DEFAULT_LONGITUDE_DELTA,
-    }),
-    [currentLocation],
-  );
+    };
+    debugLog('MapScreen', 'initialRegion:', region);
+    return region;
+  }, [currentLocation]);
 
   const schema = useMemo(
     () =>
@@ -179,6 +210,9 @@ export default function MapScreen(): React.JSX.Element {
           showsUserLocation
           showsMyLocationButton
           initialRegion={initialRegion}
+          onMapReady={() => debugLog('MapScreen', 'MapView onMapReady')}
+          onMapLoaded={() => debugLog('MapScreen', 'MapView onMapLoaded (tiles drawn)')}
+          onLayout={(event) => debugLog('MapScreen', 'MapView onLayout', event.nativeEvent.layout)}
         >
           {unsafeAreas.map((area) => (
             <React.Fragment key={area.id}>

@@ -15,6 +15,13 @@ jest.mock('@/services/firebase/unsafe-areas.service', () => ({
 }));
 
 describe('MapScreen', () => {
+  // The screen carries dev-only `debugLog` (console.warn) diagnostics.
+  let warnSpy: jest.SpyInstance;
+  beforeEach(() => {
+    warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+  });
+  afterEach(() => warnSpy.mockRestore());
+
   it('renders the map heading', async () => {
     const { getByText } = await render(<MapScreen />);
     expect(getByText('Safety Map')).toBeTruthy();
