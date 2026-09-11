@@ -230,6 +230,10 @@ export default function SilentRecordingScreen(): React.JSX.Element {
           <Button
             variant="danger"
             size="lg"
+            // Button defaults non-fullWidth to self-start, which overrides
+            // this column's items-center and pins it to the left instead of
+            // centering it under the countdown text.
+            className="self-center"
             label={t('silentRecording.stopAndUpload')}
             onPress={() => void handleStopAndUpload()}
           />
