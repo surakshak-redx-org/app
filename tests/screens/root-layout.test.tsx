@@ -18,11 +18,12 @@ jest.mock('react-native-gesture-handler', () => {
 
 const mockReplace = jest.fn();
 const mockSubscribe = jest.fn();
+let mockSegments: string[] = [];
 
 jest.mock('expo-router', () => ({
   Slot: (): null => null,
   useRouter: () => ({ replace: mockReplace, push: jest.fn(), back: jest.fn() }),
-  useSegments: () => [],
+  useSegments: () => mockSegments,
 }));
 
 jest.mock('@/services/firebase/auth.service', () => ({
@@ -44,6 +45,7 @@ describe('RootLayout auth listener', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     useAuthStore.getState().reset();
+    mockSegments = [];
   });
 
   it('subscribes to auth changes on mount', async () => {
@@ -93,5 +95,30 @@ describe('RootLayout auth listener', () => {
     await emitAuth(null);
 
     expect(useAuthStore.getState().user).toBeNull();
+  });
+
+  it('lets a guest reach the auth group to sign in instead of bouncing to Home', async () => {
+    // A guest reads as "signed in" by design (so app launch doesn't bounce
+    // them to Welcome) — GuestBanner sets isGuestSigningIn before pushing
+    // into (auth), and that must suppress the "already signed in, go Home"
+    // redirect for this one deliberate navigation.
+    mockSegments = ['(auth)'];
+    useAuthStore.getState().setGuest(true);
+    useAuthStore.getState().setGuestSigningIn(true);
+    useAuthStore.getState().setInitialized(true);
+
+    await render(<RootLayout />);
+
+    expect(mockReplace).not.toHaveBeenCalledWith(ROUTES.HOME);
+  });
+
+  it('still bounces a guest browsing the auth group without signing in back to Home', async () => {
+    mockSegments = ['(auth)'];
+    useAuthStore.getState().setGuest(true);
+    useAuthStore.getState().setInitialized(true);
+
+    await render(<RootLayout />);
+
+    expect(mockReplace).toHaveBeenCalledWith(ROUTES.HOME);
   });
 });
