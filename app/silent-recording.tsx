@@ -143,6 +143,7 @@ export default function SilentRecordingScreen(): React.JSX.Element {
 
       await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
       await activateKeepAwakeAsync();
+      await recorder.prepareToRecordAsync();
       recorder.record();
       setScreenState('recording');
       trackEvidenceRecordingStarted();
