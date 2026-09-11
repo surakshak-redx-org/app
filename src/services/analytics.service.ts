@@ -59,6 +59,8 @@ export const ANALYTICS_EVENTS = {
   GUEST_SESSION_STARTED: 'guest_session_started',
   SIGN_OUT: 'sign_out',
   ACCOUNT_DELETED: 'account_deleted',
+  OTA_UPDATE_AVAILABLE: 'ota_update_available',
+  OTA_UPDATE_APPLIED: 'ota_update_applied',
 } as const;
 
 export type AnalyticsEvent = (typeof ANALYTICS_EVENTS)[keyof typeof ANALYTICS_EVENTS];
@@ -274,6 +276,16 @@ export function trackSafeCheckinMissed(): void {
 
 export function trackSafeCheckinAlertSent(): void {
   trackEvent(ANALYTICS_EVENTS.SAFE_CHECKIN_ALERT_SENT, {});
+}
+
+/* ------------------------------- OTA ------------------------------- */
+
+export function trackOtaUpdateAvailable(updateId: string): void {
+  trackEvent(ANALYTICS_EVENTS.OTA_UPDATE_AVAILABLE, { update_id: updateId });
+}
+
+export function trackOtaUpdateApplied(updateId: string): void {
+  trackEvent(ANALYTICS_EVENTS.OTA_UPDATE_APPLIED, { update_id: updateId });
 }
 
 /* --------------------------- localization --------------------------- */
