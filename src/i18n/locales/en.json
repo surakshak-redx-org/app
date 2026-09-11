@@ -333,7 +333,14 @@
     "copyLink": "Copy Link",
     "linkCopied": "Link copied to clipboard",
     "shareWithContacts": "Share with Emergency Contacts",
-    "recordAnother": "Record Another"
+    "recordAnother": "Record Another",
+    "viewRecordings": "View My Recordings",
+    "recordingsTitle": "My Recordings",
+    "recordingsEmpty": "No recordings yet",
+    "recordingsEmptyHint": "Recordings you upload will appear here",
+    "openRecording": "Open",
+    "clearRecordings": "Clear History",
+    "clearRecordingsConfirm": "Delete all recording links from this device? The uploaded audio itself is not deleted."
   },
   "incidentReport": {
     "tabNew": "Report",
@@ -385,6 +392,7 @@
     "notificationsDisabled": "Disabled",
     "shakeToSos": "Shake to SOS",
     "smsAlertHistory": "SMS Alert History",
+    "myRecordings": "My Recordings",
     "lowBatteryAlert": "Low Battery Alert",
     "lowBatteryThreshold": "Alert at {{percent}}% battery",
     "followDetection": "Suspicious Follow Alert",

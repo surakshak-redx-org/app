@@ -196,6 +196,15 @@ export default function SettingsScreen(): React.JSX.Element {
             <MaterialIcons name="chevron-right" size={ICON_SIZE.CHEVRON} color={COLORS.STONE} />
           </Pressable>
 
+          <Pressable
+            onPress={() => router.push(ROUTES.MY_RECORDINGS)}
+            accessibilityRole="button"
+            className="flex-row items-center justify-between py-3"
+          >
+            <Text variant="body" tKey="settings.myRecordings" />
+            <MaterialIcons name="chevron-right" size={ICON_SIZE.CHEVRON} color={COLORS.STONE} />
+          </Pressable>
+
           <View className="flex-row items-center justify-between py-3">
             <Text variant="body" tKey="settings.shakeToSos" className="flex-1" />
             <Switch

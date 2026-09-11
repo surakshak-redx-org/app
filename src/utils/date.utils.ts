@@ -44,6 +44,16 @@ export function formatTimestamp(date: Date, now: Date = new Date()): string {
   return `${date.getDate()} ${month} ${date.getFullYear()}`;
 }
 
+const SECONDS_PER_MINUTE = 60;
+
+/** `95` → `"1:35"`, `8` → `"0:08"` — a running-clock style, not `formatDuration`'s minutes rounding. */
+export function formatSecondsAsClock(seconds: number): string {
+  const safeSeconds = Math.max(0, Math.floor(seconds));
+  const minutes = Math.floor(safeSeconds / SECONDS_PER_MINUTE);
+  const secs = safeSeconds % SECONDS_PER_MINUTE;
+  return `${minutes}:${secs.toString().padStart(2, '0')}`;
+}
+
 /** `90` → `"1h 30m"`, `45` → `"45m"`, `120` → `"2h"`. */
 export function formatDuration(minutes: number): string {
   const safeMinutes = Math.max(0, Math.round(minutes));
