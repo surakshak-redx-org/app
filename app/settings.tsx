@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { SafeScreen } from '@/components/ui/SafeScreen';
+import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { Text } from '@/components/ui/Text';
 import { captureException } from '@/config/sentry';
 import { FALLBACK_APP_VERSION } from '@/constants/auth';
@@ -175,7 +176,7 @@ export default function SettingsScreen(): React.JSX.Element {
   return (
     <ErrorBoundary>
       <SafeScreen scrollable>
-        <Text variant="h1" tKey="settings.title" className="mb-4 mt-4" />
+        <ScreenHeader titleKey="settings.title" />
 
         <Card padding="md">
           <Pressable
