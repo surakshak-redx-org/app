@@ -2,10 +2,10 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { ConfirmationResult } from '@react-native-firebase/auth';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Pressable, Text as RNText, TextInput, View } from 'react-native';
+import { InteractionManager, Pressable, Text as RNText, TextInput, View } from 'react-native';
 import { z } from 'zod';
 
 import { Button } from '@/components/ui/Button';
@@ -51,6 +51,7 @@ export default function PhoneScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const phoneInputRef = useRef<TextInput | null>(null);
 
   const {
     control,
@@ -62,6 +63,16 @@ export default function PhoneScreen(): React.JSX.Element {
     mode: 'onChange',
     defaultValues: { phone: '' },
   });
+
+  // Autofocus so the keyboard is already open when this screen lands — see
+  // the matching note on the OTP screen for why this waits on
+  // runAfterInteractions instead of a plain `autoFocus` prop.
+  useEffect(() => {
+    const task = InteractionManager.runAfterInteractions(() => {
+      phoneInputRef.current?.focus();
+    });
+    return (): void => task.cancel();
+  }, []);
 
   async function handleSendOtp({ phone }: PhoneForm): Promise<void> {
     setIsLoading(true);
@@ -107,6 +118,10 @@ export default function PhoneScreen(): React.JSX.Element {
             name="phone"
             render={({ field }) => (
               <TextInput
+                ref={(element) => {
+                  field.ref(element);
+                  phoneInputRef.current = element;
+                }}
                 className="flex-1 text-base text-ink"
                 keyboardType="phone-pad"
                 maxLength={PHONE_DIGITS}

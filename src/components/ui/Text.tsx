@@ -2,7 +2,11 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Platform, Text as RNText } from 'react-native';
 
-import { DEVANAGARI_FONT_CLASSES, type FontWeightKey } from '@/constants/typography';
+import {
+  DEVANAGARI_FONT_CLASSES,
+  DEVANAGARI_LANGUAGES,
+  type FontWeightKey,
+} from '@/constants/typography';
 
 export type TextVariant = 'h1' | 'h2' | 'h3' | 'body' | 'caption' | 'label';
 
@@ -44,11 +48,14 @@ export function Text({
   className,
   numberOfLines,
 }: TextProps): React.JSX.Element {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const base = VARIANT_CLASSES[variant];
+  const isDevanagariLanguage = DEVANAGARI_LANGUAGES.includes(i18n.language);
   const devanagariClass =
-    Platform.OS === 'android' ? DEVANAGARI_FONT_CLASSES[VARIANT_WEIGHTS[variant]] : '';
+    Platform.OS === 'android' && isDevanagariLanguage
+      ? DEVANAGARI_FONT_CLASSES[VARIANT_WEIGHTS[variant]]
+      : '';
   const composed = [base, devanagariClass, className].filter(Boolean).join(' ');
   const content = tKey === undefined ? children : t(tKey, tOptions ?? {});
 

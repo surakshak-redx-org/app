@@ -8,6 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Sentry from '@sentry/react-native';
 import * as Notifications from 'expo-notifications';
 import { Slot, useRouter, useSegments } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import React, { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from 'react-native';
@@ -181,6 +182,13 @@ function RootLayout(): React.JSX.Element {
   return (
     <GestureHandlerRootView className="flex-1">
       <SafeAreaProvider>
+        {/* Expo SDK 57's edge-to-edge Android default draws content behind a
+            transparent status bar; without an explicit style the bar's own
+            icon color is left to the OS default, which can render invisible
+            against light screen backgrounds. `dark` matches this app's
+            off-white/white screens; a full-bleed dark screen (e.g. the
+            recording view) can override locally with its own <StatusBar/>. */}
+        <StatusBar style="dark" />
         {isInitialized && fontsLoaded ? (
           <Slot />
         ) : (
