@@ -21,7 +21,7 @@ const mockSubscribe = jest.fn();
 let mockSegments: string[] = [];
 
 jest.mock('expo-router', () => ({
-  Slot: (): null => null,
+  Stack: (): null => null,
   useRouter: () => ({ replace: mockReplace, push: jest.fn(), back: jest.fn() }),
   useSegments: () => mockSegments,
 }));
