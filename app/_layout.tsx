@@ -7,7 +7,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Sentry from '@sentry/react-native';
 import * as Notifications from 'expo-notifications';
-import { Slot, useRouter, useSegments } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -206,7 +206,15 @@ function RootLayout(): React.JSX.Element {
             recording view) can override locally with its own <StatusBar/>. */}
         <StatusBar style="dark" />
         {isInitialized && fontsLoaded ? (
-          <Slot />
+          // A bare <Slot/> only ever renders the current top-of-stack screen
+          // — it unmounts everything underneath, including `(tabs)`. So
+          // pushing any sibling screen (emergency-contacts, live-location,
+          // incident-report, ...) from a non-Home tab and pressing back
+          // remounted the Tabs navigator from scratch, always landing back
+          // on its first screen (Home) instead of the tab the user left. A
+          // real Stack keeps `(tabs)` mounted underneath, preserving which
+          // tab was selected across the push/pop.
+          <Stack screenOptions={{ headerShown: false }} />
         ) : (
           <Spinner size="lg" className="flex-1 items-center justify-center" />
         )}
