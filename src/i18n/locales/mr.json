@@ -53,6 +53,8 @@
     "sirenOff": "सायरन बंद झाला",
     "silentRecording": "सायलेंट रेकॉर्डिंग",
     "incidentReport": "घटना अहवाल",
+    "guestFeatureLockedTitle": "साइन इन आवश्यक आहे",
+    "guestFeatureLockedBody": "हे वैशिष्ट्य तुमच्या खात्यात डेटा जतन करते, त्यामुळे गेस्ट मोडमध्ये ते वापरता येत नाही. सुरू ठेवण्यासाठी साइन इन करा.",
     "checkinActive": "चेक-इन सुरू आहे — पुढील: {{time}}",
     "suspiciousFollowTitle": "⚠️ कदाचित कोणीतरी पाठलाग करत आहे",
     "suspiciousFollowBody": "कदाचित कोणीतरी तुमचा पाठलाग करत आहे. तुम्हाला काय करायचे आहे?",

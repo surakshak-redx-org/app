@@ -53,6 +53,8 @@
     "sirenOff": "Siren stopped",
     "silentRecording": "Silent Recording",
     "incidentReport": "Incident Report",
+    "guestFeatureLockedTitle": "Sign in required",
+    "guestFeatureLockedBody": "This feature saves data to your account, so guest mode can't use it. Sign in to continue.",
     "checkinActive": "Check-in active — next: {{time}}",
     "suspiciousFollowTitle": "⚠️ Possible Suspicious Activity",
     "suspiciousFollowBody": "You may be being followed. What would you like to do?",

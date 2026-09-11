@@ -1,10 +1,15 @@
 import { fireEvent, render } from '@testing-library/react-native';
 import React from 'react';
+import { Alert } from 'react-native';
 
+import { ROUTES } from '@/constants/routes';
+import { useAuthStore } from '@/stores/auth.store';
 import HomeScreen from '@app/(tabs)/index';
 
+const mockPush = jest.fn();
+
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
+  useRouter: () => ({ push: mockPush, replace: jest.fn(), back: jest.fn() }),
 }));
 
 jest.mock('expo-audio', () => ({
@@ -41,6 +46,11 @@ jest.mock('expo-sms', () => ({
 }));
 
 describe('HomeScreen', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    useAuthStore.getState().reset();
+  });
+
   it('renders the SOS button and the quick actions', async () => {
     const { getByText, getByLabelText } = await render(<HomeScreen />);
 
@@ -59,5 +69,50 @@ describe('HomeScreen', () => {
     await fireEvent.press(button);
 
     expect(getByText('Sending SOS in 5s...')).toBeTruthy();
+  });
+
+  it('locks write-requiring cards for a guest and prompts to sign in instead of navigating', async () => {
+    useAuthStore.getState().setGuest(true);
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+
+    const { getByText } = await render(<HomeScreen />);
+    await fireEvent.press(getByText('Emergency Contacts'));
+
+    expect(mockPush).not.toHaveBeenCalledWith(ROUTES.EMERGENCY_CONTACTS);
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Sign in required',
+      expect.any(String),
+      expect.any(Array),
+    );
+  });
+
+  it('sends a signed-in-guest to Welcome when they choose to sign in from the prompt', async () => {
+    useAuthStore.getState().setGuest(true);
+    jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
+      const signInButton = buttons?.find((button) => button.text === 'Sign In Now');
+      signInButton?.onPress?.();
+    });
+
+    const { getByText } = await render(<HomeScreen />);
+    await fireEvent.press(getByText('Live Location'));
+
+    expect(useAuthStore.getState().isGuestSigningIn).toBe(true);
+    expect(mockPush).toHaveBeenCalledWith(ROUTES.WELCOME);
+  });
+
+  it('does not lock a card that does not need a real sign-in', async () => {
+    useAuthStore.getState().setGuest(true);
+
+    const { getByText } = await render(<HomeScreen />);
+    await fireEvent.press(getByText('Nearby Help'));
+
+    expect(mockPush).toHaveBeenCalledWith(ROUTES.NEARBY_HELP);
+  });
+
+  it('navigates straight through for a signed-in user', async () => {
+    const { getByText } = await render(<HomeScreen />);
+    await fireEvent.press(getByText('Emergency Contacts'));
+
+    expect(mockPush).toHaveBeenCalledWith(ROUTES.EMERGENCY_CONTACTS);
   });
 });
