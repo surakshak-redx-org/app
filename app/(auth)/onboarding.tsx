@@ -259,7 +259,10 @@ export default function OnboardingScreen(): React.JSX.Element {
                   <Text variant="h3" className="mr-3">
                     {option.flag}
                   </Text>
-                  <Text variant="body">{option.native}</Text>
+                  <View>
+                    <Text variant="body">{option.native}</Text>
+                    <Text variant="caption">{option.englishName}</Text>
+                  </View>
                 </Pressable>
               );
             })}

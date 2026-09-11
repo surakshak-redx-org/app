@@ -16,6 +16,14 @@ module.exports = {
         'near-black': '#0A0A0A',
         charcoal: '#1A1A1A',
       },
+      fontFamily: {
+        // Android-only fallback so Devanagari text (hi/mr) never renders as
+        // boxes/tofu on system fonts that lack full Devanagari coverage.
+        // iOS is untouched — its system font already covers Devanagari.
+        'devanagari-regular': ['NotoSansDevanagari_400Regular'],
+        'devanagari-semibold': ['NotoSansDevanagari_600SemiBold'],
+        'devanagari-bold': ['NotoSansDevanagari_700Bold'],
+      },
     },
   },
   plugins: [],

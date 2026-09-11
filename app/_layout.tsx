@@ -1,3 +1,9 @@
+import {
+  NotoSansDevanagari_400Regular,
+  NotoSansDevanagari_600SemiBold,
+  NotoSansDevanagari_700Bold,
+  useFonts,
+} from '@expo-google-fonts/noto-sans-devanagari';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Sentry from '@sentry/react-native';
 import * as Notifications from 'expo-notifications';
@@ -33,6 +39,16 @@ function RootLayout(): React.JSX.Element {
   const router = useRouter();
   const segments = useSegments();
   const { t } = useTranslation();
+
+  // Android has no guaranteed system Devanagari face on every OEM/OS build —
+  // load Noto Sans Devanagari so hi/mr text never renders as boxes/tofu.
+  // iOS's system font already covers Devanagari, but useFonts still resolves
+  // (near-)instantly there since it isn't rendering the glyphs itself.
+  const [fontsLoaded] = useFonts({
+    NotoSansDevanagari_400Regular,
+    NotoSansDevanagari_600SemiBold,
+    NotoSansDevanagari_700Bold,
+  });
 
   const user = useAuthStore((state) => state.user);
   const isGuest = useAuthStore((state) => state.isGuest);
@@ -157,7 +173,7 @@ function RootLayout(): React.JSX.Element {
   return (
     <GestureHandlerRootView className="flex-1">
       <SafeAreaProvider>
-        {isInitialized ? (
+        {isInitialized && fontsLoaded ? (
           <Slot />
         ) : (
           <Spinner size="lg" className="flex-1 items-center justify-center" />

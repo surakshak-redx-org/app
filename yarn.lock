@@ -1360,6 +1360,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@expo-google-fonts/noto-sans-devanagari@npm:^0.4.1":
+  version: 0.4.1
+  resolution: "@expo-google-fonts/noto-sans-devanagari@npm:0.4.1"
+  checksum: 10c0/b4b286f8a8563db4ec7c0bb772cf3015b4f25520dd35d8b55a05af34bf23e58077be475eab56179fa2dfb454797a8e6fcc4eaf73d85e35fdc330faf32b4a4958
+  languageName: node
+  linkType: hard
+
 "@expo/cli@npm:^57.0.23":
   version: 57.0.23
   resolution: "@expo/cli@npm:57.0.23"
@@ -14454,6 +14461,7 @@ __metadata:
     "@babel/core": "npm:^7.28.4"
     "@commitlint/cli": "npm:^21.2.2"
     "@commitlint/config-conventional": "npm:^21.2.2"
+    "@expo-google-fonts/noto-sans-devanagari": "npm:^0.4.1"
     "@expo/vector-icons": "npm:^15.0.2"
     "@hookform/resolvers": "npm:^5.9.1"
     "@react-native-async-storage/async-storage": "npm:2.2.0"

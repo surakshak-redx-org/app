@@ -51,6 +51,8 @@ export const ANALYTICS_EVENTS = {
   NEWS_VIEWED: 'news_viewed',
   INFO_SECTION_OPENED: 'info_section_opened',
   LANGUAGE_CHANGED: 'language_changed',
+  LANGUAGE_AUTO_DETECTED: 'language_auto_detected',
+  TRANSLATION_COVERAGE: 'translation_coverage',
   OTP_REQUESTED: 'otp_requested',
   OTP_VERIFIED: 'otp_verified',
   ONBOARDING_COMPLETED: 'onboarding_completed',
@@ -272,4 +274,18 @@ export function trackSafeCheckinMissed(): void {
 
 export function trackSafeCheckinAlertSent(): void {
   trackEvent(ANALYTICS_EVENTS.SAFE_CHECKIN_ALERT_SENT, {});
+}
+
+/* --------------------------- localization --------------------------- */
+
+/** Called by the translation-coverage test/tooling, not from a screen. */
+export function trackTranslationValidation(language: string, missingCount: number): void {
+  trackEvent(ANALYTICS_EVENTS.TRANSLATION_COVERAGE, { language, missing_count: missingCount });
+}
+
+export function trackLanguageAutoDetected(detectedLocale: string, selectedLanguage: string): void {
+  trackEvent(ANALYTICS_EVENTS.LANGUAGE_AUTO_DETECTED, {
+    detected_locale: detectedLocale,
+    selected_language: selectedLanguage,
+  });
 }

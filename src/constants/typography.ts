@@ -29,3 +29,17 @@ export const LINE_HEIGHTS = {
 export type FontSizeKey = keyof typeof FONT_SIZES;
 export type FontWeightKey = keyof typeof FONT_WEIGHTS;
 export type LineHeightKey = keyof typeof LINE_HEIGHTS;
+
+/**
+ * NativeWind font-family classes (see `tailwind.config.js`) for Noto Sans
+ * Devanagari, keyed by the same weight buckets `Text`'s variants use. Only
+ * three weights are loaded, so `medium` (the `label` variant's weight) maps
+ * to the regular face — there is no Devanagari medium cut bundled.
+ * Applied on Android only; iOS's system font already covers Devanagari.
+ */
+export const DEVANAGARI_FONT_CLASSES: Record<FontWeightKey, string> = {
+  regular: 'font-devanagari-regular',
+  medium: 'font-devanagari-regular',
+  semibold: 'font-devanagari-semibold',
+  bold: 'font-devanagari-bold',
+} as const;

@@ -22,13 +22,17 @@ describe('LanguageSelectScreen', () => {
     useAuthStore.getState().reset();
   });
 
-  it('lists all three languages', async () => {
-    const { getByText } = await render(<LanguageSelectScreen />);
+  it('lists all three languages, each with its native and English name', async () => {
+    const { getByText, getAllByText } = await render(<LanguageSelectScreen />);
 
     expect(getByText('Select Language')).toBeTruthy();
-    expect(getByText('English')).toBeTruthy();
+    // 'English' appears twice for the English option — once as the native
+    // name, once as the English name shown alongside every option.
+    expect(getAllByText('English')).toHaveLength(2);
     expect(getByText('हिन्दी')).toBeTruthy();
+    expect(getByText('Hindi')).toBeTruthy();
     expect(getByText('मराठी')).toBeTruthy();
+    expect(getByText('Marathi')).toBeTruthy();
   });
 
   it('switches language and navigates back', async () => {

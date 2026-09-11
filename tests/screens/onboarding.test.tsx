@@ -14,12 +14,16 @@ describe('OnboardingScreen', () => {
   });
 
   it('starts on the language step with all three options', async () => {
-    const { getByText } = await render(<OnboardingScreen />);
+    const { getByText, getAllByText } = await render(<OnboardingScreen />);
 
     expect(getByText('Choose Your Language')).toBeTruthy();
-    expect(getByText('English')).toBeTruthy();
+    // 'English' appears twice for the English option — once as the native
+    // name, once as the English name shown alongside every option.
+    expect(getAllByText('English')).toHaveLength(2);
     expect(getByText('हिन्दी')).toBeTruthy();
+    expect(getByText('Hindi')).toBeTruthy();
     expect(getByText('मराठी')).toBeTruthy();
+    expect(getByText('Marathi')).toBeTruthy();
   });
 
   it('advances to the permissions step', async () => {
