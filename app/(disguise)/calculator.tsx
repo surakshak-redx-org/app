@@ -9,6 +9,7 @@ import { APP_CONFIG } from '@/constants/config';
 import { ROUTES } from '@/constants/routes';
 import { STORAGE_KEYS } from '@/constants/storage';
 import { trackDisguiseModeUnlocked } from '@/services/analytics.service';
+import { useDisguiseStore } from '@/stores/disguise.store';
 import {
   applyPercent,
   calculateResult,
@@ -89,6 +90,7 @@ export default function CalculatorScreen(): React.JSX.Element {
       const candidateHash = await hashPin(pinBuffer);
       if (storedHash !== null && storedHash === candidateHash) {
         trackDisguiseModeUnlocked();
+        useDisguiseStore.getState().unlock();
         setPinBuffer('');
         router.replace(ROUTES.HOME);
         return;

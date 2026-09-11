@@ -28,6 +28,7 @@ import { identifyUser } from '@/services/analytics.service';
 import { subscribeToAuthChanges } from '@/services/firebase/auth.service';
 import { getUserProfile } from '@/services/firebase/user.service';
 import { useAuthStore } from '@/stores/auth.store';
+import { useDisguiseStore } from '@/stores/disguise.store';
 import { useSOSStore } from '@/stores/sos.store';
 import { useUserStore } from '@/stores/user.store';
 
@@ -129,16 +130,23 @@ function RootLayout(): React.JSX.Element {
   // correct PIN is entered there. Checked once isInitialized so it never
   // races the auth-redirect effect above, and skipped if already showing the
   // calculator so a PIN-unlock navigation isn't immediately bounced back.
+  // `DISGUISE_ENABLED` in AsyncStorage stays on across app restarts (so it
+  // re-arms on the next cold start), so once the PIN has been entered this
+  // session we also check the in-memory unlock flag — otherwise this effect
+  // re-fires on every post-unlock navigation and bounces straight back to
+  // the calculator.
+  const isDisguiseUnlocked = useDisguiseStore((state) => state.isUnlockedThisSession);
   useEffect(() => {
     if (!isInitialized) return;
     if (segments[0] === DISGUISE_SEGMENT) return;
+    if (isDisguiseUnlocked) return;
 
     AsyncStorage.getItem(STORAGE_KEYS.DISGUISE_ENABLED)
       .then((flag) => {
         if (flag === STORAGE_FLAG_ON) router.replace(ROUTES.CALCULATOR);
       })
       .catch((error: unknown) => captureException(error));
-  }, [isInitialized, segments, router]);
+  }, [isInitialized, segments, router, isDisguiseUnlocked]);
 
   // Local notification handlers for Phase 7's background safety features —
   // see `useSuspiciousFollow` and `useSafeCheckin` for where these are fired.

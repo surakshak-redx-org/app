@@ -31,6 +31,7 @@ import {
 } from '@/services/analytics.service';
 import { AuthError, deleteAccount } from '@/services/firebase/auth.service';
 import { useAuthStore } from '@/stores/auth.store';
+import { useDisguiseStore } from '@/stores/disguise.store';
 import { useUserStore } from '@/stores/user.store';
 
 type DisguiseModalMode = 'enable' | 'disable' | 'change' | null;
@@ -111,6 +112,7 @@ export default function SettingsScreen(): React.JSX.Element {
           STORAGE_KEYS.DISGUISE_PIN_HASH,
         ]);
         setDisguiseEnabled(false);
+        useDisguiseStore.getState().lock();
         return;
       }
       if (newPinHash === null) return;
@@ -119,6 +121,10 @@ export default function SettingsScreen(): React.JSX.Element {
         [STORAGE_KEYS.DISGUISE_PIN_HASH, newPinHash],
       ]);
       setDisguiseEnabled(true);
+      // Re-arm the calculator gate immediately: if the PIN was unlocked
+      // earlier this session, that flag must not let a fresh (re-)enable
+      // skip the calculator on the very next launch/navigation.
+      useDisguiseStore.getState().lock();
       if (mode === 'enable') trackDisguiseModeEnabled();
     }
 
