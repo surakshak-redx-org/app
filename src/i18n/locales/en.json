@@ -384,6 +384,15 @@
     "info": "If you miss check-ins, an SMS alert will be sent to your selected contacts with your last known location.",
     "start": "Start Check-In"
   },
+  "ota": {
+    "available": "An update is available",
+    "applyButton": "Restart & Update",
+    "confirmTitle": "Apply update now?",
+    "confirmBody": "The app will restart to apply the update. Any unsaved changes will be lost.",
+    "confirmAction": "Restart Now",
+    "applying": "Updating…",
+    "applyFailed": "Couldn't apply the update. Please try again."
+  },
   "settings": {
     "title": "Settings",
     "language": "Language",
@@ -410,6 +419,7 @@
     "pinMismatch": "PINs didn't match. Try again.",
     "about": "About Surakshak",
     "version": "Version {{version}}",
+    "updateHash": "Update {{hash}}",
     "terms": "Terms of Service",
     "privacyPolicy": "Privacy Policy",
     "deleteAccount": "Delete Account",

@@ -68,6 +68,16 @@ export const APP_CONFIG = {
   /** Mumbai — where the map opens before a location fix is available. */
   MAP_FALLBACK_LATITUDE: 19.076,
   MAP_FALLBACK_LONGITUDE: 72.8777,
+  /** Base distance of the report FAB from the screen edge, before the safe-area inset. */
+  MAP_FAB_OFFSET: 24,
+  /**
+   * Height of the floating title/legend header overlay, used to push the
+   * native map controls (Android's My Location button defaults to top-right;
+   * iOS's defaults to bottom-right) out from under our own UI via `mapPadding`.
+   */
+  MAP_HEADER_HEIGHT: 56,
+  /** Clearance from the bottom-right corner needed to clear the report FAB there. */
+  MAP_CONTROL_BOTTOM_CLEARANCE: 90,
   /** Digits in the Disguise Mode unlock PIN. */
   DISGUISE_PIN_LENGTH: 4,
   /** A device must stay within this radius to count as "possibly followed". */

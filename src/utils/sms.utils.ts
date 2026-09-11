@@ -24,6 +24,7 @@ interface SafeJourneyTemplateInput {
   name: string;
   destination: string;
   etaTime: string;
+  locationUrl: string;
 }
 
 interface CheckInMissedTemplateInput {
@@ -68,19 +69,22 @@ const LOW_BATTERY_TEMPLATES: Record<Language, (input: LowBatteryTemplateInput) =
 };
 
 const SAFE_JOURNEY_TEMPLATES: Record<Language, (input: SafeJourneyTemplateInput) => string> = {
-  en: ({ name, destination, etaTime }) =>
+  en: ({ name, destination, etaTime, locationUrl }) =>
     `⚠️ ${name} has not checked in for her journey to ${destination}.\n` +
     `She was expected to arrive by ${etaTime}.\n` +
+    `Last known location: ${locationUrl}\n` +
     `Please check on her immediately.\n` +
     `— Surakshak`,
-  hi: ({ name, destination, etaTime }) =>
+  hi: ({ name, destination, etaTime, locationUrl }) =>
     `⚠️ ${name} ने ${destination} की यात्रा के लिए चेक-इन नहीं किया।\n` +
     `उन्हें ${etaTime} तक पहुँचना था।\n` +
+    `अंतिम स्थान: ${locationUrl}\n` +
     `कृपया उनसे तुरंत संपर्क करें।\n` +
     `— सुरक्षक`,
-  mr: ({ name, destination, etaTime }) =>
+  mr: ({ name, destination, etaTime, locationUrl }) =>
     `⚠️ ${name} ने ${destination} च्या प्रवासासाठी चेक-इन केले नाही।\n` +
     `त्यांना ${etaTime} पर्यंत पोहोचायचे होते।\n` +
+    `शेवटचे स्थान: ${locationUrl}\n` +
     `कृपया त्यांच्याशी तातडीने संपर्क साधा।\n` +
     `— सुरक्षक`,
 };
@@ -126,9 +130,10 @@ export function buildSafeJourneyMessage(
   name: string,
   destination: string,
   etaTime: string,
+  locationUrl: string,
   language: Language,
 ): string {
-  return SAFE_JOURNEY_TEMPLATES[language]({ name, destination, etaTime });
+  return SAFE_JOURNEY_TEMPLATES[language]({ name, destination, etaTime, locationUrl });
 }
 
 export function buildCheckInMissedMessage(
