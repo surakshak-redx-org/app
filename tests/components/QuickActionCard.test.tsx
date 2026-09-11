@@ -32,4 +32,17 @@ describe('QuickActionCard', () => {
     );
     expect(queryByText('3')).toBeNull();
   });
+
+  it('marks a locked card disabled but still fires onPress, letting the caller decide what happens', async () => {
+    const onPress = jest.fn();
+    const { getByRole } = await render(
+      <QuickActionCard icon="people" labelKey="home.emergencyContacts" onPress={onPress} locked />,
+    );
+
+    const card = getByRole('button');
+    expect(card.props.accessibilityState).toMatchObject({ disabled: true });
+
+    await fireEvent.press(card);
+    expect(onPress).toHaveBeenCalledTimes(1);
+  });
 });

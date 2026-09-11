@@ -43,3 +43,12 @@ export const DEVANAGARI_FONT_CLASSES: Record<FontWeightKey, string> = {
   semibold: 'font-devanagari-semibold',
   bold: 'font-devanagari-bold',
 } as const;
+
+/**
+ * Languages whose script actually needs the Devanagari font swap. Noto Sans
+ * Devanagari's Latin glyphs carry taller descender metrics than the system
+ * font, so forcing it onto English strings too clips descenders (e.g. the
+ * "y" in "Safety") against Tailwind's default line-heights — only swap the
+ * font when the active language is actually Devanagari-scripted.
+ */
+export const DEVANAGARI_LANGUAGES: readonly string[] = ['hi', 'mr'] as const;

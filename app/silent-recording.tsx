@@ -7,6 +7,7 @@ import {
 } from 'expo-audio';
 import * as Clipboard from 'expo-clipboard';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
+import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Pressable, View } from 'react-native';
@@ -20,25 +21,22 @@ import { Text } from '@/components/ui/Text';
 import { captureException } from '@/config/sentry';
 import { COLORS } from '@/constants/colors';
 import { APP_CONFIG } from '@/constants/config';
+import { ROUTES } from '@/constants/routes';
 import {
   trackEvidenceRecordingStarted,
   trackEvidenceRecordingUploaded,
 } from '@/services/analytics.service';
+import { recordEvidenceUpload } from '@/services/evidence.service';
 import { uploadEvidenceRecording } from '@/services/firebase/incident.service';
 import { sendEvidenceLinkAlert } from '@/services/sms.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { useUserStore } from '@/stores/user.store';
+import { formatSecondsAsClock } from '@/utils/date.utils';
 import { requestMicrophonePermission } from '@/utils/permissions.utils';
 
 type RecordingScreenState = 'idle' | 'recording' | 'uploading' | 'uploaded';
 
 const MS_PER_SECOND = 1000;
-
-function formatDuration(seconds: number): string {
-  const minutes = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${minutes}:${secs.toString().padStart(2, '0')}`;
-}
 
 /**
  * NativeWind classes are extracted from literal source text, so an upload
@@ -77,6 +75,7 @@ function progressWidthClass(percent: number): string {
 
 export default function SilentRecordingScreen(): React.JSX.Element {
   const { t } = useTranslation();
+  const router = useRouter();
 
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const recorderState = useAudioRecorderState(recorder, MS_PER_SECOND / 4);
@@ -124,6 +123,14 @@ export default function SilentRecordingScreen(): React.JSX.Element {
       setUploadProgress(null);
       setScreenState('uploaded');
       trackEvidenceRecordingUploaded(finishedDurationSeconds);
+
+      // Best-effort: the upload itself already succeeded, so a failure here
+      // (e.g. AsyncStorage full) shouldn't flip the screen back to an error
+      // state — it would just mean this one recording doesn't show up in
+      // My Recordings.
+      recordEvidenceUpload({ url, durationSeconds: finishedDurationSeconds }).catch(
+        (historyError: unknown) => captureException(historyError),
+      );
     } catch (uploadError) {
       captureException(uploadError);
       setError(t('errors.uploadFailed'));
@@ -143,6 +150,7 @@ export default function SilentRecordingScreen(): React.JSX.Element {
 
       await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
       await activateKeepAwakeAsync();
+      await recorder.prepareToRecordAsync();
       recorder.record();
       setScreenState('recording');
       trackEvidenceRecordingStarted();
@@ -210,7 +218,7 @@ export default function SilentRecordingScreen(): React.JSX.Element {
         <View className="flex-1 items-center justify-center bg-near-black">
           <View className="mb-8 h-4 w-4 rounded-full bg-primary-red" />
           <Text variant="h1" className="mb-2 text-white">
-            {formatDuration(durationSeconds)}
+            {formatSecondsAsClock(durationSeconds)}
           </Text>
           <Text variant="body" tKey="silentRecording.recordingAudio" className="mb-12 text-stone" />
           <Text
@@ -222,6 +230,10 @@ export default function SilentRecordingScreen(): React.JSX.Element {
           <Button
             variant="danger"
             size="lg"
+            // Button defaults non-fullWidth to self-start, which overrides
+            // this column's items-center and pins it to the left instead of
+            // centering it under the countdown text.
+            className="self-center"
             label={t('silentRecording.stopAndUpload')}
             onPress={() => void handleStopAndUpload()}
           />
@@ -296,6 +308,17 @@ export default function SilentRecordingScreen(): React.JSX.Element {
             label={t('silentRecording.recordAnother')}
             onPress={handleRecordAnother}
           />
+          <Pressable
+            onPress={() => router.push(ROUTES.MY_RECORDINGS)}
+            accessibilityRole="button"
+            className="mt-4"
+          >
+            <Text
+              variant="caption"
+              tKey="silentRecording.viewRecordings"
+              className="text-shakti-purple underline"
+            />
+          </Pressable>
         </View>
       </ErrorBoundary>
     );
@@ -343,6 +366,18 @@ export default function SilentRecordingScreen(): React.JSX.Element {
               />
             </View>
           </Card>
+
+          <Pressable
+            onPress={() => router.push(ROUTES.MY_RECORDINGS)}
+            accessibilityRole="button"
+            className="mt-4"
+          >
+            <Text
+              variant="caption"
+              tKey="silentRecording.viewRecordings"
+              className="text-shakti-purple underline"
+            />
+          </Pressable>
         </View>
       </SafeScreen>
     </ErrorBoundary>

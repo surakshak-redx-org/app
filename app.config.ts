@@ -103,10 +103,11 @@ function googleServicesFile(path: string): { googleServicesFile: string } | Reco
 const config: ExpoConfig = {
   name: appNames[APP_ENV],
   slug: 'surakshak',
-  // Bumped for Phase 4: expo-task-manager + background-location native config.
-  // `runtimeVersion` is `appVersion`, so a native change needs a new version
-  // string or an OTA could ship to an incompatible native shell.
-  version: '1.1.0',
+  // Bumped for the react-native-maps Google Maps plugin wiring below, which
+  // links a new iOS CocoaPod and adds AppDelegate init code. `runtimeVersion`
+  // is `appVersion`, so a native change needs a new version string or an OTA
+  // could ship to an incompatible native shell.
+  version: '1.1.1',
   orientation: 'portrait',
   scheme: `surakshak-${APP_ENV}`,
   userInterfaceStyle: 'automatic',
@@ -134,17 +135,11 @@ const config: ExpoConfig = {
       'android.permission.VIBRATE',
       'android.permission.READ_CONTACTS',
     ],
-    config: {
-      googleMaps: { apiKey: GOOGLE_MAPS_API_KEY_ANDROID },
-    },
   },
   ios: {
     bundleIdentifier: bundleIds[APP_ENV],
     supportsTablet: false,
     ...googleServicesFile(GOOGLE_SERVICES_IOS),
-    config: {
-      googleMapsApiKey: GOOGLE_MAPS_API_KEY_IOS,
-    },
     infoPlist: {
       // Suppresses App Store Connect's manual export-compliance prompt on
       // every build. Standard HTTPS/TLS is exempt from this declaration —
@@ -174,7 +169,22 @@ const config: ExpoConfig = {
     'expo-sensors',
     'expo-contacts',
     'expo-image-picker',
-    'react-native-maps',
+    // react-native-maps' own plugin is what actually wires the key into
+    // native code — Expo's plain `ios.config.googleMapsApiKey` /
+    // `android.config.googleMaps.apiKey` only ever write an inert
+    // Info.plist entry that nothing reads. This plugin additionally links
+    // the `react-native-maps/Google` CocoaPod and calls
+    // `GMSServices.provideAPIKey(...)` in AppDelegate on iOS, and sets the
+    // `com.google.android.geo.API_KEY` AndroidManifest meta-data on
+    // Android — without it, Google Maps/Places never authenticate on iOS
+    // regardless of GCP key restrictions.
+    [
+      'react-native-maps',
+      {
+        iosGoogleMapsApiKey: GOOGLE_MAPS_API_KEY_IOS,
+        androidGoogleMapsApiKey: GOOGLE_MAPS_API_KEY_ANDROID,
+      },
+    ],
     [
       'expo-location',
       {

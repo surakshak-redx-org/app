@@ -2,7 +2,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, TextInput, View } from 'react-native';
+import { InteractionManager, Pressable, TextInput, View } from 'react-native';
 
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { SafeScreen } from '@/components/ui/SafeScreen';
@@ -33,6 +33,17 @@ export default function OtpScreen(): React.JSX.Element {
   const [isVerifying, setIsVerifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(OTP_RESEND_SECONDS);
+
+  // Autofocus the first box so the keyboard is already open when this screen
+  // lands — `autoFocus` alone is dropped fairly often here because it fires
+  // mid-way through expo-router's push transition; focusing once the
+  // transition's interactions are done is reliable.
+  useEffect(() => {
+    const task = InteractionManager.runAfterInteractions(() => {
+      inputRefs.current[0]?.focus();
+    });
+    return (): void => task.cancel();
+  }, []);
 
   useEffect(() => {
     if (countdown <= 0) return;
@@ -155,7 +166,9 @@ export default function OtpScreen(): React.JSX.Element {
               ref={(element) => {
                 inputRefs.current[index] = element;
               }}
-              className={`h-14 w-12 rounded-xl border-2 text-center text-xl font-semibold text-ink ${
+              // `text-[20px]`, not `text-xl` — a coupled lineHeight fights
+              // iOS's single-line TextInput auto-centering (see Input.tsx).
+              className={`h-14 w-12 rounded-xl border-2 text-center text-[20px] font-semibold text-ink ${
                 digit !== '' ? 'border-shakti-purple' : 'border-stone/30'
               }`}
               editable={!isVerifying}

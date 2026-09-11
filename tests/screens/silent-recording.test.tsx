@@ -10,11 +10,17 @@ jest.mock('expo-router', () => ({
 
 const mockRecord = jest.fn();
 const mockStop = jest.fn(() => Promise.resolve());
+const mockPrepareToRecordAsync = jest.fn(() => Promise.resolve());
 
 jest.mock('expo-audio', () => ({
   RecordingPresets: { HIGH_QUALITY: {} },
   setAudioModeAsync: jest.fn(() => Promise.resolve()),
-  useAudioRecorder: jest.fn(() => ({ record: mockRecord, stop: mockStop, uri: 'file:///rec.m4a' })),
+  useAudioRecorder: jest.fn(() => ({
+    record: mockRecord,
+    stop: mockStop,
+    prepareToRecordAsync: mockPrepareToRecordAsync,
+    uri: 'file:///rec.m4a',
+  })),
   useAudioRecorderState: jest.fn(() => ({ isRecording: false, durationMillis: 5_000 })),
   requestRecordingPermissionsAsync: jest.fn(() => Promise.resolve({ granted: true })),
 }));

@@ -29,6 +29,7 @@ import { useSiren } from '@/hooks/useSiren';
 import { useSOS } from '@/hooks/useSOS';
 import { useSuspiciousFollow } from '@/hooks/useSuspiciousFollow';
 import { trackEmergencyCallPlaced } from '@/services/analytics.service';
+import { useAuthStore } from '@/stores/auth.store';
 import { useLocationStore } from '@/stores/location.store';
 import { useUserStore } from '@/stores/user.store';
 import { formatEta } from '@/utils/date.utils';
@@ -48,6 +49,8 @@ export default function HomeScreen(): React.JSX.Element {
   const contactCount = useUserStore((state) => state.emergencyContacts.length);
   const isLiveLocationActive = useLocationStore((state) => state.isLiveLocationActive);
   const isSafeJourneyActive = useLocationStore((state) => state.isSafeJourneyActive);
+  const isGuest = useAuthStore((state) => state.isGuest);
+  const setGuestSigningIn = useAuthStore((state) => state.setGuestSigningIn);
 
   const [shakeEnabled, setShakeEnabled] = useState(true);
   const [followEnabled, setFollowEnabled] = useState(true);
@@ -92,6 +95,28 @@ export default function HomeScreen(): React.JSX.Element {
     setFakeCallModalVisible(false);
   }
 
+  // Guest mode never signs in to Firebase (see welcome.tsx — it's a local-only
+  // flag), so any feature that writes to the user's own Firestore/Storage
+  // data would fail there regardless of what the UI allows. Rather than let
+  // a guest tap through to a silent permission-denied error, these cards are
+  // locked up front with a path to actually sign in.
+  function openFeatureForGuest(navigate: () => void): void {
+    if (!isGuest) {
+      navigate();
+      return;
+    }
+    Alert.alert(t('home.guestFeatureLockedTitle'), t('home.guestFeatureLockedBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('profile.signInNow'),
+        onPress: (): void => {
+          setGuestSigningIn(true);
+          router.push(ROUTES.WELCOME);
+        },
+      },
+    ]);
+  }
+
   return (
     <ErrorBoundary>
       <SafeScreen scrollable>
@@ -114,19 +139,22 @@ export default function HomeScreen(): React.JSX.Element {
             icon="people"
             labelKey="home.emergencyContacts"
             badge={contactCount > 0 ? String(contactCount) : undefined}
-            onPress={() => router.push(ROUTES.EMERGENCY_CONTACTS)}
+            locked={isGuest}
+            onPress={() => openFeatureForGuest(() => router.push(ROUTES.EMERGENCY_CONTACTS))}
           />
           <QuickActionCard
             icon="location"
             labelKey="home.liveLocation"
             active={isLiveLocationActive}
-            onPress={() => router.push(ROUTES.LIVE_LOCATION)}
+            locked={isGuest}
+            onPress={() => openFeatureForGuest(() => router.push(ROUTES.LIVE_LOCATION))}
           />
           <QuickActionCard
             icon="walk"
             labelKey="home.safeJourney"
             active={isSafeJourneyActive}
-            onPress={() => router.push(ROUTES.SAFE_JOURNEY)}
+            locked={isGuest}
+            onPress={() => openFeatureForGuest(() => router.push(ROUTES.SAFE_JOURNEY))}
           />
           <QuickActionCard
             icon="call"
@@ -147,12 +175,14 @@ export default function HomeScreen(): React.JSX.Element {
           <QuickActionCard
             icon="mic"
             labelKey="home.silentRecording"
-            onPress={() => router.push(ROUTES.SILENT_RECORDING)}
+            locked={isGuest}
+            onPress={() => openFeatureForGuest(() => router.push(ROUTES.SILENT_RECORDING))}
           />
           <QuickActionCard
             icon="document-text"
             labelKey="home.incidentReport"
-            onPress={() => router.push(ROUTES.INCIDENT_REPORT)}
+            locked={isGuest}
+            onPress={() => openFeatureForGuest(() => router.push(ROUTES.INCIDENT_REPORT))}
           />
         </View>
 

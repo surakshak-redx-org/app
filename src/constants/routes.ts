@@ -15,6 +15,7 @@ export const ROUTES = {
   INCIDENT_REPORT: '/incident-report',
   NEARBY_HELP: '/nearby-help',
   SILENT_RECORDING: '/silent-recording',
+  MY_RECORDINGS: '/my-recordings',
   SETTINGS: '/settings',
   SMS_ALERT_HISTORY: '/sms-alert-history',
   LANGUAGE_SELECT: '/language-select',
