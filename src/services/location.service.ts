@@ -3,7 +3,7 @@ import * as Location from 'expo-location';
 import { Platform } from 'react-native';
 
 import { ENV } from '@/config/env';
-import { APP_CONFIG } from '@/constants/config';
+import { ANDROID_CERT_SHA1_BY_ENV, APP_CONFIG } from '@/constants/config';
 import { HELP_PLACES_TYPE } from '@/constants/map';
 import type {
   HelpCategory,
@@ -114,7 +114,13 @@ function placesHeaders(fieldMask: string): Record<string, string> {
   const isIOS = Platform.OS === 'ios';
   const identity = isIOS
     ? { 'X-Ios-Bundle-Identifier': Constants.expoConfig?.ios?.bundleIdentifier ?? '' }
-    : { 'X-Android-Package': Constants.expoConfig?.android?.package ?? '' };
+    : {
+        'X-Android-Package': Constants.expoConfig?.android?.package ?? '',
+        // Required alongside X-Android-Package for an Android-restricted key —
+        // the native Maps/Places SDK attaches this automatically, but a plain
+        // fetch() REST call must send it itself or Google blocks the request.
+        'X-Android-Cert': ANDROID_CERT_SHA1_BY_ENV[ENV.APP_ENV],
+      };
   return {
     'Content-Type': 'application/json',
     'X-Goog-Api-Key': isIOS ? ENV.GOOGLE_MAPS_API_KEY_IOS : ENV.GOOGLE_MAPS_API_KEY_ANDROID,
