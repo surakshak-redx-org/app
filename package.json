@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "expo-router/entry",
   "dependencies": {
+    "@expo-google-fonts/noto-sans-devanagari": "^0.4.1",
     "@expo/vector-icons": "^15.0.2",
     "@hookform/resolvers": "^5.9.1",
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -20,6 +21,7 @@
     "expo-clipboard": "~57.0.1",
     "expo-constants": "~57.0.17",
     "expo-contacts": "~57.0.4",
+    "expo-crypto": "~57.0.2",
     "expo-file-system": "~57.0.6",
     "expo-font": "~57.0.3",
     "expo-haptics": "~57.0.2",

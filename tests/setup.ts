@@ -75,6 +75,7 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
     removeItem: jest.fn(() => Promise.resolve()),
     multiGet: jest.fn(() => Promise.resolve([])),
     multiSet: jest.fn(() => Promise.resolve()),
+    multiRemove: jest.fn(() => Promise.resolve()),
     clear: jest.fn(() => Promise.resolve()),
   },
 }));
@@ -143,6 +144,10 @@ jest.mock('react-native-maps', () => {
 jest.mock('expo-notifications', () => ({
   requestPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false })),
   getPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false })),
+  scheduleNotificationAsync: jest.fn(() => Promise.resolve('notification-1')),
+  cancelScheduledNotificationAsync: jest.fn(() => Promise.resolve()),
+  addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+  SchedulableTriggerInputTypes: { TIME_INTERVAL: 'timeInterval' },
 }));
 
 jest.mock('react-native-onesignal', () => ({
@@ -177,4 +182,11 @@ jest.mock('expo-localization', () => ({
 jest.mock('expo-haptics', () => ({
   notificationAsync: jest.fn(() => Promise.resolve()),
   NotificationFeedbackType: { Warning: 'warning', Success: 'success', Error: 'error' },
+}));
+
+jest.mock('@expo-google-fonts/noto-sans-devanagari', () => ({
+  useFonts: jest.fn(() => [true]),
+  NotoSansDevanagari_400Regular: 'NotoSansDevanagari_400Regular',
+  NotoSansDevanagari_600SemiBold: 'NotoSansDevanagari_600SemiBold',
+  NotoSansDevanagari_700Bold: 'NotoSansDevanagari_700Bold',
 }));

@@ -6,6 +6,8 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Pressable, Switch, View } from 'react-native';
 
+import { DisguisePinModal } from '@/components/features/settings/DisguisePinModal';
+import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { SafeScreen } from '@/components/ui/SafeScreen';
@@ -23,12 +25,16 @@ import {
 import { DANGER_ROW_HITSLOP, ICON_SIZE } from '@/constants/ui';
 import {
   ANALYTICS_EVENTS,
+  trackDisguiseModeEnabled,
   resetUser as resetAnalytics,
   trackEvent,
 } from '@/services/analytics.service';
 import { AuthError, deleteAccount } from '@/services/firebase/auth.service';
 import { useAuthStore } from '@/stores/auth.store';
+import { useDisguiseStore } from '@/stores/disguise.store';
 import { useUserStore } from '@/stores/user.store';
+
+type DisguiseModalMode = 'enable' | 'disable' | 'change' | null;
 
 export default function SettingsScreen(): React.JSX.Element {
   const { t } = useTranslation();
@@ -36,13 +42,28 @@ export default function SettingsScreen(): React.JSX.Element {
 
   const [shakeEnabled, setShakeEnabled] = useState(true);
   const [lowBatteryEnabled, setLowBatteryEnabled] = useState(true);
+  const [followDetectionEnabled, setFollowDetectionEnabled] = useState(true);
+  const [checkinActive, setCheckinActive] = useState(false);
+  const [disguiseEnabled, setDisguiseEnabled] = useState(false);
+  const [disguiseModalMode, setDisguiseModalMode] = useState<DisguiseModalMode>(null);
 
   useEffect(() => {
-    AsyncStorage.multiGet([STORAGE_KEYS.SHAKE_ENABLED, STORAGE_KEYS.LOW_BATTERY_ENABLED])
+    AsyncStorage.multiGet([
+      STORAGE_KEYS.SHAKE_ENABLED,
+      STORAGE_KEYS.LOW_BATTERY_ENABLED,
+      STORAGE_KEYS.FOLLOW_DETECTION_ENABLED,
+      STORAGE_KEYS.CHECKIN_ACTIVE,
+      STORAGE_KEYS.DISGUISE_ENABLED,
+    ])
       .then((entries) => {
         const stored = new Map<string, string | null>(entries);
         setShakeEnabled(stored.get(STORAGE_KEYS.SHAKE_ENABLED) !== STORAGE_FLAG_OFF);
         setLowBatteryEnabled(stored.get(STORAGE_KEYS.LOW_BATTERY_ENABLED) !== STORAGE_FLAG_OFF);
+        setFollowDetectionEnabled(
+          stored.get(STORAGE_KEYS.FOLLOW_DETECTION_ENABLED) !== STORAGE_FLAG_OFF,
+        );
+        setCheckinActive(stored.get(STORAGE_KEYS.CHECKIN_ACTIVE) === STORAGE_FLAG_ON);
+        setDisguiseEnabled(stored.get(STORAGE_KEYS.DISGUISE_ENABLED) === STORAGE_FLAG_ON);
       })
       .catch((error: unknown) => captureException(error));
   }, []);
@@ -69,6 +90,45 @@ export default function SettingsScreen(): React.JSX.Element {
   function handleBatteryToggle(value: boolean): void {
     setLowBatteryEnabled(value);
     persistToggle(STORAGE_KEYS.LOW_BATTERY_ENABLED, value, setLowBatteryEnabled);
+  }
+
+  function handleFollowDetectionToggle(value: boolean): void {
+    setFollowDetectionEnabled(value);
+    persistToggle(STORAGE_KEYS.FOLLOW_DETECTION_ENABLED, value, setFollowDetectionEnabled);
+  }
+
+  function handleDisguiseToggle(value: boolean): void {
+    setDisguiseModalMode(value ? 'enable' : 'disable');
+  }
+
+  function handleDisguiseModalSuccess(newPinHash: string | null): void {
+    const mode = disguiseModalMode;
+    setDisguiseModalMode(null);
+
+    async function apply(): Promise<void> {
+      if (mode === 'disable') {
+        await AsyncStorage.multiRemove([
+          STORAGE_KEYS.DISGUISE_ENABLED,
+          STORAGE_KEYS.DISGUISE_PIN_HASH,
+        ]);
+        setDisguiseEnabled(false);
+        useDisguiseStore.getState().lock();
+        return;
+      }
+      if (newPinHash === null) return;
+      await AsyncStorage.multiSet([
+        [STORAGE_KEYS.DISGUISE_ENABLED, STORAGE_FLAG_ON],
+        [STORAGE_KEYS.DISGUISE_PIN_HASH, newPinHash],
+      ]);
+      setDisguiseEnabled(true);
+      // Re-arm the calculator gate immediately: if the PIN was unlocked
+      // earlier this session, that flag must not let a fresh (re-)enable
+      // skip the calculator on the very next launch/navigation.
+      useDisguiseStore.getState().lock();
+      if (mode === 'enable') trackDisguiseModeEnabled();
+    }
+
+    apply().catch((error: unknown) => captureException(error));
   }
 
   async function runDelete(): Promise<void> {
@@ -153,6 +213,67 @@ export default function SettingsScreen(): React.JSX.Element {
               trackColor={{ true: COLORS.SHAKTI_PURPLE, false: COLORS.STONE }}
             />
           </View>
+
+          <View className="flex-row items-center justify-between py-3">
+            <View className="flex-1 pr-2">
+              <Text variant="body" tKey="settings.followDetection" />
+              <Text variant="caption" tKey="settings.followDetectionDesc" className="text-stone" />
+            </View>
+            <Switch
+              value={followDetectionEnabled}
+              onValueChange={handleFollowDetectionToggle}
+              trackColor={{ true: COLORS.SHAKTI_PURPLE, false: COLORS.STONE }}
+            />
+          </View>
+        </Card>
+
+        <Card padding="md" className="mt-4">
+          <Pressable
+            onPress={() => router.push(ROUTES.SAFE_CHECKIN)}
+            accessibilityRole="button"
+            className="flex-row items-center justify-between py-3"
+          >
+            <Text variant="body" tKey="settings.safeCheckin" className="flex-1" />
+            <Badge
+              label={t(checkinActive ? 'settings.safeCheckinActive' : 'settings.safeCheckinOff')}
+              variant={checkinActive ? 'success' : 'default'}
+              className="mr-2"
+            />
+            <MaterialIcons name="chevron-right" size={ICON_SIZE.CHEVRON} color={COLORS.STONE} />
+          </Pressable>
+
+          <Pressable
+            onPress={() => router.push(ROUTES.SILENT_RECORDING)}
+            accessibilityRole="button"
+            className="flex-row items-center justify-between py-3"
+          >
+            <Text variant="body" tKey="settings.silentRecording" />
+            <MaterialIcons name="chevron-right" size={ICON_SIZE.CHEVRON} color={COLORS.STONE} />
+          </Pressable>
+        </Card>
+
+        <Card padding="md" className="mt-4">
+          <View className="flex-row items-center justify-between py-3">
+            <View className="flex-1 pr-2">
+              <Text variant="body" tKey="settings.disguiseMode" />
+              <Text variant="caption" tKey="settings.disguiseModeDesc" className="text-stone" />
+            </View>
+            <Switch
+              value={disguiseEnabled}
+              onValueChange={handleDisguiseToggle}
+              trackColor={{ true: COLORS.SHAKTI_PURPLE, false: COLORS.STONE }}
+            />
+          </View>
+
+          {disguiseEnabled && (
+            <Pressable
+              onPress={() => setDisguiseModalMode('change')}
+              accessibilityRole="button"
+              className="py-3"
+            >
+              <Text variant="body" tKey="settings.changePin" className="text-shakti-purple" />
+            </Pressable>
+          )}
         </Card>
 
         <Card padding="md" className="mt-4">
@@ -178,6 +299,13 @@ export default function SettingsScreen(): React.JSX.Element {
           </Pressable>
         </Card>
       </SafeScreen>
+
+      <DisguisePinModal
+        visible={disguiseModalMode !== null}
+        mode={disguiseModalMode ?? 'enable'}
+        onSuccess={handleDisguiseModalSuccess}
+        onCancel={() => setDisguiseModalMode(null)}
+      />
     </ErrorBoundary>
   );
 }

@@ -17,6 +17,22 @@ export const STORAGE_KEYS = {
    * Firestore document to push coordinates into.
    */
   LIVE_LOCATION_SESSION_ID: 'surakshak_live_session_id',
+  /** `'false'` disables the suspicious-follow alert; absent means enabled. */
+  FOLLOW_DETECTION_ENABLED: 'surakshak_follow_detection_enabled',
+  /** `'true'` while a Safe Check-In session is running. */
+  CHECKIN_ACTIVE: 'surakshak_checkin_active',
+  /** The chosen check-in interval, in minutes, as a string. */
+  CHECKIN_INTERVAL_MINUTES: 'surakshak_checkin_interval',
+  /** ISO timestamp of the next check-in deadline. */
+  CHECKIN_NEXT_AT: 'surakshak_checkin_next_at',
+  /** `JSON.stringify`'d array of emergency-contact ids to alert on a miss. */
+  CHECKIN_CONTACT_IDS: 'surakshak_checkin_contacts',
+  /** Consecutive missed check-ins since the last successful one. */
+  CHECKIN_MISSED_COUNT: 'surakshak_checkin_missed',
+  /** `'true'` once Disguise Mode is turned on. */
+  DISGUISE_ENABLED: 'surakshak_disguise_enabled',
+  /** SHA-256 hex digest of the disguise PIN — never the raw digits. */
+  DISGUISE_PIN_HASH: 'surakshak_disguise_pin_hash',
 } as const;
 
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];

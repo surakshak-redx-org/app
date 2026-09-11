@@ -1,6 +1,8 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Text as RNText } from 'react-native';
+import { Platform, Text as RNText } from 'react-native';
+
+import { DEVANAGARI_FONT_CLASSES, type FontWeightKey } from '@/constants/typography';
 
 export type TextVariant = 'h1' | 'h2' | 'h3' | 'body' | 'caption' | 'label';
 
@@ -23,6 +25,17 @@ const VARIANT_CLASSES: Record<TextVariant, string> = {
   label: 'text-sm font-medium text-stone',
 };
 
+// Matches each variant to the FONT_WEIGHTS bucket its className above uses,
+// so the right Devanagari face gets applied on Android — see DEVANAGARI_FONT_CLASSES.
+const VARIANT_WEIGHTS: Record<TextVariant, FontWeightKey> = {
+  h1: 'bold',
+  h2: 'semibold',
+  h3: 'semibold',
+  body: 'regular',
+  caption: 'regular',
+  label: 'medium',
+};
+
 export function Text({
   variant,
   children,
@@ -34,7 +47,9 @@ export function Text({
   const { t } = useTranslation();
 
   const base = VARIANT_CLASSES[variant];
-  const composed = className === undefined ? base : `${base} ${className}`;
+  const devanagariClass =
+    Platform.OS === 'android' ? DEVANAGARI_FONT_CLASSES[VARIANT_WEIGHTS[variant]] : '';
+  const composed = [base, devanagariClass, className].filter(Boolean).join(' ');
   const content = tKey === undefined ? children : t(tKey, tOptions ?? {});
 
   return (

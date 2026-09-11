@@ -48,7 +48,27 @@ export const APP_CONFIG = {
   /** Mumbai — where the map opens before a location fix is available. */
   MAP_FALLBACK_LATITUDE: 19.076,
   MAP_FALLBACK_LONGITUDE: 72.8777,
+  /** Digits in the Disguise Mode unlock PIN. */
+  DISGUISE_PIN_LENGTH: 4,
+  /** A device must stay within this radius to count as "possibly followed". */
+  FOLLOW_RADIUS_METERS: 200,
+  /** Minutes spent inside `FOLLOW_RADIUS_METERS` before the alert fires. */
+  FOLLOW_DURATION_MINUTES: 10,
+  /** How often `useSuspiciousFollow` samples the device's position. */
+  FOLLOW_CHECK_INTERVAL_SECONDS: 60,
+  /** The user must have moved at least this much to count as "in transit". */
+  FOLLOW_MIN_MOVEMENT_METERS: 50,
+  /** Incident report field lengths. */
+  INCIDENT_TITLE_MIN_LENGTH: 3,
+  INCIDENT_TITLE_MAX_LENGTH: 100,
+  INCIDENT_DESCRIPTION_MIN_LENGTH: 10,
+  INCIDENT_DESCRIPTION_MAX_LENGTH: 1000,
+  /** Photos a single incident report may attach. */
+  INCIDENT_MAX_PHOTOS: 5,
 } as const;
+
+/** Safe Check-In interval choices, in minutes, offered on the screen. */
+export const SAFE_CHECKIN_INTERVAL_OPTIONS_MINUTES = [15, 30, 60, 120] as const;
 
 /** Live-location share durations (hours) offered on the Live Location screen. */
 export const LIVE_LOCATION_DURATION_OPTIONS_HOURS = [1, 2, 4, 8] as const;

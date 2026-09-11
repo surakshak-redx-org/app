@@ -5,11 +5,9 @@ import type { Language } from '@/types/user.types';
  * 160-character-per-segment budget, so these stay short and lead with the
  * location link — the one piece a recipient acts on first.
  *
- * Messages are built as raw strings rather than through i18next: the on-screen
- * catalogues (`hi`/`mr`) are still being translated, but an emergency SMS must
- * be readable in the sender's language today. The templates below were provided
- * with the Phase 3 brief and want a native-speaker review before a production
- * release.
+ * Messages are built as raw strings rather than through i18next: SMS is sent
+ * regardless of whether the on-screen catalogues are fully loaded, and an
+ * emergency alert must be readable in the sender's language immediately.
  */
 interface SOSTemplateInput {
   name: string;
@@ -28,6 +26,11 @@ interface SafeJourneyTemplateInput {
   etaTime: string;
 }
 
+interface CheckInMissedTemplateInput {
+  name: string;
+  locationUrl: string;
+}
+
 const SOS_TEMPLATES: Record<Language, (input: SOSTemplateInput) => string> = {
   en: ({ name, locationUrl, time }) =>
     `🆘 EMERGENCY ALERT from ${name}. I need help immediately.\n` +
@@ -40,7 +43,7 @@ const SOS_TEMPLATES: Record<Language, (input: SOSTemplateInput) => string> = {
     `समय: ${time}\n` +
     `— सुरक्षक ऐप द्वारा भेजा गया`,
   mr: ({ name, locationUrl, time }) =>
-    `🆘 आणीबाणी सूचना: ${name} ला तातडीने मदत हवी आहे।\n` +
+    `🆘 तातडीची सूचना: ${name} ला तातडीने मदत हवी आहे।\n` +
     `स्थान: ${locationUrl}\n` +
     `वेळ: ${time}\n` +
     `— सुरक्षक अ‍ॅपद्वारे पाठवले`,
@@ -82,8 +85,33 @@ const SAFE_JOURNEY_TEMPLATES: Record<Language, (input: SafeJourneyTemplateInput)
     `— सुरक्षक`,
 };
 
+const CHECKIN_MISSED_TEMPLATES: Record<Language, (input: CheckInMissedTemplateInput) => string> = {
+  en: ({ name, locationUrl }) =>
+    `⚠️ ${name} has missed her Safe Check-In and could not be reached.\n` +
+    `Last known location: ${locationUrl}\n` +
+    `Please check on her immediately.\n` +
+    `— Surakshak`,
+  hi: ({ name, locationUrl }) =>
+    `⚠️ ${name} ने अपना सुरक्षित चेक-इन नहीं किया और उनसे संपर्क नहीं हो पाया।\n` +
+    `अंतिम स्थान: ${locationUrl}\n` +
+    `कृपया उनसे तुरंत संपर्क करें।\n` +
+    `— सुरक्षक`,
+  mr: ({ name, locationUrl }) =>
+    `⚠️ ${name} ने सुरक्षित चेक-इन केले नाही आणि त्यांच्याशी संपर्क होऊ शकला नाही।\n` +
+    `शेवटचे स्थान: ${locationUrl}\n` +
+    `कृपया त्यांच्याशी तातडीने संपर्क साधा।\n` +
+    `— सुरक्षक`,
+};
+
 export function buildSOSMessage(name: string, locationUrl: string, language: Language): string {
-  return SOS_TEMPLATES[language]({ name, locationUrl, time: new Date().toLocaleString() });
+  // 'en-IN' keeps the timestamp in ASCII digits regardless of the app's
+  // selected language or the device's own locale — Devanagari numerals
+  // (e.g. from a hi-IN/mr-IN device default) are never acceptable here.
+  return SOS_TEMPLATES[language]({
+    name,
+    locationUrl,
+    time: new Date().toLocaleString('en-IN'),
+  });
 }
 
 export function buildLowBatteryMessage(
@@ -101,4 +129,12 @@ export function buildSafeJourneyMessage(
   language: Language,
 ): string {
   return SAFE_JOURNEY_TEMPLATES[language]({ name, destination, etaTime });
+}
+
+export function buildCheckInMissedMessage(
+  name: string,
+  locationUrl: string,
+  language: Language,
+): string {
+  return CHECKIN_MISSED_TEMPLATES[language]({ name, locationUrl });
 }

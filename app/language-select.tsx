@@ -2,7 +2,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Pressable } from 'react-native';
+import { Alert, Pressable, View } from 'react-native';
 
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { SafeScreen } from '@/components/ui/SafeScreen';
@@ -82,9 +82,10 @@ export default function LanguageSelectScreen(): React.JSX.Element {
               <Text variant="h3" className="mr-3">
                 {option.flag}
               </Text>
-              <Text variant="body" className="flex-1">
-                {option.native}
-              </Text>
+              <View className="flex-1">
+                <Text variant="body">{option.native}</Text>
+                <Text variant="caption">{option.englishName}</Text>
+              </View>
               {isCurrent ? (
                 <MaterialIcons name="check" size={ICON_SIZE.STATUS} color={COLORS.SHAKTI_PURPLE} />
               ) : null}
