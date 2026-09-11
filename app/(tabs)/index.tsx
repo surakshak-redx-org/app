@@ -1,3 +1,4 @@
+import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -9,22 +10,31 @@ import { IncomingCallOverlay } from '@/components/features/emergency/IncomingCal
 import { QuickActionCard } from '@/components/features/emergency/QuickActionCard';
 import { SOSButton } from '@/components/features/sos/SOSButton';
 import { SOSCountdownOverlay } from '@/components/features/sos/SOSCountdownOverlay';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { SafeScreen } from '@/components/ui/SafeScreen';
 import { Text } from '@/components/ui/Text';
 import { captureException } from '@/config/sentry';
+import { COLORS } from '@/constants/colors';
 import { PREDEFINED_EMERGENCY_NUMBERS } from '@/constants/emergency-numbers';
 import { ROUTES } from '@/constants/routes';
 import { STORAGE_FLAG_OFF, STORAGE_KEYS } from '@/constants/storage';
+import { ICON_SIZE } from '@/constants/ui';
 import { useBatteryAlert } from '@/hooks/useBatteryAlert';
 import { useFakeCall } from '@/hooks/useFakeCall';
+import { useSafeCheckin } from '@/hooks/useSafeCheckin';
 import { useShakeDetection } from '@/hooks/useShakeDetection';
 import { useSiren } from '@/hooks/useSiren';
 import { useSOS } from '@/hooks/useSOS';
+import { useSuspiciousFollow } from '@/hooks/useSuspiciousFollow';
 import { trackEmergencyCallPlaced } from '@/services/analytics.service';
 import { useLocationStore } from '@/stores/location.store';
 import { useUserStore } from '@/stores/user.store';
+import { formatEta } from '@/utils/date.utils';
 import { placeCall } from '@/utils/phone.utils';
+
+const MS_PER_MINUTE = 60_000;
 
 export default function HomeScreen(): React.JSX.Element {
   const { t } = useTranslation();
@@ -40,19 +50,34 @@ export default function HomeScreen(): React.JSX.Element {
   const isSafeJourneyActive = useLocationStore((state) => state.isSafeJourneyActive);
 
   const [shakeEnabled, setShakeEnabled] = useState(true);
+  const [followEnabled, setFollowEnabled] = useState(true);
   const [fakeCallModalVisible, setFakeCallModalVisible] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+
+  const safeCheckin = useSafeCheckin();
 
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEYS.SHAKE_ENABLED)
-      .then((value) => setShakeEnabled(value !== STORAGE_FLAG_OFF))
+    AsyncStorage.multiGet([STORAGE_KEYS.SHAKE_ENABLED, STORAGE_KEYS.FOLLOW_DETECTION_ENABLED])
+      .then((entries) => {
+        const stored = new Map(entries);
+        setShakeEnabled(stored.get(STORAGE_KEYS.SHAKE_ENABLED) !== STORAGE_FLAG_OFF);
+        setFollowEnabled(stored.get(STORAGE_KEYS.FOLLOW_DETECTION_ENABLED) !== STORAGE_FLAG_OFF);
+      })
       .catch((error: unknown) => captureException(error));
   }, []);
+
+  useEffect(() => {
+    if (!safeCheckin.isActive) return;
+    const timer = setInterval(() => setNow(Date.now()), MS_PER_MINUTE);
+    return (): void => clearInterval(timer);
+  }, [safeCheckin.isActive]);
 
   const handleShake = useCallback((): void => {
     trigger('shake');
   }, [trigger]);
 
   useShakeDetection(handleShake, shakeEnabled && !isActive);
+  useSuspiciousFollow(followEnabled && !isActive);
 
   function callHelpline(phone: string): void {
     trackEmergencyCallPlaced('predefined');
@@ -119,7 +144,51 @@ export default function HomeScreen(): React.JSX.Element {
             labelKey="home.nearbyHelp"
             onPress={() => router.push(ROUTES.NEARBY_HELP)}
           />
+          <QuickActionCard
+            icon="mic"
+            labelKey="home.silentRecording"
+            onPress={() => router.push(ROUTES.SILENT_RECORDING)}
+          />
+          <QuickActionCard
+            icon="document-text"
+            labelKey="home.incidentReport"
+            onPress={() => router.push(ROUTES.INCIDENT_REPORT)}
+          />
         </View>
+
+        {safeCheckin.isActive && (
+          <Card padding="sm" className="mt-4 border border-forest-green">
+            <View className="flex-row items-center gap-2">
+              <MaterialIcons
+                name="check-circle"
+                size={ICON_SIZE.STATUS}
+                color={COLORS.FOREST_GREEN}
+              />
+              <Text
+                variant="caption"
+                tKey="home.checkinActive"
+                tOptions={{
+                  time:
+                    safeCheckin.nextCheckInAt === null
+                      ? ''
+                      : formatEta(
+                          Math.max(
+                            0,
+                            Math.ceil((safeCheckin.nextCheckInAt.getTime() - now) / MS_PER_MINUTE),
+                          ),
+                        ),
+                }}
+                className="flex-1"
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                label={t('safeCheckin.checkInNow')}
+                onPress={() => void safeCheckin.checkIn()}
+              />
+            </View>
+          </Card>
+        )}
 
         <ScrollView
           horizontal

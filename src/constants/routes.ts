@@ -23,6 +23,7 @@ export const ROUTES = {
   TIPS: '/tips',
   NEWS: '/news',
   LAW_DETAIL: '/law',
+  CALCULATOR: '/(disguise)/calculator',
 } as const;
 
 export type RouteKey = keyof typeof ROUTES;

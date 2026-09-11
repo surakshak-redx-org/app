@@ -7476,6 +7476,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"expo-crypto@npm:~57.0.2":
+  version: 57.0.2
+  resolution: "expo-crypto@npm:57.0.2"
+  peerDependencies:
+    expo: "*"
+  checksum: 10c0/7656f05f6f3cd35c2c12529535d0b55f428d82596fad107bfe68438c5e303233d1dd82da6c8c429587ace94d47ea1aade333f25a76bb01020784b21adf75a000
+  languageName: node
+  linkType: hard
+
 "expo-eas-client@npm:~57.0.3":
   version: 57.0.3
   resolution: "expo-eas-client@npm:57.0.3"
@@ -14474,6 +14483,7 @@ __metadata:
     expo-clipboard: "npm:~57.0.1"
     expo-constants: "npm:~57.0.17"
     expo-contacts: "npm:~57.0.4"
+    expo-crypto: "npm:~57.0.2"
     expo-file-system: "npm:~57.0.6"
     expo-font: "npm:~57.0.3"
     expo-haptics: "npm:~57.0.2"

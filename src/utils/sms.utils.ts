@@ -28,6 +28,11 @@ interface SafeJourneyTemplateInput {
   etaTime: string;
 }
 
+interface CheckInMissedTemplateInput {
+  name: string;
+  locationUrl: string;
+}
+
 const SOS_TEMPLATES: Record<Language, (input: SOSTemplateInput) => string> = {
   en: ({ name, locationUrl, time }) =>
     `🆘 EMERGENCY ALERT from ${name}. I need help immediately.\n` +
@@ -82,6 +87,24 @@ const SAFE_JOURNEY_TEMPLATES: Record<Language, (input: SafeJourneyTemplateInput)
     `— सुरक्षक`,
 };
 
+const CHECKIN_MISSED_TEMPLATES: Record<Language, (input: CheckInMissedTemplateInput) => string> = {
+  en: ({ name, locationUrl }) =>
+    `⚠️ ${name} has missed her Safe Check-In and could not be reached.\n` +
+    `Last known location: ${locationUrl}\n` +
+    `Please check on her immediately.\n` +
+    `— Surakshak`,
+  hi: ({ name, locationUrl }) =>
+    `⚠️ ${name} ने अपना सुरक्षित चेक-इन नहीं किया और उनसे संपर्क नहीं हो पाया।\n` +
+    `अंतिम स्थान: ${locationUrl}\n` +
+    `कृपया उनसे तुरंत संपर्क करें।\n` +
+    `— सुरक्षक`,
+  mr: ({ name, locationUrl }) =>
+    `⚠️ ${name} ने सुरक्षित चेक-इन केले नाही आणि त्यांच्याशी संपर्क होऊ शकला नाही।\n` +
+    `शेवटचे स्थान: ${locationUrl}\n` +
+    `कृपया त्यांच्याशी तातडीने संपर्क साधा।\n` +
+    `— सुरक्षक`,
+};
+
 export function buildSOSMessage(name: string, locationUrl: string, language: Language): string {
   return SOS_TEMPLATES[language]({ name, locationUrl, time: new Date().toLocaleString() });
 }
@@ -101,4 +124,12 @@ export function buildSafeJourneyMessage(
   language: Language,
 ): string {
   return SAFE_JOURNEY_TEMPLATES[language]({ name, destination, etaTime });
+}
+
+export function buildCheckInMissedMessage(
+  name: string,
+  locationUrl: string,
+  language: Language,
+): string {
+  return CHECKIN_MISSED_TEMPLATES[language]({ name, locationUrl });
 }

@@ -75,6 +75,7 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
     removeItem: jest.fn(() => Promise.resolve()),
     multiGet: jest.fn(() => Promise.resolve([])),
     multiSet: jest.fn(() => Promise.resolve()),
+    multiRemove: jest.fn(() => Promise.resolve()),
     clear: jest.fn(() => Promise.resolve()),
   },
 }));
@@ -143,6 +144,10 @@ jest.mock('react-native-maps', () => {
 jest.mock('expo-notifications', () => ({
   requestPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false })),
   getPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false })),
+  scheduleNotificationAsync: jest.fn(() => Promise.resolve('notification-1')),
+  cancelScheduledNotificationAsync: jest.fn(() => Promise.resolve()),
+  addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+  SchedulableTriggerInputTypes: { TIME_INTERVAL: 'timeInterval' },
 }));
 
 jest.mock('react-native-onesignal', () => ({

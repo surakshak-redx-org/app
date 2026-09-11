@@ -8,6 +8,7 @@ import {
   trackSmsAlertSent,
   trackSosCancelled,
   trackSosTriggered,
+  trackSuspiciousFollowSosTriggered,
 } from '@/services/analytics.service';
 import { buildLocationUrl, getCurrentLocation } from '@/services/location.service';
 import { recordSMSAlert, sendSOSAlert } from '@/services/sms.service';
@@ -125,6 +126,20 @@ export function useSOS(): UseSOSResult {
       trigger('button');
     }
   }, [trigger]);
+
+  // Starts the countdown even when `isActive` flipped true from outside this
+  // hook instance's own `trigger` call — e.g. the suspicious-follow alert in
+  // `app/_layout.tsx` activates SOS directly on the shared store. `trigger`
+  // already set `intervalRef.current` synchronously for its own callers, so
+  // this only ever fills in for an external activation.
+  useEffect(() => {
+    if (isActive && intervalRef.current === null) {
+      methodRef.current = triggerMethod;
+      trackSosTriggered(triggerMethod ?? 'button');
+      if (triggerMethod === 'suspicious_follow') trackSuspiciousFollowSosTriggered();
+      intervalRef.current = setInterval(tick, TIMING.SECOND_MS);
+    }
+  }, [isActive, triggerMethod, tick]);
 
   useEffect(() => clearTimer, [clearTimer]);
 
