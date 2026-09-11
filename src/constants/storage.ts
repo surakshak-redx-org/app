@@ -33,6 +33,13 @@ export const STORAGE_KEYS = {
   DISGUISE_ENABLED: 'surakshak_disguise_enabled',
   /** SHA-256 hex digest of the disguise PIN — never the raw digits. */
   DISGUISE_PIN_HASH: 'surakshak_disguise_pin_hash',
+  /**
+   * `JSON.stringify`'d `EvidenceRecordingRecord[]`, newest first, capped at
+   * `EVIDENCE_RECORDING_HISTORY_LIMIT`. The Storage upload itself is the
+   * durable copy of a recording; this is only a local index so a user can
+   * find links to their own past uploads again on this device.
+   */
+  EVIDENCE_RECORDING_HISTORY: 'surakshak_evidence_recording_history',
 } as const;
 
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];

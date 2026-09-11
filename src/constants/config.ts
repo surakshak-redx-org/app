@@ -92,6 +92,9 @@ export const LOCATION_UNAVAILABLE = 'Location unavailable';
 /** Newest-first cap on the locally persisted SMS alert history. */
 export const SMS_HISTORY_LIMIT = 50;
 
+/** Newest-first cap on the locally persisted evidence-recording history. */
+export const EVIDENCE_RECORDING_HISTORY_LIMIT = 50;
+
 /**
  * Sentinel for the "show everything" chip in the Information Hub category
  * filters. A string, so it lives outside the numeric `APP_CONFIG` object; its
