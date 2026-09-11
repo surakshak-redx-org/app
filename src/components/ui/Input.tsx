@@ -21,7 +21,11 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
   const hasError = error !== undefined && error.length > 0;
 
   const fieldClasses = [
-    'min-h-[48px] rounded-xl border bg-white px-4 py-3 text-base text-ink',
+    // `text-[16px]` (font size only) instead of `text-base` (font size +
+    // line-height) deliberately: RN's single-line TextInput vertically
+    // centers itself on iOS, but a `lineHeight` style fights that
+    // centering — leaving text sitting noticeably off-center in the box.
+    'min-h-[48px] rounded-xl border bg-white px-4 py-3 text-[16px] text-ink',
     hasError ? 'border-error-red' : 'border-stone/30',
     className ?? '',
   ]

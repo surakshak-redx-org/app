@@ -122,7 +122,10 @@ export default function PhoneScreen(): React.JSX.Element {
                   field.ref(element);
                   phoneInputRef.current = element;
                 }}
-                className="flex-1 text-base text-ink"
+                // Font size only, not `text-base` — see Input.tsx's note on
+                // why a coupled lineHeight fights iOS's single-line
+                // TextInput auto-centering.
+                className="flex-1 text-[16px] text-ink"
                 keyboardType="phone-pad"
                 maxLength={PHONE_DIGITS}
                 placeholder={t('auth.phonePlaceholder')}
