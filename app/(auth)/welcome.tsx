@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { OtaUpdateBanner } from '@/components/features/settings/OtaUpdateBanner';
 import { Button } from '@/components/ui/Button';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { Text } from '@/components/ui/Text';
@@ -39,6 +40,10 @@ export default function WelcomeScreen(): React.JSX.Element {
   return (
     <ErrorBoundary>
       <SafeAreaView className="flex-1 bg-off-white" edges={['top', 'bottom', 'left', 'right']}>
+        <View className="px-4 pt-4">
+          <OtaUpdateBanner />
+        </View>
+
         <View className="flex-1 items-center justify-center px-6">
           <MaterialIcons name="security" size={ICON_SIZE.BRAND} color={COLORS.PRIMARY_RED} />
           <Text variant="h1" tKey="home.title" className="mt-4" />

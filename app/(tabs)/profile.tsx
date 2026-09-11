@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Alert, Pressable, View } from 'react-native';
 
 import { GuestBanner } from '@/components/features/auth/GuestBanner';
+import { OtaUpdateBanner } from '@/components/features/settings/OtaUpdateBanner';
 import { Avatar } from '@/components/ui/Avatar';
 import { Card } from '@/components/ui/Card';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
@@ -68,6 +69,8 @@ export default function ProfileScreen(): React.JSX.Element {
     <ErrorBoundary>
       <SafeScreen scrollable>
         <Text variant="h1" tKey="profile.title" className="mb-4 mt-4" />
+
+        <OtaUpdateBanner />
 
         {isGuest ? (
           <View>

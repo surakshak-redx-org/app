@@ -4,12 +4,13 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Alert, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import MapView, { Circle, Marker, PROVIDER_GOOGLE, type Region } from 'react-native-maps';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { z } from 'zod';
 
 import { Badge } from '@/components/ui/Badge';
+import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
@@ -63,6 +64,7 @@ export default function MapScreen(): React.JSX.Element {
   const userId = surakshakUser?.userId ?? rawUser?.uid ?? null;
 
   const { currentLocation, requestPermission } = useLocation();
+  const insets = useSafeAreaInsets();
 
   const [unsafeAreas, setUnsafeAreas] = useState<UnsafeArea[]>([]);
   const [selectedArea, setSelectedArea] = useState<UnsafeArea | null>(null);
@@ -179,6 +181,16 @@ export default function MapScreen(): React.JSX.Element {
           showsUserLocation
           showsMyLocationButton
           initialRegion={initialRegion}
+          // Android's My Location button defaults to top-right (rendering
+          // under the status bar without this); iOS's defaults to
+          // bottom-right (overlapping the report FAB there). `mapPadding`
+          // insets the native controls' corners without moving the camera.
+          mapPadding={{
+            top: insets.top + APP_CONFIG.MAP_HEADER_HEIGHT,
+            right: 0,
+            bottom: insets.bottom + APP_CONFIG.MAP_CONTROL_BOTTOM_CLEARANCE,
+            left: 0,
+          }}
         >
           {unsafeAreas.map((area) => (
             <React.Fragment key={area.id}>
@@ -232,13 +244,14 @@ export default function MapScreen(): React.JSX.Element {
           onPress={openReport}
           accessibilityRole="button"
           accessibilityLabel={t('map.reportArea')}
-          className="absolute bottom-6 right-5 h-14 w-14 items-center justify-center rounded-full bg-primary-red shadow-lg"
+          style={{ bottom: APP_CONFIG.MAP_FAB_OFFSET + insets.bottom }}
+          className="absolute right-5 h-14 w-14 items-center justify-center rounded-full bg-primary-red shadow-lg"
         >
           <MaterialIcons name="add-location" size={ICON_SIZE.PERMISSION} color={COLORS.WHITE} />
         </Pressable>
 
         {selectedArea !== null && (
-          <View className="absolute inset-x-0 bottom-0">
+          <View className="absolute inset-x-0 bottom-0" style={{ paddingBottom: insets.bottom }}>
             <Card padding="lg" className="rounded-b-none">
               <View className="flex-row items-center justify-between">
                 <Text variant="h3" className="flex-1">
@@ -288,83 +301,74 @@ export default function MapScreen(): React.JSX.Element {
           </View>
         )}
 
-        <Modal
-          visible={isReportModalVisible}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setReportModalVisible(false)}
-        >
-          <View className="flex-1 justify-end bg-near-black/40">
-            <View className="rounded-t-3xl bg-off-white px-4 pb-8 pt-6">
-              <Text variant="h3" tKey="map.reportArea" />
-              <Text variant="caption" tKey="map.tapToSetLocation" className="mt-1" />
+        <BottomSheet visible={isReportModalVisible} onClose={() => setReportModalVisible(false)}>
+          <Text variant="h3" tKey="map.reportArea" />
+          <Text variant="caption" tKey="map.tapToSetLocation" className="mt-1" />
 
-              <Controller
-                control={control}
-                name="title"
-                render={({ field, fieldState }) => (
-                  <Input
-                    label={t('map.reportAreaTitle')}
-                    value={field.value}
-                    onBlur={field.onBlur}
-                    onChangeText={field.onChange}
-                    error={fieldState.error?.message}
-                    className="mt-4"
-                  />
-                )}
+          <Controller
+            control={control}
+            name="title"
+            render={({ field, fieldState }) => (
+              <Input
+                label={t('map.reportAreaTitle')}
+                value={field.value}
+                onBlur={field.onBlur}
+                onChangeText={field.onChange}
+                error={fieldState.error?.message}
+                className="mt-4"
               />
+            )}
+          />
 
-              <Controller
-                control={control}
-                name="description"
-                render={({ field, fieldState }) => (
-                  <Input
-                    label={t('map.reportAreaDescription')}
-                    multiline
-                    value={field.value}
-                    onBlur={field.onBlur}
-                    onChangeText={field.onChange}
-                    error={fieldState.error?.message}
-                  />
-                )}
+          <Controller
+            control={control}
+            name="description"
+            render={({ field, fieldState }) => (
+              <Input
+                label={t('map.reportAreaDescription')}
+                multiline
+                value={field.value}
+                onBlur={field.onBlur}
+                onChangeText={field.onChange}
+                error={fieldState.error?.message}
               />
+            )}
+          />
 
-              <Text variant="label" tKey="map.reportAreaCategory" className="mb-2" />
-              <View className="flex-row flex-wrap gap-2">
-                {UNSAFE_AREA_CATEGORIES.map((category) => {
-                  const selected = category === selectedCategory;
-                  return (
-                    <Button
-                      key={category}
-                      variant={selected ? 'secondary' : 'outline'}
-                      size="sm"
-                      label={t(UNSAFE_CATEGORY_LABEL_KEY[category])}
-                      onPress={() => setValue('category', category, { shouldValidate: true })}
-                    />
-                  );
-                })}
-              </View>
-
-              <Button
-                variant="primary"
-                size="lg"
-                fullWidth
-                className="mt-6"
-                label={t('common.send')}
-                loading={isSubmitting}
-                disabled={!isValid || isSubmitting}
-                onPress={() => void handleSubmit(submitReport)()}
-              />
-              <Button
-                variant="ghost"
-                size="md"
-                className="mt-2 self-center"
-                label={t('common.cancel')}
-                onPress={() => setReportModalVisible(false)}
-              />
-            </View>
+          <Text variant="label" tKey="map.reportAreaCategory" className="mb-2" />
+          <View className="flex-row flex-wrap gap-2">
+            {UNSAFE_AREA_CATEGORIES.map((category) => {
+              const selected = category === selectedCategory;
+              return (
+                <Button
+                  key={category}
+                  variant={selected ? 'secondary' : 'outline'}
+                  size="sm"
+                  label={t(UNSAFE_CATEGORY_LABEL_KEY[category])}
+                  onPress={() => setValue('category', category, { shouldValidate: true })}
+                />
+              );
+            })}
           </View>
-        </Modal>
+
+          <Button
+            variant="primary"
+            size="lg"
+            fullWidth
+            className="mt-6"
+            label={t('common.send')}
+            loading={isSubmitting}
+            disabled={!isValid || isSubmitting}
+            onPress={() => void handleSubmit(submitReport)()}
+          />
+          <Button
+            variant="ghost"
+            size="md"
+            className="mt-2 self-center"
+            label={t('common.cancel')}
+            onPress={() => setReportModalVisible(false)}
+          />
+        </BottomSheet>
       </View>
     </ErrorBoundary>
   );

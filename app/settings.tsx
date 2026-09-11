@@ -14,6 +14,7 @@ import { SafeScreen } from '@/components/ui/SafeScreen';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { Text } from '@/components/ui/Text';
 import { captureException } from '@/config/sentry';
+import { getRunningUpdateHash } from '@/config/updates';
 import { FALLBACK_APP_VERSION } from '@/constants/auth';
 import { COLORS } from '@/constants/colors';
 import { ROUTES } from '@/constants/routes';
@@ -172,6 +173,7 @@ export default function SettingsScreen(): React.JSX.Element {
   }
 
   const appVersion = Constants.expoConfig?.version ?? FALLBACK_APP_VERSION;
+  const updateHash = getRunningUpdateHash();
 
   return (
     <ErrorBoundary>
@@ -294,6 +296,14 @@ export default function SettingsScreen(): React.JSX.Element {
             tOptions={{ version: appVersion }}
             className="py-2 text-stone"
           />
+          {updateHash !== null && (
+            <Text
+              variant="caption"
+              tKey="settings.updateHash"
+              tOptions={{ hash: updateHash }}
+              className="py-2 text-stone"
+            />
+          )}
           <Text variant="body" tKey="settings.terms" className="py-2 text-shakti-purple" />
           <Text variant="body" tKey="settings.privacyPolicy" className="py-2 text-shakti-purple" />
         </Card>

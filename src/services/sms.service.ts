@@ -89,7 +89,7 @@ export async function sendSafeJourneyAlert(
 ): Promise<SMSAlertResult> {
   return dispatch(
     resolveRecipients(contacts),
-    buildSafeJourneyMessage(userName, destination, etaTime, language),
+    buildSafeJourneyMessage(userName, destination, etaTime, locationUrl, language),
   );
 }
 
