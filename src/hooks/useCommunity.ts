@@ -113,6 +113,10 @@ export function useCommunity(): UseCommunityResult {
       }));
     };
     const onError = (err: Error): void => {
+      // captureException is a no-op when APP_ENV=dev (Sentry never
+      // initializes there), so without this a listener failure prints
+      // nothing at all locally — always log it too.
+      console.error(`community feed (${activeTab}) failed to load:`, err);
       captureException(err);
       setFeed({
         key,
@@ -167,6 +171,7 @@ export function useCommunity(): UseCommunityResult {
           : prev,
       );
     } catch (err) {
+      console.error(`community feed (${activeTab}) failed to load more:`, err);
       captureException(err);
       setFeed((prev) => (prev.key === key ? { ...prev, error: 'community.loadError' } : prev));
     } finally {
