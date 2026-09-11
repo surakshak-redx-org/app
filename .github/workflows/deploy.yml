@@ -172,11 +172,20 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Publish OTA update
+        env:
+          # Injected as a real env var (not spliced into the script text), so
+          # quotes/backticks/$(...) in the commit message can't break the
+          # shell or leak extra args to the eas CLI.
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
         run: |
+          # Only the subject line — eas update's --message is meant to be
+          # short, and a full multi-paragraph PR-merge body was getting
+          # misparsed by the CLI as extra positional arguments.
+          OTA_MESSAGE="OTA: $(printf '%s' "$COMMIT_MESSAGE" | head -n1)"
           eas update \
             --channel ${{ needs.decide-deploy-type.outputs.channel }} \
             --environment ${{ needs.decide-deploy-type.outputs.eas_environment }} \
-            --message "OTA: ${{ github.event.head_commit.message }}" \
+            --message "$OTA_MESSAGE" \
             --non-interactive
 
   eas-build:
