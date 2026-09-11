@@ -36,6 +36,15 @@ export const ANALYTICS_EVENTS = {
   NEARBY_HELP_CALLED: 'nearby_help_called',
   NEARBY_HELP_DIRECTIONS: 'nearby_help_directions',
   INCIDENT_REPORTED: 'incident_reported',
+  EVIDENCE_RECORDING_STARTED: 'evidence_recording_started',
+  EVIDENCE_RECORDING_UPLOADED: 'evidence_recording_uploaded',
+  SUSPICIOUS_FOLLOW_DETECTED: 'suspicious_follow_detected',
+  SUSPICIOUS_FOLLOW_SOS_TRIGGERED: 'suspicious_follow_sos_triggered',
+  DISGUISE_MODE_ENABLED: 'disguise_mode_enabled',
+  DISGUISE_MODE_UNLOCKED: 'disguise_mode_unlocked',
+  SAFE_CHECKIN_STARTED: 'safe_checkin_started',
+  SAFE_CHECKIN_MISSED: 'safe_checkin_missed',
+  SAFE_CHECKIN_ALERT_SENT: 'safe_checkin_alert_sent',
   LAW_VIEWED: 'law_viewed',
   FAQ_VIEWED: 'faq_viewed',
   TIPS_VIEWED: 'tips_viewed',
@@ -219,4 +228,48 @@ export function trackTipsViewed(category: string): void {
 
 export function trackNewsViewed(newsId: string, category: string): void {
   trackEvent(ANALYTICS_EVENTS.NEWS_VIEWED, { news_id: newsId, category });
+}
+
+/* ------------------------- advanced safety -------------------------- */
+
+export function trackIncidentReportSubmitted(photoCount: number): void {
+  trackEvent(ANALYTICS_EVENTS.INCIDENT_REPORTED, { photo_count: photoCount });
+}
+
+export function trackEvidenceRecordingStarted(): void {
+  trackEvent(ANALYTICS_EVENTS.EVIDENCE_RECORDING_STARTED, {});
+}
+
+export function trackEvidenceRecordingUploaded(durationSeconds: number): void {
+  trackEvent(ANALYTICS_EVENTS.EVIDENCE_RECORDING_UPLOADED, {
+    duration_seconds: durationSeconds,
+  });
+}
+
+export function trackSuspiciousFollowDetected(): void {
+  trackEvent(ANALYTICS_EVENTS.SUSPICIOUS_FOLLOW_DETECTED, {});
+}
+
+export function trackSuspiciousFollowSosTriggered(): void {
+  trackEvent(ANALYTICS_EVENTS.SUSPICIOUS_FOLLOW_SOS_TRIGGERED, {});
+}
+
+export function trackDisguiseModeEnabled(): void {
+  trackEvent(ANALYTICS_EVENTS.DISGUISE_MODE_ENABLED, {});
+}
+
+export function trackDisguiseModeUnlocked(): void {
+  trackEvent(ANALYTICS_EVENTS.DISGUISE_MODE_UNLOCKED, {});
+}
+
+export function trackSafeCheckinStarted(intervalMinutes: number): void {
+  trackEvent(ANALYTICS_EVENTS.SAFE_CHECKIN_STARTED, { interval_minutes: intervalMinutes });
+}
+
+export function trackSafeCheckinMissed(): void {
+  trackEvent(ANALYTICS_EVENTS.SAFE_CHECKIN_MISSED, {});
+}
+
+export function trackSafeCheckinAlertSent(): void {
+  trackEvent(ANALYTICS_EVENTS.SAFE_CHECKIN_ALERT_SENT, {});
 }

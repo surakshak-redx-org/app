@@ -1,7 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Sentry from '@sentry/react-native';
+import * as Notifications from 'expo-notifications';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import React, { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Alert } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -12,21 +15,24 @@ import { initMixPanel } from '@/config/mixpanel';
 import { initOneSignal } from '@/config/onesignal';
 import { captureException, initSentry } from '@/config/sentry';
 import { ROUTES } from '@/constants/routes';
-import { STORAGE_KEYS } from '@/constants/storage';
+import { STORAGE_FLAG_ON, STORAGE_KEYS } from '@/constants/storage';
 import { registerLiveLocationTask } from '@/hooks/useLiveLocation';
 import { changeLanguage } from '@/i18n';
 import { identifyUser } from '@/services/analytics.service';
 import { subscribeToAuthChanges } from '@/services/firebase/auth.service';
 import { getUserProfile } from '@/services/firebase/user.service';
 import { useAuthStore } from '@/stores/auth.store';
+import { useSOSStore } from '@/stores/sos.store';
 import { useUserStore } from '@/stores/user.store';
 
 const AUTH_SEGMENT = '(auth)';
 const ONBOARDING_SEGMENT = 'onboarding';
+const DISGUISE_SEGMENT = '(disguise)';
 
 function RootLayout(): React.JSX.Element {
   const router = useRouter();
   const segments = useSegments();
+  const { t } = useTranslation();
 
   const user = useAuthStore((state) => state.user);
   const isGuest = useAuthStore((state) => state.isGuest);
@@ -102,6 +108,51 @@ function RootLayout(): React.JSX.Element {
       router.replace(ROUTES.HOME);
     }
   }, [isInitialized, user, isGuest, segments, router]);
+
+  // Disguise Mode: hide the real app behind a working calculator until the
+  // correct PIN is entered there. Checked once isInitialized so it never
+  // races the auth-redirect effect above, and skipped if already showing the
+  // calculator so a PIN-unlock navigation isn't immediately bounced back.
+  useEffect(() => {
+    if (!isInitialized) return;
+    if (segments[0] === DISGUISE_SEGMENT) return;
+
+    AsyncStorage.getItem(STORAGE_KEYS.DISGUISE_ENABLED)
+      .then((flag) => {
+        if (flag === STORAGE_FLAG_ON) router.replace(ROUTES.CALCULATOR);
+      })
+      .catch((error: unknown) => captureException(error));
+  }, [isInitialized, segments, router]);
+
+  // Local notification handlers for Phase 7's background safety features —
+  // see `useSuspiciousFollow` and `useSafeCheckin` for where these are fired.
+  useEffect(() => {
+    const responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data as Record<string, unknown>;
+      const type = data.type as string | undefined;
+
+      if (type === 'suspicious_follow') {
+        Alert.alert(t('home.suspiciousFollowTitle'), t('home.suspiciousFollowBody'), [
+          {
+            text: t('home.triggerSos'),
+            style: 'destructive',
+            onPress: (): void => useSOSStore.getState().setActive(true, 'suspicious_follow'),
+          },
+          {
+            text: t('location.liveLocation'),
+            onPress: (): void => router.push(ROUTES.LIVE_LOCATION),
+          },
+          { text: t('common.cancel'), style: 'cancel' },
+        ]);
+      }
+
+      if (type === 'safe_checkin') {
+        router.push(ROUTES.SAFE_CHECKIN);
+      }
+    });
+
+    return (): void => responseSub.remove();
+  }, [router, t]);
 
   return (
     <GestureHandlerRootView className="flex-1">

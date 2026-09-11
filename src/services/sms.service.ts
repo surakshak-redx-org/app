@@ -7,6 +7,7 @@ import type { SMSAlertRecord, SMSAlertResult } from '@/types/emergency.types';
 import type { EmergencyContact, Language } from '@/types/user.types';
 import { formatIndianPhone, validateIndianPhone } from '@/utils/phone.utils';
 import {
+  buildCheckInMissedMessage,
   buildLowBatteryMessage,
   buildSafeJourneyMessage,
   buildSOSMessage,
@@ -90,6 +91,31 @@ export async function sendSafeJourneyAlert(
     resolveRecipients(contacts),
     buildSafeJourneyMessage(userName, destination, etaTime, language),
   );
+}
+
+export async function sendCheckInMissedAlert(
+  contacts: EmergencyContact[],
+  locationUrl: string,
+  userName: string,
+  language: Language,
+): Promise<SMSAlertResult> {
+  return dispatch(
+    resolveRecipients(contacts),
+    buildCheckInMissedMessage(userName, locationUrl, language),
+  );
+}
+
+/**
+ * Shares a silent-recording evidence link with the user's own emergency
+ * contacts. Unlike the alert senders above this isn't tied to a fixed
+ * template language lookup — the link itself carries all the information a
+ * recipient needs, so the message is a short, direct sentence.
+ */
+export async function sendEvidenceLinkAlert(
+  contacts: EmergencyContact[],
+  evidenceUrl: string,
+): Promise<SMSAlertResult> {
+  return dispatch(resolveRecipients(contacts), `Evidence recording from Surakshak: ${evidenceUrl}`);
 }
 
 /* -------------------------- alert history -------------------------- */

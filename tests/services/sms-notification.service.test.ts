@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
 import * as SMS from 'expo-sms';
 
 import {
@@ -11,6 +12,8 @@ import {
   getSMSAlertHistory,
   isSMSAvailable,
   recordSMSAlert,
+  sendCheckInMissedAlert,
+  sendEvidenceLinkAlert,
   sendLowBatteryAlert,
   sendSOSAlert,
 } from '@/services/sms.service';
@@ -18,6 +21,12 @@ import {
 jest.mock('expo-sms', () => ({
   isAvailableAsync: jest.fn(() => Promise.resolve(true)),
   sendSMSAsync: jest.fn(() => Promise.resolve({ result: 'sent' })),
+}));
+
+jest.mock('expo-notifications', () => ({
+  scheduleNotificationAsync: jest.fn(() => Promise.resolve('notification-1')),
+  cancelScheduledNotificationAsync: jest.fn(() => Promise.resolve()),
+  SchedulableTriggerInputTypes: { TIME_INTERVAL: 'timeInterval' },
 }));
 
 const CONTACTS = [
@@ -145,15 +154,79 @@ describe('SMS alert history', () => {
   });
 });
 
-describe('notification.service stubs', () => {
-  it.each([
-    [
-      'scheduleLocalNotification',
-      () => scheduleLocalNotification('Check in', 'Are you safe?', 300),
-    ],
-    ['cancelLocalNotification', () => cancelLocalNotification('notification-1')],
-    ['registerForPushNotifications', () => registerForPushNotifications('user-1')],
-  ])('%s rejects until its phase lands', async (_name, call) => {
-    await expect(call()).rejects.toThrow('Not implemented');
+describe('scheduleLocalNotification', () => {
+  it('schedules an immediate notification when delaySeconds is 0', async () => {
+    await scheduleLocalNotification('Title', 'Body', 0, { type: 'safe_checkin' });
+    expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith({
+      content: { title: 'Title', body: 'Body', data: { type: 'safe_checkin' } },
+      trigger: null,
+    });
+  });
+
+  it('schedules a time-interval trigger for a positive delay', async () => {
+    await scheduleLocalNotification('Title', 'Body', 300);
+    expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith({
+      content: { title: 'Title', body: 'Body', data: {} },
+      trigger: { type: 'timeInterval', seconds: 300 },
+    });
+  });
+
+  it('returns the scheduled notification id', async () => {
+    await expect(scheduleLocalNotification('Title', 'Body', 60)).resolves.toBe('notification-1');
+  });
+
+  it('logs and rethrows when scheduling fails', async () => {
+    jest.mocked(Notifications.scheduleNotificationAsync).mockRejectedValueOnce(new Error('boom'));
+    await expect(scheduleLocalNotification('Title', 'Body', 60)).rejects.toThrow('boom');
+    expect(errorSpy).toHaveBeenCalled();
+  });
+});
+
+describe('cancelLocalNotification', () => {
+  it('cancels the notification by id', async () => {
+    await cancelLocalNotification('notification-1');
+    expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith('notification-1');
+  });
+
+  it('logs and rethrows when cancelling fails', async () => {
+    jest
+      .mocked(Notifications.cancelScheduledNotificationAsync)
+      .mockRejectedValueOnce(new Error('boom'));
+    await expect(cancelLocalNotification('notification-1')).rejects.toThrow('boom');
+    expect(errorSpy).toHaveBeenCalled();
+  });
+});
+
+describe('registerForPushNotifications stub', () => {
+  it('rejects until Phase 3 lands', async () => {
+    await expect(registerForPushNotifications('user-1')).rejects.toThrow('Not implemented');
+  });
+});
+
+describe('sendCheckInMissedAlert', () => {
+  it('texts only the non-predefined contacts about the missed check-in', async () => {
+    const result = await sendCheckInMissedAlert(CONTACTS, 'https://maps/here', 'Priya', 'en');
+    expect(SMS.sendSMSAsync).toHaveBeenCalledWith(
+      ['+919876543210'],
+      expect.stringContaining('Check-In'),
+    );
+    expect(result).toEqual({ sent: ['+919876543210'], failed: [] });
+  });
+});
+
+describe('sendEvidenceLinkAlert', () => {
+  it('texts the evidence link to eligible contacts', async () => {
+    const result = await sendEvidenceLinkAlert(CONTACTS, 'https://storage/evidence.m4a');
+    expect(SMS.sendSMSAsync).toHaveBeenCalledWith(
+      ['+919876543210'],
+      expect.stringContaining('https://storage/evidence.m4a'),
+    );
+    expect(result).toEqual({ sent: ['+919876543210'], failed: [] });
+  });
+
+  it('is a no-op when there are no eligible recipients', async () => {
+    const result = await sendEvidenceLinkAlert([CONTACTS[1]!], 'https://storage/evidence.m4a');
+    expect(SMS.sendSMSAsync).not.toHaveBeenCalled();
+    expect(result).toEqual({ sent: [], failed: [] });
   });
 });

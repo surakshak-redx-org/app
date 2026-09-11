@@ -1,4 +1,4 @@
-export type SOSTriggerMethod = 'button' | 'shake' | 'volume';
+export type SOSTriggerMethod = 'button' | 'shake' | 'volume' | 'suspicious_follow';
 
 export interface SOSState {
   isActive: boolean;
@@ -13,7 +13,8 @@ export interface SMSAlertResult {
   failed: string[];
 }
 
-export type SMSAlertType = 'sos' | 'low_battery' | 'safe_journey' | 'live_location';
+export type SMSAlertType =
+  'sos' | 'low_battery' | 'safe_journey' | 'live_location' | 'checkin_missed';
 
 export interface SMSAlertRecord {
   id: string;
