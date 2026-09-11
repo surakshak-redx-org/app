@@ -183,3 +183,10 @@ jest.mock('expo-haptics', () => ({
   notificationAsync: jest.fn(() => Promise.resolve()),
   NotificationFeedbackType: { Warning: 'warning', Success: 'success', Error: 'error' },
 }));
+
+jest.mock('@expo-google-fonts/noto-sans-devanagari', () => ({
+  useFonts: jest.fn(() => [true]),
+  NotoSansDevanagari_400Regular: 'NotoSansDevanagari_400Regular',
+  NotoSansDevanagari_600SemiBold: 'NotoSansDevanagari_600SemiBold',
+  NotoSansDevanagari_700Bold: 'NotoSansDevanagari_700Bold',
+}));

@@ -5,11 +5,9 @@ import type { Language } from '@/types/user.types';
  * 160-character-per-segment budget, so these stay short and lead with the
  * location link — the one piece a recipient acts on first.
  *
- * Messages are built as raw strings rather than through i18next: the on-screen
- * catalogues (`hi`/`mr`) are still being translated, but an emergency SMS must
- * be readable in the sender's language today. The templates below were provided
- * with the Phase 3 brief and want a native-speaker review before a production
- * release.
+ * Messages are built as raw strings rather than through i18next: SMS is sent
+ * regardless of whether the on-screen catalogues are fully loaded, and an
+ * emergency alert must be readable in the sender's language immediately.
  */
 interface SOSTemplateInput {
   name: string;
@@ -45,7 +43,7 @@ const SOS_TEMPLATES: Record<Language, (input: SOSTemplateInput) => string> = {
     `समय: ${time}\n` +
     `— सुरक्षक ऐप द्वारा भेजा गया`,
   mr: ({ name, locationUrl, time }) =>
-    `🆘 आणीबाणी सूचना: ${name} ला तातडीने मदत हवी आहे।\n` +
+    `🆘 तातडीची सूचना: ${name} ला तातडीने मदत हवी आहे।\n` +
     `स्थान: ${locationUrl}\n` +
     `वेळ: ${time}\n` +
     `— सुरक्षक अ‍ॅपद्वारे पाठवले`,
@@ -106,7 +104,14 @@ const CHECKIN_MISSED_TEMPLATES: Record<Language, (input: CheckInMissedTemplateIn
 };
 
 export function buildSOSMessage(name: string, locationUrl: string, language: Language): string {
-  return SOS_TEMPLATES[language]({ name, locationUrl, time: new Date().toLocaleString() });
+  // 'en-IN' keeps the timestamp in ASCII digits regardless of the app's
+  // selected language or the device's own locale — Devanagari numerals
+  // (e.g. from a hi-IN/mr-IN device default) are never acceptable here.
+  return SOS_TEMPLATES[language]({
+    name,
+    locationUrl,
+    time: new Date().toLocaleString('en-IN'),
+  });
 }
 
 export function buildLowBatteryMessage(

@@ -28,6 +28,15 @@ describe('buildSOSMessage', () => {
     expect(buildSOSMessage('Priya', LOCATION_URL, 'hi')).not.toBe(en);
     expect(buildSOSMessage('Priya', LOCATION_URL, 'mr')).not.toBe(en);
   });
+
+  it.each(LANGUAGES)(
+    'renders the timestamp in ASCII digits regardless of language (%s)',
+    (language) => {
+      const message = buildSOSMessage('Priya', LOCATION_URL, language);
+      // Devanagari numerals (०-९) must never appear — emergency numbers/times stay ASCII.
+      expect(message).not.toMatch(/[०-९]/u);
+    },
+  );
 });
 
 describe('buildLowBatteryMessage', () => {
