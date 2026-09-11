@@ -150,6 +150,29 @@ jest.mock('expo-notifications', () => ({
   SchedulableTriggerInputTypes: { TIME_INTERVAL: 'timeInterval' },
 }));
 
+// `SafeAreaView`/`SafeAreaProvider` already worked under jest-expo's automock
+// (NativeWind's css-interop wraps the real component and needs its real
+// displayName, so the module can't be swapped wholesale) — but
+// `useSafeAreaInsets()` (now used by BottomSheet and map.tsx) throws without
+// a real `<SafeAreaProvider>` ancestor, which no screen test renders. Only
+// the hook is stubbed, to zeroed insets matching the library's own
+// MOCK_INITIAL_METRICS default.
+jest.mock('react-native-safe-area-context', () => ({
+  ...jest.requireActual('react-native-safe-area-context'),
+  useSafeAreaInsets: jest.fn(() => ({ top: 0, right: 0, bottom: 0, left: 0 })),
+}));
+
+jest.mock('expo-updates', () => ({
+  isEnabled: false,
+  isEmbeddedLaunch: true,
+  updateId: null,
+  channel: null,
+  runtimeVersion: null,
+  checkForUpdateAsync: jest.fn(() => Promise.resolve({ isAvailable: false })),
+  fetchUpdateAsync: jest.fn(() => Promise.resolve({ isNew: false, manifest: undefined })),
+  reloadAsync: jest.fn(() => Promise.resolve()),
+}));
+
 jest.mock('react-native-onesignal', () => ({
   OneSignal: {
     initialize: jest.fn(),
