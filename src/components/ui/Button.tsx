@@ -24,12 +24,17 @@ export interface ButtonProps {
   accessibilityHint?: string;
 }
 
+// Every variant reserves the same 2px border, transparent where a variant
+// doesn't otherwise draw one — `outline` is the only one with a visible
+// border color, but if the others didn't also reserve that space, a row of
+// mixed variants (e.g. a selected/unselected toggle pair) would render the
+// bordered one measurably taller than its borderless sibling.
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
-  primary: 'bg-primary-red',
-  secondary: 'bg-shakti-purple',
-  danger: 'bg-error-red',
+  primary: 'bg-primary-red border-2 border-transparent',
+  secondary: 'bg-shakti-purple border-2 border-transparent',
+  danger: 'bg-error-red border-2 border-transparent',
   outline: 'bg-transparent border-2 border-shakti-purple',
-  ghost: 'bg-transparent',
+  ghost: 'bg-transparent border-2 border-transparent',
 };
 
 const VARIANT_TEXT_CLASSES: Record<ButtonVariant, string> = {

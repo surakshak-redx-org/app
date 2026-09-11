@@ -1,3 +1,23 @@
+import type { AppEnv } from '@/config/env';
+
+/**
+ * SHA-1 certificate fingerprint (uppercase hex, no colons) for each APP_ENV's
+ * signing credentials, as registered against the Android app restriction on
+ * `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY_ANDROID` in Google Cloud Console. Required
+ * as the `X-Android-Cert` header on every Places API (New) REST call — an
+ * Android-restricted key only auto-verifies requests made through the native
+ * Maps/Places SDK; a plain `fetch()` must send `X-Android-Package` +
+ * `X-Android-Cert` itself or Google blocks the request outright. Not a
+ * secret — a cert fingerprint only identifies which certificate signed the
+ * app, same as the value pasted into the GCP console restriction UI.
+ * Get the value with `eas credentials -p android --profile <profile>`.
+ */
+export const ANDROID_CERT_SHA1_BY_ENV: Record<AppEnv, string> = {
+  dev: '2C4000C657957C0F0E021E4E6BA39BD32EE13D63',
+  staging: '526FEDE904751B7F18759F5E1F64488DFFED1CC4',
+  prod: '7A6A9A81ED1EC917AB715D1137D014EB5A74E71D',
+};
+
 export const APP_CONFIG = {
   LIVE_LOCATION_DEFAULT_HOURS: 1,
   LIVE_LOCATION_MAX_HOURS: 8,
@@ -91,6 +111,9 @@ export const LOCATION_UNAVAILABLE = 'Location unavailable';
 
 /** Newest-first cap on the locally persisted SMS alert history. */
 export const SMS_HISTORY_LIMIT = 50;
+
+/** Newest-first cap on the locally persisted evidence-recording history. */
+export const EVIDENCE_RECORDING_HISTORY_LIMIT = 50;
 
 /**
  * Sentinel for the "show everything" chip in the Information Hub category

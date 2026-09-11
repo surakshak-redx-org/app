@@ -53,6 +53,8 @@
     "sirenOff": "सायरन बंद हुआ",
     "silentRecording": "साइलेंट रिकॉर्डिंग",
     "incidentReport": "घटना रिपोर्ट",
+    "guestFeatureLockedTitle": "साइन इन आवश्यक है",
+    "guestFeatureLockedBody": "यह सुविधा आपके खाते में डेटा सहेजती है, इसलिए गेस्ट मोड में इसका उपयोग नहीं किया जा सकता। जारी रखने के लिए साइन इन करें।",
     "checkinActive": "चेक-इन चालू है — अगला: {{time}}",
     "suspiciousFollowTitle": "⚠️ शायद कोई पीछा कर रहा है",
     "suspiciousFollowBody": "हो सकता है कोई आपका पीछा कर रहा हो। आप क्या करना चाहेंगी?",
@@ -331,7 +333,14 @@
     "copyLink": "लिंक कॉपी करें",
     "linkCopied": "लिंक कॉपी हो गया",
     "shareWithContacts": "आपातकालीन संपर्कों के साथ शेयर करें",
-    "recordAnother": "दोबारा रिकॉर्ड करें"
+    "recordAnother": "दोबारा रिकॉर्ड करें",
+    "viewRecordings": "मेरी रिकॉर्डिंग देखें",
+    "recordingsTitle": "मेरी रिकॉर्डिंग",
+    "recordingsEmpty": "अभी तक कोई रिकॉर्डिंग नहीं",
+    "recordingsEmptyHint": "आपके द्वारा अपलोड की गई रिकॉर्डिंग यहां दिखाई देंगी",
+    "openRecording": "खोलें",
+    "clearRecordings": "इतिहास मिटाएं",
+    "clearRecordingsConfirm": "इस डिवाइस से सभी रिकॉर्डिंग लिंक हटाएं? अपलोड की गई ऑडियो हटाई नहीं जाएगी।"
   },
   "incidentReport": {
     "tabNew": "रिपोर्ट करें",
@@ -383,6 +392,7 @@
     "notificationsDisabled": "बंद",
     "shakeToSos": "हिलाने पर SOS",
     "smsAlertHistory": "SMS अलर्ट हिस्ट्री",
+    "myRecordings": "मेरी रिकॉर्डिंग",
     "lowBatteryAlert": "कम बैटरी अलर्ट",
     "lowBatteryThreshold": "{{percent}}% बैटरी पर अलर्ट करें",
     "followDetection": "संदिग्ध पीछा अलर्ट",

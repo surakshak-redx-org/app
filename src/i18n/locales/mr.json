@@ -53,6 +53,8 @@
     "sirenOff": "सायरन बंद झाला",
     "silentRecording": "सायलेंट रेकॉर्डिंग",
     "incidentReport": "घटना अहवाल",
+    "guestFeatureLockedTitle": "साइन इन आवश्यक आहे",
+    "guestFeatureLockedBody": "हे वैशिष्ट्य तुमच्या खात्यात डेटा जतन करते, त्यामुळे गेस्ट मोडमध्ये ते वापरता येत नाही. सुरू ठेवण्यासाठी साइन इन करा.",
     "checkinActive": "चेक-इन सुरू आहे — पुढील: {{time}}",
     "suspiciousFollowTitle": "⚠️ कदाचित कोणीतरी पाठलाग करत आहे",
     "suspiciousFollowBody": "कदाचित कोणीतरी तुमचा पाठलाग करत आहे. तुम्हाला काय करायचे आहे?",
@@ -331,7 +333,14 @@
     "copyLink": "लिंक कॉपी करा",
     "linkCopied": "लिंक कॉपी झाली",
     "shareWithContacts": "आपत्कालीन संपर्कांसोबत शेअर करा",
-    "recordAnother": "पुन्हा रेकॉर्ड करा"
+    "recordAnother": "पुन्हा रेकॉर्ड करा",
+    "viewRecordings": "माझ्या रेकॉर्डिंग पहा",
+    "recordingsTitle": "माझ्या रेकॉर्डिंग",
+    "recordingsEmpty": "अजून कोणतीही रेकॉर्डिंग नाही",
+    "recordingsEmptyHint": "तुम्ही अपलोड केलेल्या रेकॉर्डिंग इथे दिसतील",
+    "openRecording": "उघडा",
+    "clearRecordings": "इतिहास मिटवा",
+    "clearRecordingsConfirm": "या डिव्हाइसवरून सर्व रेकॉर्डिंग लिंक हटवायच्या? अपलोड केलेला ऑडिओ हटवला जाणार नाही."
   },
   "incidentReport": {
     "tabNew": "तक्रार करा",
@@ -383,6 +392,7 @@
     "notificationsDisabled": "बंद",
     "shakeToSos": "हलवल्यावर SOS",
     "smsAlertHistory": "SMS इशारा इतिहास",
+    "myRecordings": "माझ्या रेकॉर्डिंग",
     "lowBatteryAlert": "कमी बॅटरी इशारा",
     "lowBatteryThreshold": "{{percent}}% बॅटरीवर इशारा द्या",
     "followDetection": "संशयास्पद पाठलाग इशारा",

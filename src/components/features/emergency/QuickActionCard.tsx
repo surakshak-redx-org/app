@@ -17,6 +17,14 @@ export interface QuickActionCardProps {
   active?: boolean;
   /** Small red count badge (e.g. number of saved contacts). */
   badge?: string | undefined;
+  /**
+   * Dims the card and swaps its icon for a lock — for a feature guest mode
+   * can't use (it writes to the user's own Firestore/Storage data, which
+   * requires a real sign-in). `onPress` still fires; the caller decides what
+   * that does (e.g. show a sign-in prompt) rather than this presentational
+   * component owning any auth/navigation logic.
+   */
+  locked?: boolean;
   testID?: string | undefined;
 }
 
@@ -26,6 +34,7 @@ export function QuickActionCard({
   onPress,
   active = false,
   badge,
+  locked = false,
   testID,
 }: QuickActionCardProps): React.JSX.Element {
   const cardClass = active
@@ -33,10 +42,20 @@ export function QuickActionCard({
     : 'border-2 border-transparent';
 
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" testID={testID} className="w-1/2 p-1.5">
-      <Card padding="md" className={`items-center ${cardClass}`}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: locked }}
+      testID={testID}
+      className="w-1/2 p-1.5"
+    >
+      <Card padding="md" className={`items-center ${cardClass} ${locked ? 'opacity-50' : ''}`}>
         <View className="items-center">
-          <Ionicons name={icon} size={ICON_SIZE.PERMISSION} color={COLORS.SHAKTI_PURPLE} />
+          <Ionicons
+            name={locked ? 'lock-closed' : icon}
+            size={ICON_SIZE.PERMISSION}
+            color={COLORS.SHAKTI_PURPLE}
+          />
           <Text variant="label" tKey={labelKey} className="mt-2 text-center text-ink" />
         </View>
         {badge !== undefined && (

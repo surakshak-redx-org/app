@@ -58,7 +58,9 @@ export function PinInput({ onComplete }: PinInputProps): React.JSX.Element {
           ref={(element) => {
             inputRefs.current[index] = element;
           }}
-          className={`h-14 w-12 rounded-xl border-2 text-center text-xl font-semibold text-ink ${
+          // `text-[20px]`, not `text-xl` — a coupled lineHeight fights
+          // iOS's single-line TextInput auto-centering (see Input.tsx).
+          className={`h-14 w-12 rounded-xl border-2 text-center text-[20px] font-semibold text-ink ${
             digit !== '' ? 'border-shakti-purple' : 'border-stone/30'
           }`}
           keyboardType="number-pad"

@@ -53,6 +53,8 @@
     "sirenOff": "Siren stopped",
     "silentRecording": "Silent Recording",
     "incidentReport": "Incident Report",
+    "guestFeatureLockedTitle": "Sign in required",
+    "guestFeatureLockedBody": "This feature saves data to your account, so guest mode can't use it. Sign in to continue.",
     "checkinActive": "Check-in active — next: {{time}}",
     "suspiciousFollowTitle": "⚠️ Possible Suspicious Activity",
     "suspiciousFollowBody": "You may be being followed. What would you like to do?",
@@ -331,7 +333,14 @@
     "copyLink": "Copy Link",
     "linkCopied": "Link copied to clipboard",
     "shareWithContacts": "Share with Emergency Contacts",
-    "recordAnother": "Record Another"
+    "recordAnother": "Record Another",
+    "viewRecordings": "View My Recordings",
+    "recordingsTitle": "My Recordings",
+    "recordingsEmpty": "No recordings yet",
+    "recordingsEmptyHint": "Recordings you upload will appear here",
+    "openRecording": "Open",
+    "clearRecordings": "Clear History",
+    "clearRecordingsConfirm": "Delete all recording links from this device? The uploaded audio itself is not deleted."
   },
   "incidentReport": {
     "tabNew": "Report",
@@ -383,6 +392,7 @@
     "notificationsDisabled": "Disabled",
     "shakeToSos": "Shake to SOS",
     "smsAlertHistory": "SMS Alert History",
+    "myRecordings": "My Recordings",
     "lowBatteryAlert": "Low Battery Alert",
     "lowBatteryThreshold": "Alert at {{percent}}% battery",
     "followDetection": "Suspicious Follow Alert",

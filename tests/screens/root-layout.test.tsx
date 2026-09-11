@@ -1,9 +1,10 @@
-import { getDoc } from '@react-native-firebase/firestore';
+import { getDoc, getDocs } from '@react-native-firebase/firestore';
 import { act, render } from '@testing-library/react-native';
 import React from 'react';
 
 import { ROUTES } from '@/constants/routes';
 import { useAuthStore } from '@/stores/auth.store';
+import { useUserStore } from '@/stores/user.store';
 import RootLayout from '@app/_layout';
 
 jest.mock('@/global.css', () => ({}));
@@ -18,11 +19,12 @@ jest.mock('react-native-gesture-handler', () => {
 
 const mockReplace = jest.fn();
 const mockSubscribe = jest.fn();
+let mockSegments: string[] = [];
 
 jest.mock('expo-router', () => ({
-  Slot: (): null => null,
+  Stack: (): null => null,
   useRouter: () => ({ replace: mockReplace, push: jest.fn(), back: jest.fn() }),
-  useSegments: () => [],
+  useSegments: () => mockSegments,
 }));
 
 jest.mock('@/services/firebase/auth.service', () => ({
@@ -44,6 +46,8 @@ describe('RootLayout auth listener', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     useAuthStore.getState().reset();
+    useUserStore.getState().reset();
+    mockSegments = [];
   });
 
   it('subscribes to auth changes on mount', async () => {
@@ -86,6 +90,49 @@ describe('RootLayout auth listener', () => {
     expect(mockReplace).not.toHaveBeenCalledWith(ROUTES.ONBOARDING);
   });
 
+  it('preloads emergency contacts on sign-in, not only when that screen is opened', async () => {
+    // SOS fan-out, the low-battery alert, safe check-in, and silent
+    // recording's share button all read useUserStore.getState().emergencyContacts
+    // synchronously — if this only loaded lazily inside the Emergency
+    // Contacts screen, any of those triggered first in a session would
+    // silently see an empty list.
+    jest.mocked(getDoc).mockResolvedValueOnce({
+      exists: () => true,
+      id: 'u1',
+      data: () => ({
+        name: 'Priya',
+        phone: '+919876543210',
+        profilePhotoUrl: '',
+        city: 'Mumbai',
+        state: '',
+        language: 'en',
+        isGuest: false,
+        createdAt: {},
+        updatedAt: {},
+      }),
+    } as never);
+    jest.mocked(getDocs).mockResolvedValueOnce({
+      docs: [
+        {
+          id: 'c1',
+          data: () => ({
+            name: 'Mom',
+            phone: '+919876500000',
+            relationship: 'mother',
+            isPredefined: false,
+            order: 0,
+          }),
+        },
+      ],
+    } as never);
+
+    await render(<RootLayout />);
+    await emitAuth({ uid: 'u1', phoneNumber: '+919876543210' });
+
+    expect(useUserStore.getState().emergencyContacts).toHaveLength(1);
+    expect(useUserStore.getState().emergencyContacts[0]).toMatchObject({ name: 'Mom' });
+  });
+
   it('clears the user on sign-out when not in guest mode', async () => {
     await render(<RootLayout />);
     useAuthStore.getState().setUser({ uid: 'u1' } as never);
@@ -93,5 +140,30 @@ describe('RootLayout auth listener', () => {
     await emitAuth(null);
 
     expect(useAuthStore.getState().user).toBeNull();
+  });
+
+  it('lets a guest reach the auth group to sign in instead of bouncing to Home', async () => {
+    // A guest reads as "signed in" by design (so app launch doesn't bounce
+    // them to Welcome) — GuestBanner sets isGuestSigningIn before pushing
+    // into (auth), and that must suppress the "already signed in, go Home"
+    // redirect for this one deliberate navigation.
+    mockSegments = ['(auth)'];
+    useAuthStore.getState().setGuest(true);
+    useAuthStore.getState().setGuestSigningIn(true);
+    useAuthStore.getState().setInitialized(true);
+
+    await render(<RootLayout />);
+
+    expect(mockReplace).not.toHaveBeenCalledWith(ROUTES.HOME);
+  });
+
+  it('still bounces a guest browsing the auth group without signing in back to Home', async () => {
+    mockSegments = ['(auth)'];
+    useAuthStore.getState().setGuest(true);
+    useAuthStore.getState().setInitialized(true);
+
+    await render(<RootLayout />);
+
+    expect(mockReplace).toHaveBeenCalledWith(ROUTES.HOME);
   });
 });
