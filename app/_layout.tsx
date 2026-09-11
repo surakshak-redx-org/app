@@ -53,9 +53,11 @@ function RootLayout(): React.JSX.Element {
 
   const user = useAuthStore((state) => state.user);
   const isGuest = useAuthStore((state) => state.isGuest);
+  const isGuestSigningIn = useAuthStore((state) => state.isGuestSigningIn);
   const isInitialized = useAuthStore((state) => state.isInitialized);
   const setUser = useAuthStore((state) => state.setUser);
   const setGuest = useAuthStore((state) => state.setGuest);
+  const setGuestSigningIn = useAuthStore((state) => state.setGuestSigningIn);
   const setSurakshakUser = useAuthStore((state) => state.setSurakshakUser);
   const setInitialized = useAuthStore((state) => state.setInitialized);
   const setProfileMirror = useUserStore((state) => state.setProfile);
@@ -82,6 +84,7 @@ function RootLayout(): React.JSX.Element {
           if (firebaseUser !== null) {
             setUser(firebaseUser);
             setGuest(false);
+            setGuestSigningIn(false);
 
             const profile = await getUserProfile(firebaseUser.uid);
             if (profile !== null) {
@@ -110,7 +113,15 @@ function RootLayout(): React.JSX.Element {
     });
 
     return unsubscribe;
-  }, [router, setUser, setGuest, setSurakshakUser, setProfileMirror, setInitialized]);
+  }, [
+    router,
+    setUser,
+    setGuest,
+    setGuestSigningIn,
+    setSurakshakUser,
+    setProfileMirror,
+    setInitialized,
+  ]);
 
   useEffect(() => {
     if (!isInitialized) return;
@@ -121,10 +132,15 @@ function RootLayout(): React.JSX.Element {
 
     if (!isSignedIn && !isInAuthGroup) {
       router.replace(ROUTES.WELCOME);
-    } else if (isSignedIn && isInAuthGroup && !isOnboarding) {
+      // A guest reads as "signed in" above (so launching the app doesn't
+      // bounce them out to Welcome) — but GuestBanner's "Sign In Now"
+      // deliberately navigates a guest INTO (auth) to convert to a real
+      // account, and without this check that same "already signed in"
+      // read would immediately redirect it straight back to Home.
+    } else if (isSignedIn && isInAuthGroup && !isOnboarding && !isGuestSigningIn) {
       router.replace(ROUTES.HOME);
     }
-  }, [isInitialized, user, isGuest, segments, router]);
+  }, [isInitialized, user, isGuest, isGuestSigningIn, segments, router]);
 
   // Disguise Mode: hide the real app behind a working calculator until the
   // correct PIN is entered there. Checked once isInitialized so it never

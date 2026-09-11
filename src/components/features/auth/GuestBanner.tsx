@@ -10,6 +10,7 @@ import { Text } from '@/components/ui/Text';
 import { COLORS } from '@/constants/colors';
 import { ROUTES } from '@/constants/routes';
 import { ICON_SIZE } from '@/constants/ui';
+import { useAuthStore } from '@/stores/auth.store';
 
 export interface GuestBannerProps {
   /** Overrides the default "sign in to access all features" copy. */
@@ -19,8 +20,14 @@ export interface GuestBannerProps {
 export function GuestBanner({ message }: GuestBannerProps): React.JSX.Element {
   const { t } = useTranslation();
   const router = useRouter();
+  const setGuestSigningIn = useAuthStore((state) => state.setGuestSigningIn);
 
   function handleSignIn(): void {
+    // The root layout treats a guest as "signed in" so it doesn't bounce
+    // them out of the app on launch — that same check would otherwise
+    // immediately redirect this navigation straight back to Home. See
+    // `isGuestSigningIn` on the auth store.
+    setGuestSigningIn(true);
     router.push(ROUTES.WELCOME);
   }
 
