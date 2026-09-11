@@ -1,9 +1,10 @@
-import { getDoc } from '@react-native-firebase/firestore';
+import { getDoc, getDocs } from '@react-native-firebase/firestore';
 import { act, render } from '@testing-library/react-native';
 import React from 'react';
 
 import { ROUTES } from '@/constants/routes';
 import { useAuthStore } from '@/stores/auth.store';
+import { useUserStore } from '@/stores/user.store';
 import RootLayout from '@app/_layout';
 
 jest.mock('@/global.css', () => ({}));
@@ -45,6 +46,7 @@ describe('RootLayout auth listener', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     useAuthStore.getState().reset();
+    useUserStore.getState().reset();
     mockSegments = [];
   });
 
@@ -86,6 +88,49 @@ describe('RootLayout auth listener', () => {
 
     expect(useAuthStore.getState().surakshakUser?.name).toBe('Priya');
     expect(mockReplace).not.toHaveBeenCalledWith(ROUTES.ONBOARDING);
+  });
+
+  it('preloads emergency contacts on sign-in, not only when that screen is opened', async () => {
+    // SOS fan-out, the low-battery alert, safe check-in, and silent
+    // recording's share button all read useUserStore.getState().emergencyContacts
+    // synchronously — if this only loaded lazily inside the Emergency
+    // Contacts screen, any of those triggered first in a session would
+    // silently see an empty list.
+    jest.mocked(getDoc).mockResolvedValueOnce({
+      exists: () => true,
+      id: 'u1',
+      data: () => ({
+        name: 'Priya',
+        phone: '+919876543210',
+        profilePhotoUrl: '',
+        city: 'Mumbai',
+        state: '',
+        language: 'en',
+        isGuest: false,
+        createdAt: {},
+        updatedAt: {},
+      }),
+    } as never);
+    jest.mocked(getDocs).mockResolvedValueOnce({
+      docs: [
+        {
+          id: 'c1',
+          data: () => ({
+            name: 'Mom',
+            phone: '+919876500000',
+            relationship: 'mother',
+            isPredefined: false,
+            order: 0,
+          }),
+        },
+      ],
+    } as never);
+
+    await render(<RootLayout />);
+    await emitAuth({ uid: 'u1', phoneNumber: '+919876543210' });
+
+    expect(useUserStore.getState().emergencyContacts).toHaveLength(1);
+    expect(useUserStore.getState().emergencyContacts[0]).toMatchObject({ name: 'Mom' });
   });
 
   it('clears the user on sign-out when not in guest mode', async () => {

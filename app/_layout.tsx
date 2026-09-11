@@ -27,7 +27,7 @@ import { registerLiveLocationTask } from '@/hooks/useLiveLocation';
 import { changeLanguage } from '@/i18n';
 import { identifyUser } from '@/services/analytics.service';
 import { subscribeToAuthChanges } from '@/services/firebase/auth.service';
-import { getUserProfile } from '@/services/firebase/user.service';
+import { getEmergencyContacts, getUserProfile } from '@/services/firebase/user.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { useDisguiseStore } from '@/stores/disguise.store';
 import { useSOSStore } from '@/stores/sos.store';
@@ -62,6 +62,7 @@ function RootLayout(): React.JSX.Element {
   const setSurakshakUser = useAuthStore((state) => state.setSurakshakUser);
   const setInitialized = useAuthStore((state) => state.setInitialized);
   const setProfileMirror = useUserStore((state) => state.setProfile);
+  const setEmergencyContacts = useUserStore((state) => state.setEmergencyContacts);
 
   // Third-party SDKs. Each one no-ops or warns when APP_ENV is dev.
   useEffect(() => {
@@ -93,6 +94,15 @@ function RootLayout(): React.JSX.Element {
               setProfileMirror(profile);
               identifyUser(firebaseUser.uid);
               await changeLanguage(profile.language);
+
+              // Emergency contacts otherwise only ever load lazily when the
+              // Emergency Contacts screen itself mounts — every other
+              // consumer (SOS fan-out, low-battery alert, safe check-in,
+              // silent-recording share) reads this same store synchronously
+              // via getState() and would silently see an empty list until
+              // that screen happened to be visited once this session.
+              const contacts = await getEmergencyContacts(firebaseUser.uid);
+              setEmergencyContacts(contacts);
             }
 
             const onboardingDone = await AsyncStorage.getItem(STORAGE_KEYS.ONBOARDING_COMPLETE);
@@ -121,6 +131,7 @@ function RootLayout(): React.JSX.Element {
     setGuestSigningIn,
     setSurakshakUser,
     setProfileMirror,
+    setEmergencyContacts,
     setInitialized,
   ]);
 
