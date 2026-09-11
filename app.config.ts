@@ -204,8 +204,13 @@ const config: ExpoConfig = {
     [
       '@sentry/react-native/expo',
       {
-        organization: 'surakshak',
-        project: APP_ENV === 'prod' ? 'surakshak-production' : 'surakshak-staging',
+        // Two separate Sentry orgs, not one org with two projects — a
+        // surakshak-production auth token has zero access to anything in
+        // surakshak-staging and vice versa, since Sentry auth tokens are
+        // org-scoped. Each org's default project (from the RN setup wizard)
+        // is named "react-native".
+        organization: APP_ENV === 'prod' ? 'surakshak-production' : 'surakshak-staging',
+        project: 'react-native',
       },
     ],
     ['onesignal-expo-plugin', { mode: APP_ENV === 'prod' ? 'production' : 'development' }],
