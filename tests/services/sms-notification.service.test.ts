@@ -16,6 +16,7 @@ import {
   sendEvidenceLinkAlert,
   sendLowBatteryAlert,
   sendSOSAlert,
+  sendSafeJourneyAlert,
 } from '@/services/sms.service';
 
 jest.mock('expo-sms', () => ({
@@ -209,6 +210,24 @@ describe('sendCheckInMissedAlert', () => {
     expect(SMS.sendSMSAsync).toHaveBeenCalledWith(
       ['+919876543210'],
       expect.stringContaining('Check-In'),
+    );
+    expect(result).toEqual({ sent: ['+919876543210'], failed: [] });
+  });
+});
+
+describe('sendSafeJourneyAlert', () => {
+  it('texts the destination, ETA and location link to eligible contacts', async () => {
+    const result = await sendSafeJourneyAlert(
+      CONTACTS,
+      'https://maps/here',
+      'Priya',
+      'Andheri Station',
+      '3:30 PM',
+      'en',
+    );
+    expect(SMS.sendSMSAsync).toHaveBeenCalledWith(
+      ['+919876543210'],
+      expect.stringContaining('https://maps/here'),
     );
     expect(result).toEqual({ sent: ['+919876543210'], failed: [] });
   });

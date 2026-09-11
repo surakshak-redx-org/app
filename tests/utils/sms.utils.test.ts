@@ -49,10 +49,17 @@ describe('buildLowBatteryMessage', () => {
 });
 
 describe('buildSafeJourneyMessage', () => {
-  it.each(LANGUAGES)('names the destination and arrival time for %s', (language) => {
-    const message = buildSafeJourneyMessage('Priya', 'Andheri Station', '3:30 PM', language);
+  it.each(LANGUAGES)('names the destination, arrival time and location link for %s', (language) => {
+    const message = buildSafeJourneyMessage(
+      'Priya',
+      'Andheri Station',
+      '3:30 PM',
+      LOCATION_URL,
+      language,
+    );
     expect(message).toContain('Priya');
     expect(message).toContain('Andheri Station');
     expect(message).toContain('3:30 PM');
+    expect(message).toContain(LOCATION_URL);
   });
 });
