@@ -2,9 +2,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import React, { useEffect, useMemo } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Modal, View } from 'react-native';
 import { z } from 'zod';
 
+import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Text } from '@/components/ui/Text';
@@ -78,80 +78,76 @@ export function ContactFormModal({
   }
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View className="flex-1 justify-end bg-near-black/40">
-        <View className="rounded-t-3xl bg-off-white px-4 pb-8 pt-6">
-          <Text
-            variant="h2"
-            tKey={initial ? 'emergency.editContact' : 'emergency.addContact'}
-            className="mb-4"
-          />
+    <BottomSheet visible={visible} onClose={onClose}>
+      <Text
+        variant="h2"
+        tKey={initial ? 'emergency.editContact' : 'emergency.addContact'}
+        className="mb-4"
+      />
 
-          <Controller
-            control={control}
-            name="name"
-            render={({ field }) => (
-              <Input
-                label={t('emergency.nameLabel')}
-                placeholder={t('emergency.namePlaceholder')}
-                value={field.value}
-                onBlur={field.onBlur}
-                onChangeText={field.onChange}
-                error={errors.name?.message}
-              />
-            )}
+      <Controller
+        control={control}
+        name="name"
+        render={({ field }) => (
+          <Input
+            label={t('emergency.nameLabel')}
+            placeholder={t('emergency.namePlaceholder')}
+            value={field.value}
+            onBlur={field.onBlur}
+            onChangeText={field.onChange}
+            error={errors.name?.message}
           />
-          <Controller
-            control={control}
-            name="phone"
-            render={({ field }) => (
-              <Input
-                label={t('emergency.phoneLabel')}
-                placeholder={t('emergency.phonePlaceholder')}
-                keyboardType="phone-pad"
-                value={field.value}
-                onBlur={field.onBlur}
-                onChangeText={field.onChange}
-                error={errors.phone?.message}
-              />
-            )}
+        )}
+      />
+      <Controller
+        control={control}
+        name="phone"
+        render={({ field }) => (
+          <Input
+            label={t('emergency.phoneLabel')}
+            placeholder={t('emergency.phonePlaceholder')}
+            keyboardType="phone-pad"
+            value={field.value}
+            onBlur={field.onBlur}
+            onChangeText={field.onChange}
+            error={errors.phone?.message}
           />
-          <Controller
-            control={control}
-            name="relationship"
-            render={({ field }) => (
-              <Input
-                label={t('emergency.relationshipLabel')}
-                placeholder={t('emergency.relationshipPlaceholder')}
-                value={field.value}
-                onBlur={field.onBlur}
-                onChangeText={field.onChange}
-                error={errors.relationship?.message}
-              />
-            )}
+        )}
+      />
+      <Controller
+        control={control}
+        name="relationship"
+        render={({ field }) => (
+          <Input
+            label={t('emergency.relationshipLabel')}
+            placeholder={t('emergency.relationshipPlaceholder')}
+            value={field.value}
+            onBlur={field.onBlur}
+            onChangeText={field.onChange}
+            error={errors.relationship?.message}
           />
+        )}
+      />
 
-          <Button
-            variant="primary"
-            size="lg"
-            fullWidth
-            className="mt-2"
-            label={t('common.save')}
-            disabled={!isValid}
-            onPress={() => {
-              void handleSubmit(submit)();
-            }}
-          />
-          <Button
-            variant="ghost"
-            size="md"
-            fullWidth
-            className="mt-2"
-            label={t('common.cancel')}
-            onPress={onClose}
-          />
-        </View>
-      </View>
-    </Modal>
+      <Button
+        variant="primary"
+        size="lg"
+        fullWidth
+        className="mt-2"
+        label={t('common.save')}
+        disabled={!isValid}
+        onPress={() => {
+          void handleSubmit(submit)();
+        }}
+      />
+      <Button
+        variant="ghost"
+        size="md"
+        fullWidth
+        className="mt-2"
+        label={t('common.cancel')}
+        onPress={onClose}
+      />
+    </BottomSheet>
   );
 }

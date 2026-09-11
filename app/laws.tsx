@@ -102,6 +102,7 @@ export default function LawsScreen(): React.JSX.Element {
         <FlatList
           data={filtered}
           keyExtractor={(item) => item.id}
+          className="flex-1"
           contentContainerClassName="pb-8"
           renderItem={({ item }) => (
             <Pressable onPress={() => router.push(`${ROUTES.LAW_DETAIL}/${item.id}`)}>

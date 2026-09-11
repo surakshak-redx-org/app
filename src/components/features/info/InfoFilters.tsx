@@ -47,8 +47,8 @@ export function CategoryFilter({
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      className="mb-3 flex-grow-0"
-      contentContainerClassName="gap-2"
+      className="mb-3 h-10 flex-grow-0"
+      contentContainerClassName="items-center gap-2"
     >
       {chips.map((category) => {
         const isSelected = category === selected;

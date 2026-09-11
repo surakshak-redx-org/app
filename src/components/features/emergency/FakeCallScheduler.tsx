@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Modal, Pressable, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
+import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Text } from '@/components/ui/Text';
@@ -52,79 +53,65 @@ export function FakeCallScheduler({
   }
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onShow={resetToDefaults}
-      onRequestClose={onClose}
-    >
-      <View className="flex-1 justify-end bg-near-black/40">
-        <View className="rounded-t-3xl bg-off-white px-4 pb-8 pt-6">
-          <Text variant="h2" tKey="emergency.fakeCall" className="mb-4" />
+    <BottomSheet visible={visible} onShow={resetToDefaults} onClose={onClose}>
+      <Text variant="h2" tKey="emergency.fakeCall" className="mb-4" />
 
-          <Input
-            label={t('emergency.callerName')}
-            value={callerName}
-            onChangeText={setCallerName}
-          />
+      <Input label={t('emergency.callerName')} value={callerName} onChangeText={setCallerName} />
 
-          <Text variant="label" tKey="emergency.callDelay" className="mb-2" />
-          <View className="flex-row flex-wrap gap-2">
-            {FAKE_CALL_DELAY_OPTIONS_SECONDS.map((seconds) => {
-              const isSelected = selected === seconds;
-              return (
-                <Pressable
-                  key={seconds}
-                  onPress={() => setSelected(seconds)}
-                  accessibilityRole="button"
-                  className={`rounded-full border px-4 py-2 ${
-                    isSelected ? 'border-shakti-purple bg-shakti-purple/10' : 'border-stone/30'
-                  }`}
-                >
-                  <Text variant="body">{delayLabel(seconds)}</Text>
-                </Pressable>
-              );
-            })}
+      <Text variant="label" tKey="emergency.callDelay" className="mb-2" />
+      <View className="flex-row flex-wrap gap-2">
+        {FAKE_CALL_DELAY_OPTIONS_SECONDS.map((seconds) => {
+          const isSelected = selected === seconds;
+          return (
             <Pressable
-              onPress={() => setSelected(CUSTOM)}
+              key={seconds}
+              onPress={() => setSelected(seconds)}
               accessibilityRole="button"
               className={`rounded-full border px-4 py-2 ${
-                selected === CUSTOM ? 'border-shakti-purple bg-shakti-purple/10' : 'border-stone/30'
+                isSelected ? 'border-shakti-purple bg-shakti-purple/10' : 'border-stone/30'
               }`}
             >
-              <Text variant="body" tKey="emergency.customDelay" />
+              <Text variant="body">{delayLabel(seconds)}</Text>
             </Pressable>
-          </View>
-
-          {selected === CUSTOM && (
-            <Input
-              className="mt-3"
-              keyboardType="number-pad"
-              placeholder={t('emergency.minutesShort', { count: 2 })}
-              value={customMinutes}
-              onChangeText={setCustomMinutes}
-            />
-          )}
-
-          <Button
-            variant="primary"
-            size="lg"
-            fullWidth
-            className="mt-4"
-            label={t('emergency.scheduleCall')}
-            onPress={handleSchedule}
-          />
-          <Button
-            variant="ghost"
-            size="md"
-            fullWidth
-            className="mt-2"
-            label={t('common.cancel')}
-            onPress={onClose}
-          />
-        </View>
+          );
+        })}
+        <Pressable
+          onPress={() => setSelected(CUSTOM)}
+          accessibilityRole="button"
+          className={`rounded-full border px-4 py-2 ${
+            selected === CUSTOM ? 'border-shakti-purple bg-shakti-purple/10' : 'border-stone/30'
+          }`}
+        >
+          <Text variant="body" tKey="emergency.customDelay" />
+        </Pressable>
       </View>
-    </Modal>
+
+      {selected === CUSTOM && (
+        <Input
+          className="mt-3"
+          keyboardType="number-pad"
+          placeholder={t('emergency.minutesShort', { count: 2 })}
+          value={customMinutes}
+          onChangeText={setCustomMinutes}
+        />
+      )}
+
+      <Button
+        variant="primary"
+        size="lg"
+        fullWidth
+        className="mt-4"
+        label={t('emergency.scheduleCall')}
+        onPress={handleSchedule}
+      />
+      <Button
+        variant="ghost"
+        size="md"
+        fullWidth
+        className="mt-2"
+        label={t('common.cancel')}
+        onPress={onClose}
+      />
+    </BottomSheet>
   );
 }
