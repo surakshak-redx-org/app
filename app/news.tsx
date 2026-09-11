@@ -112,6 +112,7 @@ export default function NewsScreen(): React.JSX.Element {
           testID="news-list"
           data={filtered}
           keyExtractor={(item) => item.id}
+          className="flex-1"
           contentContainerClassName="pb-8"
           refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
           renderItem={({ item }) => (

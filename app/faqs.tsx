@@ -103,6 +103,7 @@ export default function FaqsScreen(): React.JSX.Element {
         <FlatList
           data={filtered}
           keyExtractor={(item) => item.id}
+          className="flex-1"
           contentContainerClassName="pb-8"
           renderItem={({ item }) => {
             const expanded = expandedId === item.id;

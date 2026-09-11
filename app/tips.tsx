@@ -104,6 +104,7 @@ export default function TipsScreen(): React.JSX.Element {
           data={filtered}
           keyExtractor={(item) => item.id}
           numColumns={2}
+          className="flex-1"
           contentContainerClassName="pb-8"
           renderItem={({ item }) => {
             const icon = CATEGORY_ICON[item.category] ?? FALLBACK_ICON;
