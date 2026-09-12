@@ -12,6 +12,15 @@ export const STORAGE_KEYS = {
   /** `JSON.stringify`'d `SMSAlertRecord[]`, newest first, capped at 50. */
   SMS_HISTORY: 'surakshak_sms_history',
   /**
+   * `JSON.stringify`'d `EmergencyContact[]` (predefined helplines + the
+   * user's own), refreshed on every successful Firestore read. Read back as
+   * a fallback when SOS/battery alerts fire with an empty store — e.g. app
+   * killed and relaunched offline before the store rehydrates.
+   */
+  EMERGENCY_CONTACTS_CACHE: 'surakshak_emergency_contacts_cache',
+  /** `JSON.stringify`'d `OfflineUserCache` (name + language), same fallback use. */
+  USER_INFO_CACHE: 'surakshak_user_info_cache',
+  /**
    * Id of the currently active live-location session. Read by the background
    * location task (which has no access to the Zustand store) to know which
    * Firestore document to push coordinates into.
@@ -27,6 +36,8 @@ export const STORAGE_KEYS = {
   CHECKIN_NEXT_AT: 'surakshak_checkin_next_at',
   /** `JSON.stringify`'d array of emergency-contact ids to alert on a miss. */
   CHECKIN_CONTACT_IDS: 'surakshak_checkin_contacts',
+  /** `'true'` once the iOS one-tap-limitation hint on Home has been dismissed. */
+  IOS_HINT_DISMISSED: 'surakshak_ios_hint_dismissed',
   /** Consecutive missed check-ins since the last successful one. */
   CHECKIN_MISSED_COUNT: 'surakshak_checkin_missed',
   /** `'true'` once Disguise Mode is turned on. */

@@ -1,6 +1,9 @@
-import { Linking } from 'react-native';
+import { Linking, Platform } from 'react-native';
+import { placeCallDirectly } from 'surakshak-native';
 
 import { formatIndianPhone, maskPhone, placeCall, validateIndianPhone } from '@/utils/phone.utils';
+
+const mockedPlaceCallDirectly = jest.mocked(placeCallDirectly);
 
 describe('formatIndianPhone', () => {
   it('prefixes a bare 10-digit number with +91', () => {
@@ -50,18 +53,25 @@ describe('validateIndianPhone', () => {
 
 describe('placeCall', () => {
   let openURLSpy: jest.SpyInstance;
+  const originalOS = Platform.OS;
 
   beforeEach(() => {
     openURLSpy = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
   });
-  afterEach(() => openURLSpy.mockRestore());
+  afterEach(() => {
+    openURLSpy.mockRestore();
+    Platform.OS = originalOS;
+    jest.clearAllMocks();
+  });
 
-  it('dials a 10-digit number in E.164 form', async () => {
+  it('dials a 10-digit number in E.164 form (iOS dialer)', async () => {
+    Platform.OS = 'ios';
     await placeCall('9876543210');
     expect(openURLSpy).toHaveBeenCalledWith('tel:+919876543210');
   });
 
-  it('dials a helpline short code verbatim', async () => {
+  it('dials a helpline short code verbatim (iOS dialer)', async () => {
+    Platform.OS = 'ios';
     await placeCall('112');
     expect(openURLSpy).toHaveBeenCalledWith('tel:112');
 
@@ -70,12 +80,39 @@ describe('placeCall', () => {
   });
 
   it('logs and rethrows when the dialer cannot be opened', async () => {
+    Platform.OS = 'ios';
     const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
     openURLSpy.mockRejectedValueOnce(new Error('no dialer'));
 
     await expect(placeCall('9876543210')).rejects.toThrow('no dialer');
     expect(errorSpy).toHaveBeenCalled();
     errorSpy.mockRestore();
+  });
+
+  it('places the call directly on Android and never opens the dialer', async () => {
+    Platform.OS = 'android';
+    mockedPlaceCallDirectly.mockResolvedValueOnce({
+      success: true,
+      phone: '+919876543210',
+      method: 'direct',
+    });
+
+    await placeCall('9876543210');
+
+    expect(mockedPlaceCallDirectly).toHaveBeenCalledWith('+919876543210');
+    expect(openURLSpy).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the dialer on Android when the direct call fails', async () => {
+    Platform.OS = 'android';
+    mockedPlaceCallDirectly.mockRejectedValueOnce(new Error('permission revoked'));
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    await placeCall('9876543210');
+
+    expect(openURLSpy).toHaveBeenCalledWith('tel:+919876543210');
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
   });
 });
 

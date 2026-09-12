@@ -16,6 +16,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import { useSOSStore } from '@/stores/sos.store';
 import { useUserStore } from '@/stores/user.store';
 import type { SOSTriggerMethod } from '@/types/emergency.types';
+import { getCachedEmergencyContacts, getCachedUserInfo } from '@/utils/offline-cache.utils';
 
 export interface UseSOSResult {
   isActive: boolean;
@@ -56,8 +57,21 @@ export function useSOS(): UseSOSResult {
     try {
       const { emergencyContacts, profile } = useUserStore.getState();
       const surakshakUser = useAuthStore.getState().surakshakUser;
-      const name = surakshakUser?.name ?? profile?.name ?? 'User';
-      const language = surakshakUser?.language ?? profile?.language ?? 'en';
+
+      // Store empty (e.g. app relaunched offline before it rehydrates) —
+      // fall back to the AsyncStorage cache rather than sending nobody an
+      // alert. The cache always includes the predefined helplines (never
+      // dispatchable — see `resolveRecipients` in sms.service.ts), so only
+      // its custom contacts count toward "do we have anyone to alert".
+      const contacts =
+        emergencyContacts.length > 0
+          ? emergencyContacts
+          : (await getCachedEmergencyContacts()).filter((contact) => !contact.isPredefined);
+
+      const cachedUser =
+        surakshakUser === null && profile === null ? await getCachedUserInfo() : null;
+      const name = surakshakUser?.name ?? profile?.name ?? cachedUser?.name ?? 'User';
+      const language = surakshakUser?.language ?? profile?.language ?? cachedUser?.language ?? 'en';
 
       let locationUrl = LOCATION_UNAVAILABLE;
       try {
@@ -67,7 +81,7 @@ export function useSOS(): UseSOSResult {
         console.warn('SOS: location unavailable:', locationError);
       }
 
-      const result = await sendSOSAlert(emergencyContacts, locationUrl, name, language);
+      const result = await sendSOSAlert(contacts, locationUrl, name, language);
       await recordSMSAlert({
         type: 'sos',
         locationUrl,

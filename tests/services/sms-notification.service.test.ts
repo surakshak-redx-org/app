@@ -198,9 +198,25 @@ describe('cancelLocalNotification', () => {
   });
 });
 
-describe('registerForPushNotifications stub', () => {
-  it('rejects until Phase 3 lands', async () => {
-    await expect(registerForPushNotifications('user-1')).rejects.toThrow('Not implemented');
+describe('registerForPushNotifications', () => {
+  it('registers the OneSignal external user id', async () => {
+    const { OneSignal } = jest.requireMock<{
+      OneSignal: { login: jest.Mock };
+    }>('react-native-onesignal');
+
+    await expect(registerForPushNotifications('user-1')).resolves.toBeUndefined();
+    expect(OneSignal.login).toHaveBeenCalledWith('user-1');
+  });
+
+  it('rejects when OneSignal throws', async () => {
+    const { OneSignal } = jest.requireMock<{
+      OneSignal: { login: jest.Mock };
+    }>('react-native-onesignal');
+    OneSignal.login.mockImplementationOnce(() => {
+      throw new Error('onesignal down');
+    });
+
+    await expect(registerForPushNotifications('user-1')).rejects.toThrow('onesignal down');
   });
 });
 

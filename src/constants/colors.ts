@@ -10,6 +10,11 @@ export const COLORS = {
   ERROR_RED: '#CF1322',
   NEAR_BLACK: '#0A0A0A',
   CHARCOAL: '#1A1A1A',
+  // Dark mode additions — brand colors (red/purple/saffron/green) are
+  // unchanged in dark mode; they stay high-contrast on a dark background.
+  DARK_BORDER: '#2A2A2A',
+  DARK_TEXT_PRIMARY: '#F5F5F5',
+  DARK_TEXT_SECONDARY: '#9CA3AF',
 } as const;
 
 export type ColorKey = keyof typeof COLORS;

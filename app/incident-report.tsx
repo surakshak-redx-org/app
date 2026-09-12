@@ -1,10 +1,11 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Alert, FlatList, Image, Pressable, View } from 'react-native';
+import { Alert, FlatList, Pressable, View } from 'react-native';
 import { z } from 'zod';
 
 import { Badge, type BadgeVariant } from '@/components/ui/Badge';
@@ -284,7 +285,13 @@ export default function IncidentReportScreen(): React.JSX.Element {
             <View className="flex-row flex-wrap gap-2">
               {photoUris.map((uri) => (
                 <View key={uri} className="h-16 w-16">
-                  <Image source={{ uri }} className="h-16 w-16 rounded-xl" />
+                  <Image
+                    source={{ uri }}
+                    className="h-16 w-16 rounded-xl"
+                    contentFit="cover"
+                    transition={200}
+                    cachePolicy="memory-disk"
+                  />
                   <Pressable
                     onPress={() => handleRemovePhoto(uri)}
                     accessibilityRole="button"

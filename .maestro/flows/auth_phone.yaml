@@ -1,0 +1,13 @@
+# Only exercises reaching the phone-entry screen and enabling "Send OTP" —
+# actually sending/verifying a real OTP needs a live Firebase phone-auth
+# session and isn't something this flow can do repeatably in CI.
+appId: com.surakshak.dev
+---
+- launchApp:
+    clearState: true
+- assertVisible: 'Continue with Phone'
+- tapOn: 'Continue with Phone'
+- assertVisible: 'Enter your phone number'
+- tapOn: '10-digit mobile number'
+- inputText: '9876543210'
+- assertVisible: 'Send OTP'

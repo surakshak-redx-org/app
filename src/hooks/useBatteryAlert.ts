@@ -10,6 +10,7 @@ import { buildLocationUrl, getCurrentLocation } from '@/services/location.servic
 import { recordSMSAlert, sendLowBatteryAlert } from '@/services/sms.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { useUserStore } from '@/stores/user.store';
+import { getCachedEmergencyContacts, getCachedUserInfo } from '@/utils/offline-cache.utils';
 
 const PERCENT = 100;
 
@@ -23,11 +24,23 @@ let alertedThisSession = false;
 async function sendAlert(batteryFraction: number): Promise<void> {
   try {
     const { emergencyContacts, profile } = useUserStore.getState();
-    if (emergencyContacts.length === 0) return;
-
     const surakshakUser = useAuthStore.getState().surakshakUser;
-    const name = surakshakUser?.name ?? profile?.name ?? 'User';
-    const language = surakshakUser?.language ?? profile?.language ?? 'en';
+
+    // Store empty (e.g. app relaunched offline before it rehydrates) — fall
+    // back to the AsyncStorage cache rather than silently skipping the alert.
+    // The cache always includes the predefined helplines (never dispatchable
+    // — see `resolveRecipients` in sms.service.ts), so only its custom
+    // contacts count toward "do we have anyone to actually alert".
+    const contacts =
+      emergencyContacts.length > 0
+        ? emergencyContacts
+        : (await getCachedEmergencyContacts()).filter((contact) => !contact.isPredefined);
+    if (contacts.length === 0) return;
+
+    const cachedUser =
+      surakshakUser === null && profile === null ? await getCachedUserInfo() : null;
+    const name = surakshakUser?.name ?? profile?.name ?? cachedUser?.name ?? 'User';
+    const language = surakshakUser?.language ?? profile?.language ?? cachedUser?.language ?? 'en';
 
     let locationUrl = LOCATION_UNAVAILABLE;
     try {
@@ -37,7 +50,7 @@ async function sendAlert(batteryFraction: number): Promise<void> {
       console.warn('low-battery alert: location unavailable:', locationError);
     }
 
-    const result = await sendLowBatteryAlert(emergencyContacts, locationUrl, name, language);
+    const result = await sendLowBatteryAlert(contacts, locationUrl, name, language);
     await recordSMSAlert({
       type: 'low_battery',
       locationUrl,

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Linking, Pressable, View } from 'react-native';
+import { Alert, FlatList, Linking, Pressable, View } from 'react-native';
 
 import { Badge, type BadgeVariant } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -12,6 +12,7 @@ import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { Text } from '@/components/ui/Text';
 import { captureException } from '@/config/sentry';
 import { LOCATION_UNAVAILABLE } from '@/constants/config';
+import { FLATLIST_PERF_PROPS } from '@/constants/ui';
 import { clearSMSAlertHistory, getSMSAlertHistory } from '@/services/sms.service';
 import type { SMSAlertRecord, SMSAlertType } from '@/types/emergency.types';
 import { formatTimestamp } from '@/utils/date.utils';
@@ -23,6 +24,47 @@ const TYPE_BADGE: Record<SMSAlertType, { variant: BadgeVariant; labelKey: string
   live_location: { variant: 'info', labelKey: 'emergency.alertTypeLiveLocation' },
   checkin_missed: { variant: 'error', labelKey: 'emergency.alertTypeCheckinMissed' },
 };
+
+interface AlertHistoryRowProps {
+  record: SMSAlertRecord;
+}
+
+const AlertHistoryRow = React.memo(function AlertHistoryRow({
+  record,
+}: AlertHistoryRowProps): React.JSX.Element {
+  const { t } = useTranslation();
+  const badge = TYPE_BADGE[record.type];
+  const hasLocation = record.locationUrl.length > 0 && record.locationUrl !== LOCATION_UNAVAILABLE;
+
+  return (
+    <Card padding="md" className="mb-3">
+      <View className="flex-row items-center justify-between">
+        <Badge variant={badge.variant} label={t(badge.labelKey)} />
+        <Text variant="caption" className="text-stone">
+          {formatTimestamp(new Date(record.timestamp))}
+        </Text>
+      </View>
+      <Text
+        variant="body"
+        tKey="emergency.alertSentSummary"
+        tOptions={{ sent: record.contactsSent.length, failed: record.contactsFailed.length }}
+        className="mt-2"
+      />
+      {hasLocation && (
+        <Pressable
+          onPress={() => {
+            Linking.openURL(record.locationUrl).catch((error: unknown) => captureException(error));
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={t('emergency.viewLocation')}
+          className="mt-2"
+        >
+          <Text variant="caption" tKey="emergency.viewLocation" className="text-shakti-purple" />
+        </Pressable>
+      )}
+    </Card>
+  );
+});
 
 export default function SmsAlertHistoryScreen(): React.JSX.Element {
   const { t } = useTranslation();
@@ -36,7 +78,7 @@ export default function SmsAlertHistoryScreen(): React.JSX.Element {
 
   useEffect(load, [load]);
 
-  function confirmClear(): void {
+  const confirmClear = useCallback((): void => {
     Alert.alert(t('emergency.clearHistory'), undefined, [
       { text: t('common.cancel'), style: 'cancel' },
       {
@@ -49,73 +91,46 @@ export default function SmsAlertHistoryScreen(): React.JSX.Element {
         },
       },
     ]);
-  }
+  }, [t]);
+
+  const renderItem = useCallback(
+    ({ item }: { item: SMSAlertRecord }): React.JSX.Element => <AlertHistoryRow record={item} />,
+    [],
+  );
+
+  const keyExtractor = useCallback((item: SMSAlertRecord): string => item.id, []);
 
   return (
     <ErrorBoundary>
-      <SafeScreen scrollable>
+      <SafeScreen>
         <ScreenHeader titleKey="emergency.alertHistoryTitle" />
 
-        {records.length === 0 ? (
-          <EmptyState
-            icon="chatbox-ellipses-outline"
-            title={t('emergency.alertHistoryEmpty')}
-            subtitle={t('emergency.alertHistoryEmptyHint')}
-          />
-        ) : (
-          <View>
-            {records.map((record) => {
-              const badge = TYPE_BADGE[record.type];
-              const hasLocation =
-                record.locationUrl.length > 0 && record.locationUrl !== LOCATION_UNAVAILABLE;
-              return (
-                <Card key={record.id} padding="md" className="mb-3">
-                  <View className="flex-row items-center justify-between">
-                    <Badge variant={badge.variant} label={t(badge.labelKey)} />
-                    <Text variant="caption" className="text-stone">
-                      {formatTimestamp(new Date(record.timestamp))}
-                    </Text>
-                  </View>
-                  <Text
-                    variant="body"
-                    tKey="emergency.alertSentSummary"
-                    tOptions={{
-                      sent: record.contactsSent.length,
-                      failed: record.contactsFailed.length,
-                    }}
-                    className="mt-2"
-                  />
-                  {hasLocation && (
-                    <Pressable
-                      onPress={() => {
-                        Linking.openURL(record.locationUrl).catch((error: unknown) =>
-                          captureException(error),
-                        );
-                      }}
-                      accessibilityRole="button"
-                      className="mt-2"
-                    >
-                      <Text
-                        variant="caption"
-                        tKey="emergency.viewLocation"
-                        className="text-shakti-purple"
-                      />
-                    </Pressable>
-                  )}
-                </Card>
-              );
-            })}
-
-            <Button
-              variant="ghost"
-              size="md"
-              fullWidth
-              className="mt-2"
-              label={t('emergency.clearHistory')}
-              onPress={confirmClear}
+        <FlatList
+          data={records}
+          keyExtractor={keyExtractor}
+          renderItem={renderItem}
+          {...FLATLIST_PERF_PROPS}
+          contentContainerClassName="pb-8"
+          ListEmptyComponent={
+            <EmptyState
+              icon="chatbox-ellipses-outline"
+              title={t('emergency.alertHistoryEmpty')}
+              subtitle={t('emergency.alertHistoryEmptyHint')}
             />
-          </View>
-        )}
+          }
+          ListFooterComponent={
+            records.length === 0 ? null : (
+              <Button
+                variant="ghost"
+                size="md"
+                fullWidth
+                className="mt-2"
+                label={t('emergency.clearHistory')}
+                onPress={confirmClear}
+              />
+            )
+          }
+        />
       </SafeScreen>
     </ErrorBoundary>
   );

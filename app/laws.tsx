@@ -16,6 +16,7 @@ import { Text } from '@/components/ui/Text';
 import { COLORS } from '@/constants/colors';
 import { ALL_CATEGORIES, APP_CONFIG } from '@/constants/config';
 import { ROUTES } from '@/constants/routes';
+import { FLATLIST_PERF_PROPS } from '@/constants/ui';
 import { useInfoContent } from '@/hooks/useInfoContent';
 import { getLawCategories, getLaws, type Law } from '@/services/firebase/laws.service';
 import { CACHE_KEYS } from '@/utils/cache.utils';
@@ -104,6 +105,7 @@ export default function LawsScreen(): React.JSX.Element {
           keyExtractor={(item) => item.id}
           className="flex-1"
           contentContainerClassName="pb-8"
+          {...FLATLIST_PERF_PROPS}
           renderItem={({ item }) => (
             <Pressable onPress={() => router.push(`${ROUTES.LAW_DETAIL}/${item.id}`)}>
               <Card padding="md" className="mb-3">

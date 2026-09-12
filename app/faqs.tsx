@@ -13,6 +13,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { Text } from '@/components/ui/Text';
 import { COLORS } from '@/constants/colors';
 import { ALL_CATEGORIES } from '@/constants/config';
+import { FLATLIST_PERF_PROPS } from '@/constants/ui';
 import { useInfoContent } from '@/hooks/useInfoContent';
 import { trackFaqViewed } from '@/services/analytics.service';
 import { getFaqCategories, getFaqs, type Faq } from '@/services/firebase/laws.service';
@@ -105,6 +106,7 @@ export default function FaqsScreen(): React.JSX.Element {
           keyExtractor={(item) => item.id}
           className="flex-1"
           contentContainerClassName="pb-8"
+          {...FLATLIST_PERF_PROPS}
           renderItem={({ item }) => {
             const expanded = expandedId === item.id;
             return (

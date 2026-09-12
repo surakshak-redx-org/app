@@ -15,6 +15,7 @@ import { Text } from '@/components/ui/Text';
 import { captureException } from '@/config/sentry';
 import { ALL_CATEGORIES, APP_CONFIG } from '@/constants/config';
 import { ROUTES } from '@/constants/routes';
+import { FLATLIST_PERF_PROPS } from '@/constants/ui';
 import { useInfoContent } from '@/hooks/useInfoContent';
 import { getNews, getNewsCategories, type NewsArticle } from '@/services/firebase/news.service';
 import { CACHE_KEYS, clearCache, getCacheTimestamp } from '@/utils/cache.utils';
@@ -114,6 +115,7 @@ export default function NewsScreen(): React.JSX.Element {
           keyExtractor={(item) => item.id}
           className="flex-1"
           contentContainerClassName="pb-8"
+          {...FLATLIST_PERF_PROPS}
           refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
           renderItem={({ item }) => (
             <Pressable onPress={() => router.push(`${ROUTES.NEWS}/${item.id}`)}>

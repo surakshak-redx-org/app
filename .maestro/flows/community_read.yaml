@@ -1,0 +1,10 @@
+appId: com.surakshak.dev
+---
+- launchApp:
+    clearState: true
+- tapOn: 'Continue as Guest'
+- tapOn: 'Community'
+- assertVisible: 'My City'
+- assertVisible: 'All India'
+- tapOn: 'All India'
+- assertVisible: 'All India'

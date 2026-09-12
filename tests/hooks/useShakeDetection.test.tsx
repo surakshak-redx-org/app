@@ -1,4 +1,6 @@
 import { renderHook } from '@testing-library/react-native';
+import * as Notifications from 'expo-notifications';
+import { Platform } from 'react-native';
 
 import { useShakeDetection } from '@/hooks/useShakeDetection';
 
@@ -64,5 +66,39 @@ describe('useShakeDetection', () => {
     await view.unmount();
 
     expect(mockRemove).toHaveBeenCalled();
+  });
+
+  describe('on Android', () => {
+    const originalOS = Platform.OS;
+    afterEach(() => {
+      Platform.OS = originalOS;
+      jest.clearAllMocks();
+    });
+
+    it('registers a foreground-service notification while enabled, and removes it on unmount', async () => {
+      Platform.OS = 'android';
+      const view = await renderHook(() => useShakeDetection(jest.fn(), true));
+
+      expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith(
+        'surakshak_foreground',
+        expect.objectContaining({ importance: Notifications.AndroidImportance.LOW }),
+      );
+      expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith(
+        expect.objectContaining({ identifier: 'surakshak_shake_detection_active' }),
+      );
+
+      await view.unmount();
+
+      expect(Notifications.dismissNotificationAsync).toHaveBeenCalledWith(
+        'surakshak_shake_detection_active',
+      );
+    });
+
+    it('never registers the notification while disabled', async () => {
+      Platform.OS = 'android';
+      await renderHook(() => useShakeDetection(jest.fn(), false));
+
+      expect(Notifications.setNotificationChannelAsync).not.toHaveBeenCalled();
+    });
   });
 });
