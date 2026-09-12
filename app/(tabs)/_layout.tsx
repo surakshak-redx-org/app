@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import type { ColorValue } from 'react-native';
 
 import { COLORS } from '@/constants/colors';
+import { useAuthStore } from '@/stores/auth.store';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -21,6 +22,7 @@ function tabIcon(name: IconName): (props: TabBarIconProps) => React.JSX.Element 
 
 export default function TabsLayout(): React.JSX.Element {
   const { t } = useTranslation();
+  const isGuest = useAuthStore((state) => state.isGuest);
 
   return (
     <Tabs
@@ -39,7 +41,19 @@ export default function TabsLayout(): React.JSX.Element {
         name="index"
         options={{ title: t('nav.home'), tabBarIcon: tabIcon('shield-checkmark') }}
       />
-      <Tabs.Screen name="map" options={{ title: t('nav.map'), tabBarIcon: tabIcon('map') }} />
+      <Tabs.Screen
+        name="map"
+        // Reading unsafeAreas requires Firebase Auth, and guests never sign
+        // in (isGuest is a local-only flag) — so the map has nothing to show
+        // them. `href: null` hides the tab from the bar without unmounting
+        // the route, so a signed-in user who converts mid-session gets it
+        // back immediately.
+        options={{
+          title: t('nav.map'),
+          tabBarIcon: tabIcon('map'),
+          ...(isGuest ? { href: null } : {}),
+        }}
+      />
       <Tabs.Screen
         name="community"
         options={{ title: t('nav.community'), tabBarIcon: tabIcon('people') }}

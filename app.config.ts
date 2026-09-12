@@ -103,11 +103,11 @@ function googleServicesFile(path: string): { googleServicesFile: string } | Reco
 const config: ExpoConfig = {
   name: appNames[APP_ENV],
   slug: 'surakshak',
-  // Bumped for the react-native-maps Google Maps plugin wiring below, which
-  // links a new iOS CocoaPod and adds AppDelegate init code. `runtimeVersion`
-  // is `appVersion`, so a native change needs a new version string or an OTA
-  // could ship to an incompatible native shell.
-  version: '1.1.1',
+  // Bumped at request for the guest-mode map fix below, even though that
+  // change is JS-only (no native code touched) — unlike every other bump on
+  // this field, so it forces a full native build on the next staging deploy
+  // that isn't otherwise required.
+  version: '1.1.2',
   orientation: 'portrait',
   scheme: `surakshak-${APP_ENV}`,
   userInterfaceStyle: 'automatic',
