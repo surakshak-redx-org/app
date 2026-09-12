@@ -103,15 +103,20 @@ function googleServicesFile(path: string): { googleServicesFile: string } | Reco
 const config: ExpoConfig = {
   name: appNames[APP_ENV],
   slug: 'surakshak',
-  // Bumped at request for the guest-mode map fix below, even though that
-  // change is JS-only (no native code touched) — unlike every other bump on
-  // this field, so it forces a full native build on the next staging deploy
-  // that isn't otherwise required.
-  version: '1.1.2',
+  // Bumped for Phase 10: a new local Expo module (modules/surakshak-native)
+  // adds real native Android/iOS code, so an OTA update must not reach a
+  // native build built before it existed — runtimeVersion's "appVersion"
+  // policy keys compatibility off this exact string. Minor bump (not patch):
+  // this is a feature phase, not a fix.
+  version: '1.2.0',
   orientation: 'portrait',
   scheme: `surakshak-${APP_ENV}`,
   userInterfaceStyle: 'automatic',
   icon: './assets/images/icon.png',
+  // No `jsEngine` field exists to set here: Expo SDK 57 dropped JSC entirely,
+  // so Hermes is the only engine and there's no longer a config knob for it
+  // (verified against @expo/config-types — `jsEngine` isn't a property of
+  // `ExpoConfig` or its `android`/`ios` blocks in this SDK).
   android: {
     package: bundleIds[APP_ENV],
     ...googleServicesFile(GOOGLE_SERVICES_ANDROID),
@@ -224,6 +229,9 @@ const config: ExpoConfig = {
       },
     ],
     ['onesignal-expo-plugin', { mode: APP_ENV === 'prod' ? 'production' : 'development' }],
+    // Local Expo module: direct SMS + call on Android (zero-tap emergency
+    // alerts); documented no-op stubs on iOS, which has no equivalent API.
+    './modules/surakshak-native',
   ],
   experiments: {
     typedRoutes: true,

@@ -7,7 +7,7 @@ import { ENV, IS_TELEMETRY_ENABLED } from '@/config/env';
  * payload carries the user's number and every emergency contact's. Strip
  * anything number-shaped before it leaves the device.
  */
-function scrubPhoneNumbers(event: Sentry.ErrorEvent): Sentry.ErrorEvent {
+export function scrubPhoneNumbers(event: Sentry.ErrorEvent): Sentry.ErrorEvent {
   const scrubbed = JSON.stringify(event).replace(/\+?[0-9]{10,13}/g, '[PHONE_REDACTED]');
   return JSON.parse(scrubbed) as Sentry.ErrorEvent;
 }

@@ -58,7 +58,10 @@
     "checkinActive": "चेक-इन चालू है — अगला: {{time}}",
     "suspiciousFollowTitle": "⚠️ शायद कोई पीछा कर रहा है",
     "suspiciousFollowBody": "हो सकता है कोई आपका पीछा कर रहा हो। आप क्या करना चाहेंगी?",
-    "triggerSos": "SOS भेजें"
+    "triggerSos": "SOS भेजें",
+    "callHelplineLabel": "{{name}} को {{phone}} पर कॉल करें",
+    "iosHintBody": "आईफोन पर: किसी संपर्क पर टैप करें तो डायलर खुलेगा, फिर कॉल पर टैप करें। SMS अपने आप खुल जाएगा — भेजने के लिए Send पर टैप करें। (सुरक्षा के लिए Apple कम से कम एक टैप जरूरी रखता है।)",
+    "iosHintDismissLabel": "आईफोन टिप बंद करें"
   },
   "auth": {
     "welcome": "Surakshak में आपका स्वागत है",
@@ -130,6 +133,7 @@
     "signOutConfirm": "क्या आप सच में साइन आउट करना चाहती हैं?",
     "deleteAccount": "अकाउंट हटाएं",
     "deleteAccountConfirm": "इससे आपका अकाउंट और सारा डेटा हमेशा के लिए हट जाएगा। यह वापस नहीं होगा।",
+    "testSentryError": "[स्टेजिंग] Sentry त्रुटि परीक्षण",
     "guestBanner": "सभी सुविधाओं के लिए साइन इन करें",
     "signInNow": "अभी साइन इन करें",
     "memberSince": "{{date}} से सदस्य"
@@ -185,7 +189,9 @@
     "viewLocation": "लोकेशन देखें",
     "clearHistory": "हिस्ट्री साफ करें",
     "alertTypeLiveLocation": "लाइव लोकेशन",
-    "alertTypeCheckinMissed": "छूटा हुआ चेक-इन"
+    "alertTypeCheckinMissed": "छूटा हुआ चेक-इन",
+    "foregroundServiceTitle": "🛡️ सुरक्षक सक्रिय है",
+    "foregroundServiceBody": "शेक डिटेक्शन चालू है। आप सुरक्षित हैं।"
   },
   "map": {
     "title": "सुरक्षा मैप",
