@@ -1,4 +1,11 @@
-import { addDoc, arrayUnion, getDoc, increment, updateDoc } from '@react-native-firebase/firestore';
+import {
+  addDoc,
+  arrayUnion,
+  getDoc,
+  increment,
+  onSnapshot,
+  updateDoc,
+} from '@react-native-firebase/firestore';
 
 import {
   reportUnsafeArea,
@@ -64,6 +71,23 @@ describe('unsafe-areas.service', () => {
     expect(onUpdate).toHaveBeenCalledWith([
       { id: 'area-9', title: 'Dark lane', pinColor: 'orange' },
     ]);
+  });
+
+  it('subscribeToUnsafeAreas degrades to an empty list on a listener error (e.g. an unauthenticated guest)', () => {
+    jest.mocked(onSnapshot).mockImplementationOnce(((
+      _ref: unknown,
+      _cb: (snap: unknown) => void,
+      errorCb?: (error: unknown) => void,
+    ) => {
+      errorCb?.(new Error('permission-denied'));
+      return jest.fn();
+    }) as never);
+
+    const onUpdate = jest.fn();
+    subscribeToUnsafeAreas(onUpdate);
+
+    expect(onUpdate).toHaveBeenCalledWith([]);
+    expect(errorSpy).toHaveBeenCalled();
   });
 
   it('voteOnUnsafeArea increments the vote and records the voter', async () => {
