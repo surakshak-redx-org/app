@@ -31,6 +31,7 @@
     "expo-linking": "~57.0.9",
     "expo-localization": "~57.0.1",
     "expo-location": "~57.0.16",
+    "expo-modules-core": "~57.0.17",
     "expo-notifications": "~57.0.17",
     "expo-router": "~57.0.20",
     "expo-sensors": "~57.0.2",
@@ -56,6 +57,7 @@
     "react-native-screens": "~4.26.0",
     "react-native-web": "^0.21.2",
     "react-native-worklets": "0.10.1",
+    "surakshak-native": "file:./modules/surakshak-native",
     "zod": "^4.5.4",
     "zustand": "^5.0.15"
   },
@@ -101,7 +103,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "no-eslint-disable": "bash scripts/check-no-eslint-disable.sh",
-    "check": "yarn typecheck && yarn lint && yarn format:check && yarn no-eslint-disable && yarn test --ci",
+    "validate:translations": "jest tests/utils/i18n.test.ts",
+    "check": "yarn typecheck && yarn lint && yarn format:check && yarn no-eslint-disable && yarn validate:translations && yarn test --ci",
     "prepare": "husky"
   },
   "private": true,

@@ -13,6 +13,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { Text } from '@/components/ui/Text';
 import { COLORS } from '@/constants/colors';
 import { ALL_CATEGORIES } from '@/constants/config';
+import { FLATLIST_PERF_PROPS } from '@/constants/ui';
 import { useInfoContent } from '@/hooks/useInfoContent';
 import { trackTipsViewed } from '@/services/analytics.service';
 import {
@@ -106,6 +107,7 @@ export default function TipsScreen(): React.JSX.Element {
           numColumns={2}
           className="flex-1"
           contentContainerClassName="pb-8"
+          {...FLATLIST_PERF_PROPS}
           renderItem={({ item }) => {
             const icon = CATEGORY_ICON[item.category] ?? FALLBACK_ICON;
             return (

@@ -21,12 +21,12 @@ export interface TextProps {
 }
 
 const VARIANT_CLASSES: Record<TextVariant, string> = {
-  h1: 'text-3xl font-bold text-ink',
-  h2: 'text-2xl font-semibold text-ink',
-  h3: 'text-xl font-semibold text-ink',
-  body: 'text-base font-normal text-ink',
-  caption: 'text-sm font-normal text-stone',
-  label: 'text-sm font-medium text-stone',
+  h1: 'text-3xl font-bold text-ink dark:text-white',
+  h2: 'text-2xl font-semibold text-ink dark:text-white',
+  h3: 'text-xl font-semibold text-ink dark:text-white',
+  body: 'text-base font-normal text-ink dark:text-off-white',
+  caption: 'text-sm font-normal text-stone dark:text-dark-text-secondary',
+  label: 'text-sm font-medium text-stone dark:text-white',
 };
 
 // Matches each variant to the FONT_WEIGHTS bucket its className above uses,

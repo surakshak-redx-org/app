@@ -1,5 +1,7 @@
 import * as Notifications from 'expo-notifications';
 
+import { setExternalUserId } from '@/config/onesignal';
+
 /**
  * Local, on-device notifications only. Remote push is OneSignal's job — see
  * `src/config/onesignal.ts`. Keeping them separate avoids the two libraries
@@ -48,9 +50,19 @@ export async function cancelLocalNotification(notificationId: string): Promise<v
 }
 
 /**
- * Registers the signed-in user with OneSignal so pushes can target them.
- * @phase Phase 3 — Emergency Core
+ * Registers the signed-in user with OneSignal so pushes can target them —
+ * called from the auth-sync effect in `app/_layout.tsx` alongside
+ * `identifyUser` (MixPanel). `setExternalUserId` itself is synchronous
+ * (`OneSignal.login` fires-and-forgets over its own SDK), so this only
+ * exists to give the call a consistent async service-layer signature and a
+ * single place to catch a failure.
  */
-export function registerForPushNotifications(_userId: string): Promise<void> {
-  return Promise.reject(new Error('Not implemented — Phase 3'));
+export function registerForPushNotifications(userId: string): Promise<void> {
+  try {
+    setExternalUserId(userId);
+    return Promise.resolve();
+  } catch (error) {
+    console.error('registerForPushNotifications failed:', error);
+    return Promise.reject(error instanceof Error ? error : new Error(String(error)));
+  }
 }

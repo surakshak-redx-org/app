@@ -1,0 +1,14 @@
+# The Map tab is hidden for guests (app/(tabs)/_layout.tsx hides it via
+# `href: null` — reading unsafe areas needs Firebase Auth, which guest mode
+# never has), so this flow only covers the tabs a guest can actually reach.
+appId: com.surakshak.dev
+---
+- launchApp:
+    clearState: true
+- tapOn: 'Continue as Guest'
+- tapOn: 'Info'
+- assertVisible: 'Information'
+- tapOn: 'Profile'
+- assertVisible: 'Sign in to access all features'
+- tapOn: 'Home'
+- assertVisible: 'SOS'

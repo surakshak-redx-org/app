@@ -16,7 +16,7 @@ const PADDING_CLASSES: Record<CardPadding, string> = {
 };
 
 export function Card({ children, padding = 'md', className }: CardProps): React.JSX.Element {
-  const base = `rounded-2xl bg-white shadow-sm ${PADDING_CLASSES[padding]}`;
+  const base = `rounded-2xl bg-white shadow-sm dark:bg-charcoal ${PADDING_CLASSES[padding]}`;
   const composed = className === undefined ? base : `${base} ${className}`;
 
   return <View className={composed}>{children}</View>;

@@ -16,6 +16,7 @@ import { getDownloadURL, putFile, ref } from '@react-native-firebase/storage';
 
 import { firestore, storage } from '@/config/firebase';
 import type { CreateUserInput, EmergencyContact, User } from '@/types/user.types';
+import { cacheEmergencyContacts } from '@/utils/offline-cache.utils';
 
 const USERS_COLLECTION = 'users';
 const CONTACTS_SUBCOLLECTION = 'emergencyContacts';
@@ -131,10 +132,14 @@ export async function uploadProfilePhoto(userId: string, localUri: string): Prom
 export async function getEmergencyContacts(userId: string): Promise<EmergencyContact[]> {
   try {
     const snapshot = await getDocs(query(contactsCollection(userId), orderBy('order', 'asc')));
-    return snapshot.docs.map((document) => ({
+    const contacts = snapshot.docs.map((document) => ({
       id: document.id,
       ...(document.data() as Omit<EmergencyContact, 'id'>),
     }));
+    // Cache locally so SOS/battery alerts still have a contact list if a
+    // later read has to happen fully offline — see offline-cache.utils.ts.
+    await cacheEmergencyContacts(contacts);
+    return contacts;
   } catch (error) {
     console.error('getEmergencyContacts failed:', error);
     throw error;

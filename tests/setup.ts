@@ -146,8 +146,11 @@ jest.mock('expo-notifications', () => ({
   getPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false })),
   scheduleNotificationAsync: jest.fn(() => Promise.resolve('notification-1')),
   cancelScheduledNotificationAsync: jest.fn(() => Promise.resolve()),
+  dismissNotificationAsync: jest.fn(() => Promise.resolve()),
+  setNotificationChannelAsync: jest.fn(() => Promise.resolve(null)),
   addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
   SchedulableTriggerInputTypes: { TIME_INTERVAL: 'timeInterval' },
+  AndroidImportance: { LOW: 2 },
 }));
 
 // `SafeAreaView`/`SafeAreaProvider` already worked under jest-expo's automock
@@ -205,6 +208,21 @@ jest.mock('expo-localization', () => ({
 jest.mock('expo-haptics', () => ({
   notificationAsync: jest.fn(() => Promise.resolve()),
   NotificationFeedbackType: { Warning: 'warning', Success: 'success', Error: 'error' },
+}));
+
+// Local Expo module (`modules/surakshak-native`) — not built under Jest (no
+// `build/index.js`), and its native side has no JS implementation anyway.
+jest.mock('surakshak-native', () => ({
+  sendSmsDirect: jest.fn(() =>
+    Promise.resolve({ success: true, phone: '', method: 'direct' as const }),
+  ),
+  sendSmsToContacts: jest.fn((phones: string[]) =>
+    Promise.resolve(phones.map((phone) => ({ success: true, phone, method: 'direct' as const }))),
+  ),
+  checkSmsPermission: jest.fn(() => Promise.resolve(true)),
+  placeCallDirectly: jest.fn((phone: string) =>
+    Promise.resolve({ success: true, phone, method: 'direct' as const }),
+  ),
 }));
 
 jest.mock('@expo-google-fonts/noto-sans-devanagari', () => ({

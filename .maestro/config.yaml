@@ -1,0 +1,7 @@
+flows:
+  - .maestro/flows/auth_guest.yaml
+  - .maestro/flows/auth_phone.yaml
+  - .maestro/flows/home_sos_cancel.yaml
+  - .maestro/flows/community_read.yaml
+  - .maestro/flows/info_laws.yaml
+  - .maestro/flows/navigation.yaml
