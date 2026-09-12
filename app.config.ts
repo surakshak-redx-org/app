@@ -103,11 +103,12 @@ function googleServicesFile(path: string): { googleServicesFile: string } | Reco
 const config: ExpoConfig = {
   name: appNames[APP_ENV],
   slug: 'surakshak',
-  // Bumped at request for the guest-mode map fix below, even though that
-  // change is JS-only (no native code touched) — unlike every other bump on
-  // this field, so it forces a full native build on the next staging deploy
-  // that isn't otherwise required.
-  version: '1.1.2',
+  // Bumped for Phase 10: a new local Expo module (modules/surakshak-native)
+  // adds real native Android/iOS code, so an OTA update must not reach a
+  // native build built before it existed — runtimeVersion's "appVersion"
+  // policy keys compatibility off this exact string. Minor bump (not patch):
+  // this is a feature phase, not a fix.
+  version: '1.2.0',
   orientation: 'portrait',
   scheme: `surakshak-${APP_ENV}`,
   userInterfaceStyle: 'automatic',
