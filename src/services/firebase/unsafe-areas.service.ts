@@ -65,17 +65,30 @@ export async function reportUnsafeArea(
 /**
  * Subscribes to every unsafe area, newest first. Returns the unsubscribe
  * function.
+ *
+ * Guests are never signed in to Firebase Auth (`isGuest` is a local-only
+ * flag), so this listener runs unauthenticated for them. If Firestore rules
+ * reject that read, `onSnapshot` reports it through the error callback rather
+ * than throwing — without one, that error is unhandled and crashes the app.
+ * Degrade to an empty list instead of taking the screen down.
  * @phase Phase 4 — Location & Maps
  */
 export function subscribeToUnsafeAreas(onUpdate: (areas: UnsafeArea[]) => void): () => void {
-  return onSnapshot(query(areasCollection(), orderBy('createdAt', 'desc')), (snapshot) => {
-    onUpdate(
-      snapshot.docs.map((document) => ({
-        id: document.id,
-        ...(document.data() as Omit<UnsafeArea, 'id'>),
-      })),
-    );
-  });
+  return onSnapshot(
+    query(areasCollection(), orderBy('createdAt', 'desc')),
+    (snapshot) => {
+      onUpdate(
+        snapshot.docs.map((document) => ({
+          id: document.id,
+          ...(document.data() as Omit<UnsafeArea, 'id'>),
+        })),
+      );
+    },
+    (error) => {
+      console.error('subscribeToUnsafeAreas failed:', error);
+      onUpdate([]);
+    },
+  );
 }
 
 /**
