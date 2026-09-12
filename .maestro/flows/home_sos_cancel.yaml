@@ -1,0 +1,13 @@
+appId: com.surakshak.dev
+---
+- launchApp:
+    clearState: true
+- tapOn: 'Continue as Guest'
+- assertVisible: 'SOS'
+- tapOn: 'SOS'
+- tapOn: 'SOS'
+- tapOn: 'SOS'
+- assertVisible: 'Cancel'
+- tapOn: 'Cancel'
+- assertNotVisible: 'Cancel'
+- assertVisible: 'SOS'

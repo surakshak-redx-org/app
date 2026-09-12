@@ -1,0 +1,9 @@
+appId: com.surakshak.dev
+---
+- launchApp:
+    clearState: true
+- tapOn: 'Continue as Guest'
+- tapOn: 'Info'
+- assertVisible: 'Laws for Women'
+- tapOn: 'Laws for Women'
+- assertVisible: 'Search'

@@ -1,4 +1,5 @@
-import { Linking } from 'react-native';
+import { Linking, Platform } from 'react-native';
+import { placeCallDirectly } from 'surakshak-native';
 
 const INDIA_COUNTRY_CODE = '+91';
 const INDIAN_MOBILE_LENGTH = 10;
@@ -46,15 +47,29 @@ export function maskPhone(phone: string): string {
 }
 
 /**
- * Opens the phone dialer for a number. On Android with `CALL_PHONE` granted the
- * OS places the call directly; on iOS the dialer opens with the number filled
- * in and the user taps once to call (an Apple restriction). Short codes such as
- * `112` / `1091` are dialled as-is; 10-digit numbers are normalised to E.164.
+ * Places an emergency call. On Android with `CALL_PHONE` granted, `surakshak-native`
+ * places the call directly via `Intent.ACTION_CALL` — no dialer, no tap. If
+ * that fails for any reason (permission revoked, OEM restriction, etc.) it
+ * falls back to opening the dialer pre-filled, same as iOS. On iOS the dialer
+ * always opens pre-filled and the user taps once to call — an Apple OS
+ * restriction with no direct-call API, not fixable from here. Short codes
+ * such as `112` / `1091` are dialled as-is; 10-digit numbers are normalised
+ * to E.164.
  */
 export async function placeCall(phone: string): Promise<void> {
   try {
     const digits = phone.replace(/\D/g, '');
     const target = SHORT_CODE_PATTERN.test(digits) ? digits : formatIndianPhone(phone);
+
+    if (Platform.OS === 'android') {
+      try {
+        await placeCallDirectly(target);
+        return;
+      } catch (directCallError) {
+        console.warn('placeCallDirectly failed, falling back to dialer:', directCallError);
+      }
+    }
+
     await Linking.openURL(`tel:${target}`);
   } catch (error) {
     console.error('placeCall failed:', error);

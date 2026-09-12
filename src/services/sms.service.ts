@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SMS from 'expo-sms';
+import { Platform } from 'react-native';
+import { sendSmsToContacts } from 'surakshak-native';
 
 import { SMS_HISTORY_LIMIT } from '@/constants/config';
 import { STORAGE_KEYS } from '@/constants/storage';
@@ -39,8 +41,34 @@ function resolveRecipients(contacts: EmergencyContact[]): string[] {
     .map((contact) => formatIndianPhone(contact.phone));
 }
 
+/**
+ * Android sends each recipient a message directly via `surakshak-native`
+ * (`SmsManager`, `SEND_SMS` permission) — silent, no compose UI, one send
+ * per recipient in parallel. iOS has no equivalent API; it keeps using
+ * `expo-sms`'s single compose sheet covering every recipient at once, which
+ * needs exactly one tap from the user to confirm.
+ */
 async function dispatch(recipients: string[], message: string): Promise<SMSAlertResult> {
   if (recipients.length === 0) return { sent: [], failed: [] };
+
+  if (Platform.OS === 'android') {
+    try {
+      const results = await sendSmsToContacts(recipients, message);
+      return {
+        sent: results
+          .filter((sendResult) => sendResult.success)
+          .map((sendResult) => sendResult.phone),
+        failed: results
+          .filter((sendResult) => !sendResult.success)
+          .map((sendResult) => sendResult.phone),
+      };
+    } catch (error) {
+      // A fan-out must never throw back into the SOS flow — record the
+      // failure and let the caller persist / surface it.
+      console.error('sms dispatch failed:', error);
+      return { sent: [], failed: recipients };
+    }
+  }
 
   try {
     const available = await SMS.isAvailableAsync();
@@ -51,8 +79,6 @@ async function dispatch(recipients: string[], message: string): Promise<SMSAlert
       ? { sent: [], failed: recipients }
       : { sent: recipients, failed: [] };
   } catch (error) {
-    // A fan-out must never throw back into the SOS flow — record the failure
-    // and let the caller persist / surface it.
     console.error('sms dispatch failed:', error);
     return { sent: [], failed: recipients };
   }

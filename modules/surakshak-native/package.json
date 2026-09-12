@@ -1,0 +1,22 @@
+{
+  "name": "surakshak-native",
+  "version": "1.0.0",
+  "description": "Local Expo module for zero-tap SMS and call on Android; iOS ships documented stubs since Apple does not allow either without a user tap.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "files": [
+    "android",
+    "ios",
+    "src",
+    "expo-module.config.json",
+    "!android/build",
+    "!ios/build"
+  ],
+  "peerDependencies": {
+    "expo": "*",
+    "react-native": "*"
+  }
+}

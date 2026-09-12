@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import type { ColorValue } from 'react-native';
 
 import { COLORS } from '@/constants/colors';
+import { useTheme } from '@/hooks/useTheme';
 import { useAuthStore } from '@/stores/auth.store';
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -23,16 +24,19 @@ function tabIcon(name: IconName): (props: TabBarIconProps) => React.JSX.Element 
 export default function TabsLayout(): React.JSX.Element {
   const { t } = useTranslation();
   const isGuest = useAuthStore((state) => state.isGuest);
+  const { colors, isDark } = useTheme();
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
+        // Brand colors stay the same in both themes — only the bar's own
+        // background/border track system dark mode.
         tabBarActiveTintColor: COLORS.SHAKTI_PURPLE,
-        tabBarInactiveTintColor: COLORS.STONE,
+        tabBarInactiveTintColor: isDark ? colors.textSecondary : COLORS.STONE,
         tabBarStyle: {
-          backgroundColor: COLORS.WHITE,
-          borderTopColor: COLORS.OFF_WHITE,
+          backgroundColor: colors.tabBar,
+          borderTopColor: colors.border,
           borderTopWidth: 1,
         },
       }}

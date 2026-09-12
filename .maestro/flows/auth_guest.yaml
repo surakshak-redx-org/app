@@ -1,0 +1,13 @@
+# Runs against a local `expo run:android`/`expo run:ios` dev build
+# (com.surakshak.dev). See docs/SETUP.md for how to install Maestro and build
+# a dev client to point it at.
+appId: com.surakshak.dev
+---
+- launchApp:
+    clearState: true
+- assertVisible: 'Welcome to Surakshak'
+- assertVisible: 'Continue as Guest'
+- tapOn: 'Continue as Guest'
+- assertVisible: 'Surakshak'
+- assertVisible: 'SOS'
+- assertVisible: 'Emergency Contacts'

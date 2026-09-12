@@ -1,8 +1,10 @@
-import { fireEvent, render } from '@testing-library/react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import React from 'react';
 import { Alert } from 'react-native';
 
 import { ROUTES } from '@/constants/routes';
+import { STORAGE_FLAG_ON, STORAGE_KEYS } from '@/constants/storage';
 import { useAuthStore } from '@/stores/auth.store';
 import HomeScreen from '@app/(tabs)/index';
 
@@ -114,5 +116,43 @@ describe('HomeScreen', () => {
     await fireEvent.press(getByText('Emergency Contacts'));
 
     expect(mockPush).toHaveBeenCalledWith(ROUTES.EMERGENCY_CONTACTS);
+  });
+
+  describe('iOS one-tap hint banner', () => {
+    afterEach(() => {
+      jest.mocked(AsyncStorage.getItem).mockImplementation(() => Promise.resolve(null));
+    });
+
+    it('shows the hint on iOS until dismissed, then remembers the dismissal', async () => {
+      jest
+        .mocked(AsyncStorage.getItem)
+        .mockImplementation((key: string) =>
+          Promise.resolve(key === STORAGE_KEYS.IOS_HINT_DISMISSED ? null : null),
+        );
+      const { getByLabelText, queryByText } = await render(<HomeScreen />);
+      await act(() => Promise.resolve());
+
+      expect(queryByText(/One tap is the minimum Apple allows/)).toBeTruthy();
+
+      await fireEvent.press(getByLabelText('Dismiss iPhone tip'));
+
+      expect(queryByText(/One tap is the minimum Apple allows/)).toBeNull();
+      expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+        STORAGE_KEYS.IOS_HINT_DISMISSED,
+        STORAGE_FLAG_ON,
+      );
+    });
+
+    it('stays hidden once already dismissed', async () => {
+      jest
+        .mocked(AsyncStorage.getItem)
+        .mockImplementation((key: string) =>
+          Promise.resolve(key === STORAGE_KEYS.IOS_HINT_DISMISSED ? STORAGE_FLAG_ON : null),
+        );
+      const { queryByText } = await render(<HomeScreen />);
+      await act(() => Promise.resolve());
+
+      expect(queryByText(/One tap is the minimum Apple allows/)).toBeNull();
+    });
   });
 });

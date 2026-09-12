@@ -14453,6 +14453,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"surakshak-native@file:./modules/surakshak-native::locator=surakshak%40workspace%3A.":
+  version: 1.0.0
+  resolution: "surakshak-native@file:./modules/surakshak-native#./modules/surakshak-native::hash=35207d&locator=surakshak%40workspace%3A."
+  peerDependencies:
+    expo: "*"
+    react-native: "*"
+  checksum: 10c0/ffa87066a865ba4e7b7aab9be9e3c20f0b15e584d0877643b71a71abcf1def53ecd52a368a4b6038311e48445c31d871969811590783db80c76769b729034740
+  languageName: node
+  linkType: hard
+
 "surakshak@workspace:.":
   version: 0.0.0-use.local
   resolution: "surakshak@workspace:."
@@ -14501,6 +14511,7 @@ __metadata:
     expo-linking: "npm:~57.0.9"
     expo-localization: "npm:~57.0.1"
     expo-location: "npm:~57.0.16"
+    expo-modules-core: "npm:~57.0.17"
     expo-notifications: "npm:~57.0.17"
     expo-router: "npm:~57.0.20"
     expo-sensors: "npm:~57.0.2"
@@ -14533,6 +14544,7 @@ __metadata:
     react-native-screens: "npm:~4.26.0"
     react-native-web: "npm:^0.21.2"
     react-native-worklets: "npm:0.10.1"
+    surakshak-native: "file:./modules/surakshak-native"
     tailwindcss: "npm:^3.4.19"
     test-renderer: "npm:^1.2.0"
     typescript: "npm:~6.0.3"

@@ -28,10 +28,13 @@ import { changeLanguage } from '@/i18n';
 import { identifyUser } from '@/services/analytics.service';
 import { subscribeToAuthChanges } from '@/services/firebase/auth.service';
 import { getEmergencyContacts, getUserProfile } from '@/services/firebase/user.service';
+import { registerForPushNotifications } from '@/services/notification.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { useDisguiseStore } from '@/stores/disguise.store';
 import { useSOSStore } from '@/stores/sos.store';
 import { useUserStore } from '@/stores/user.store';
+import { installGlobalErrorHandler } from '@/utils/global-error-handler.utils';
+import { cacheUserInfo } from '@/utils/offline-cache.utils';
 
 const AUTH_SEGMENT = '(auth)';
 const ONBOARDING_SEGMENT = 'onboarding';
@@ -71,6 +74,10 @@ function RootLayout(): React.JSX.Element {
     void initMixPanel();
   }, []);
 
+  // Reports otherwise-unhandled JS errors (thrown outside any try/catch this
+  // app owns) to Sentry before falling through to RN's own default handler.
+  useEffect(() => installGlobalErrorHandler(captureException), []);
+
   // The background location task must be defined before the first tick so the
   // OS can hand a relaunch back to it — see `useLiveLocation`.
   useEffect(() => {
@@ -93,7 +100,17 @@ function RootLayout(): React.JSX.Element {
               setSurakshakUser(profile);
               setProfileMirror(profile);
               identifyUser(firebaseUser.uid);
+              await registerForPushNotifications(firebaseUser.uid).catch((pushError: unknown) => {
+                captureException(pushError);
+              });
               await changeLanguage(profile.language);
+              // Offline fallback for the SOS/battery-alert fan-out — see
+              // `src/utils/offline-cache.utils.ts`.
+              await cacheUserInfo({
+                userId: firebaseUser.uid,
+                name: profile.name,
+                language: profile.language,
+              });
 
               // Emergency contacts otherwise only ever load lazily when the
               // Emergency Contacts screen itself mounts — every other

@@ -24,7 +24,10 @@ export function SafeScreen({
   const body = className === undefined ? 'flex-1 px-4' : `flex-1 px-4 ${className}`;
 
   return (
-    <SafeAreaView className="flex-1 bg-off-white" edges={['top', 'left', 'right']}>
+    <SafeAreaView
+      className="flex-1 bg-off-white dark:bg-near-black"
+      edges={['top', 'left', 'right']}
+    >
       <KeyboardAvoidingView className="flex-1" behavior={KEYBOARD_AVOIDING_BEHAVIOR}>
         {scrollable ? (
           <ScrollView

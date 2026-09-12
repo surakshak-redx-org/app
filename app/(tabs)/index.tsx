@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Pressable, ScrollView, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, View } from 'react-native';
 
 import { FakeCallScheduler } from '@/components/features/emergency/FakeCallScheduler';
 import { IncomingCallOverlay } from '@/components/features/emergency/IncomingCallOverlay';
@@ -19,7 +19,7 @@ import { captureException } from '@/config/sentry';
 import { COLORS } from '@/constants/colors';
 import { PREDEFINED_EMERGENCY_NUMBERS } from '@/constants/emergency-numbers';
 import { ROUTES } from '@/constants/routes';
-import { STORAGE_FLAG_OFF, STORAGE_KEYS } from '@/constants/storage';
+import { STORAGE_FLAG_OFF, STORAGE_FLAG_ON, STORAGE_KEYS } from '@/constants/storage';
 import { ICON_SIZE } from '@/constants/ui';
 import { useBatteryAlert } from '@/hooks/useBatteryAlert';
 import { useFakeCall } from '@/hooks/useFakeCall';
@@ -56,6 +56,7 @@ export default function HomeScreen(): React.JSX.Element {
   const [followEnabled, setFollowEnabled] = useState(true);
   const [fakeCallModalVisible, setFakeCallModalVisible] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const [iosHintDismissed, setIosHintDismissed] = useState(true);
 
   const safeCheckin = useSafeCheckin();
 
@@ -67,6 +68,20 @@ export default function HomeScreen(): React.JSX.Element {
         setFollowEnabled(stored.get(STORAGE_KEYS.FOLLOW_DETECTION_ENABLED) !== STORAGE_FLAG_OFF);
       })
       .catch((error: unknown) => captureException(error));
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    AsyncStorage.getItem(STORAGE_KEYS.IOS_HINT_DISMISSED)
+      .then((value) => setIosHintDismissed(value === STORAGE_FLAG_ON))
+      .catch((error: unknown) => captureException(error));
+  }, []);
+
+  const dismissIosHint = useCallback((): void => {
+    setIosHintDismissed(true);
+    AsyncStorage.setItem(STORAGE_KEYS.IOS_HINT_DISMISSED, STORAGE_FLAG_ON).catch((error: unknown) =>
+      captureException(error),
+    );
   }, []);
 
   useEffect(() => {
@@ -231,14 +246,36 @@ export default function HomeScreen(): React.JSX.Element {
               key={contact.id}
               onPress={() => callHelpline(contact.phone)}
               accessibilityRole="button"
-              className="mr-3 flex-row items-center rounded-full border border-stone/20 bg-white px-4 py-2"
+              accessibilityLabel={t('home.callHelplineLabel', {
+                name: contact.name,
+                phone: contact.phone,
+              })}
+              className="mr-3 flex-row items-center rounded-full border border-stone/20 bg-white px-4 py-2 dark:border-dark-border dark:bg-charcoal"
             >
-              <Text variant="caption" className="text-ink">
+              <Text variant="caption" className="text-ink dark:text-white">
                 {contact.name} · {contact.phone}
               </Text>
             </Pressable>
           ))}
         </ScrollView>
+
+        {Platform.OS === 'ios' && !iosHintDismissed && (
+          <Card padding="sm" className="mx-0 mt-3 border border-saffron/40 bg-saffron/10">
+            <Pressable
+              onPress={dismissIosHint}
+              accessibilityLabel={t('home.iosHintDismissLabel')}
+              accessibilityRole="button"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              className="absolute right-2 top-2 p-1"
+            >
+              <MaterialIcons name="close" size={ICON_SIZE.DISMISS} color={COLORS.STONE} />
+            </Pressable>
+            <View className="flex-row items-start gap-2 pr-5">
+              <Text variant="body">ℹ️</Text>
+              <Text variant="caption" tKey="home.iosHintBody" className="flex-1 text-stone" />
+            </View>
+          </Card>
+        )}
       </SafeScreen>
 
       {isActive && <SOSCountdownOverlay countdown={countdown} onCancel={cancel} />}

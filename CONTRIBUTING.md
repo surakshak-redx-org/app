@@ -243,36 +243,43 @@ yarn format
 5. Open the PR on GitHub **targeting `develop`**.
 6. Fill in the whole PR template. Tick the boxes honestly — an unticked box is
    fine, a falsely ticked one wastes a reviewer's time.
-7. Wait for CI and the Claude bot.
-8. Once both are green, request a human review.
+7. Wait for CI (`pr-checks.yml`) to go green.
+8. Run `/code-review` (see §8) and address anything it flags before asking a
+   human to look.
+9. Request a human review.
 
-To merge you need: all pipeline checks green, a Claude bot review with no
-blocking items, and one human approval.
+To merge you need: all pipeline checks green and one human approval. There is
+no automated bot review in CI — see §8.
 
 ---
 
-## 8. What the Claude bot review means
+## 8. Code review with Claude Code
 
-A bot reviews every PR into `develop` against the 15 rules and posts a comment.
+There is no automated review workflow in CI — that was removed to stop
+per-PR API-token spend, now that reviews go through a Claude Code
+subscription instead. Run it yourself, on demand, before asking a human:
 
-- **📊 Verdict: APPROVE** — no blocking issues. Request a human review.
-- **📊 Verdict: REQUEST CHANGES** — fix everything under _🚨 Must Fix Before
-  Merge_, push, and the bot re-reviews automatically.
-- **💡 Suggestions** are non-blocking. Use your judgement; you may disagree.
+```
+/code-review              # review your current branch's diff
+/code-review <PR number>  # review an already-open PR
+```
 
-Do not request a human review while the bot is asking for changes.
+Address what it flags, push again, and re-run if the diff changed
+meaningfully. `/code-review ultra` (or the `/ultrareview` alias) runs a
+heavier multi-agent cloud review — reach for it on a larger or riskier PR.
 
-The bot can be wrong. If you believe it is, say so in a PR comment explaining
-why — a human makes the final call.
+Judgement still applies: not every suggestion is a blocker, and you may
+disagree with one — say so in a PR comment. A human makes the final call.
 
 ---
 
 ## 9. The five most common mistakes
 
 **1. Hardcoded strings.**
-Add the key to `src/i18n/locales/en.json`, then use `tKey`. Also add the same
-key to `hi.json` and `mr.json` with an empty `""` value — a test enforces that
-all three files have identical key sets.
+Add the key to `src/i18n/locales/en.json`, then use `tKey`. Also add a real
+Hindi and Marathi translation to `hi.json` and `mr.json` — `yarn
+validate:translations` enforces that all three files have identical key sets
+**and** that none of the three has a missing or empty value for any key.
 
 **2. Relative imports.**
 
@@ -309,7 +316,47 @@ tell you if you forget.
 
 ---
 
-## 10. Getting help
+## 10. E2E tests (Maestro)
+
+Flows live in `.maestro/flows/`, listed in `.maestro/config.yaml`. They run
+against a local dev build (`com.surakshak.dev`), not Expo Go.
+
+```bash
+brew tap mobile-dev-inc/tap
+brew install maestro
+eas build --profile develop --local   # or a build you already have installed
+maestro test .maestro/                # runs every flow in config.yaml
+maestro test .maestro/flows/home_sos_cancel.yaml   # a single flow
+```
+
+Keep a flow's `assertVisible`/`tapOn` strings matching the real English copy
+in `src/i18n/locales/en.json` — Maestro matches visible text, so a renamed
+string breaks the flow, not just the app.
+
+## 11. Coverage
+
+```bash
+yarn test --ci --coverage
+```
+
+`jest.config.js` enforces a 70% floor on all four metrics (statements,
+branches, functions, lines). A PR that drops any of them below 70% fails
+`pr-checks.yml`. New code should carry its own tests rather than rely on
+the floor being loose elsewhere.
+
+## Pre-PR checklist
+
+- [ ] `yarn check` is clean (typecheck, lint, prettier, no-eslint-disable,
+      tests)
+- [ ] `yarn validate:translations` passes (new strings exist in all three
+      locales, none blank)
+- [ ] `yarn test --ci --coverage` stays at or above 70% on all four metrics
+- [ ] A Maestro flow updated if you changed visible copy or navigation it
+      depends on
+- [ ] `/code-review` run and addressed (see §8)
+- [ ] PR targets `develop`, template filled in honestly
+
+## 12. Getting help
 
 - Stuck on a rule or a failing check? Open an issue with the _Bug Report_
   template.

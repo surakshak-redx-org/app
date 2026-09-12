@@ -8,6 +8,14 @@ import { getStorage } from '@react-native-firebase/storage';
  * config files bundled at build time (`google-services.json` on Android,
  * `GoogleService-Info.plist` on iOS), so there is nothing to configure here —
  * which project you get is decided by `app.config.ts` from APP_ENV.
+ *
+ * Offline persistence: RNFirebase's native Firestore SDKs cache reads and
+ * queue writes locally by default — unlike the Firestore Web SDK, there is no
+ * opt-in call needed and no namespaced `firestore().settings(...)` API exists
+ * against the modular functions used below. This means laws, FAQs, community
+ * posts and unsafe areas all keep working offline after their first load, and
+ * an SOS-adjacent Firestore write (e.g. a live-location session) queues and
+ * sends once connectivity returns, without any code here to do it.
  */
 const app = getApp();
 
