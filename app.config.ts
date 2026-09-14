@@ -229,9 +229,6 @@ const config: ExpoConfig = {
       },
     ],
     ['onesignal-expo-plugin', { mode: APP_ENV === 'prod' ? 'production' : 'development' }],
-    // Local Expo module: direct SMS + call on Android (zero-tap emergency
-    // alerts); documented no-op stubs on iOS, which has no equivalent API.
-    './modules/surakshak-native',
   ],
   experiments: {
     typedRoutes: true,
