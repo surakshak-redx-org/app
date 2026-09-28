@@ -14455,11 +14455,11 @@ __metadata:
 
 "surakshak-native@file:./modules/surakshak-native::locator=surakshak%40workspace%3A.":
   version: 1.0.0
-  resolution: "surakshak-native@file:./modules/surakshak-native#./modules/surakshak-native::hash=94108f&locator=surakshak%40workspace%3A."
+  resolution: "surakshak-native@file:./modules/surakshak-native#./modules/surakshak-native::hash=21bd4d&locator=surakshak%40workspace%3A."
   peerDependencies:
     expo: "*"
     react-native: "*"
-  checksum: 10c0/c3c8d7155735d019b20774b59735d4233d08cf44883d217e79a4b4f6566c16a060d120d2ce6709d8536991f81e63073bd7555f15adbdebcf37949b0bb882298a
+  checksum: 10c0/e97f0a51a586d7ddf8454bd05eb3970efe22ce0e743067a4995a7722ba3785f59ac840c58915315c9c67fa035eb0c66dd7a48fd8a607e7462f9708d362e5e658
   languageName: node
   linkType: hard
 

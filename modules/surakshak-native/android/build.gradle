@@ -1,27 +1,20 @@
 apply plugin: 'com.android.library'
-apply plugin: 'org.jetbrains.kotlin.android'
-apply plugin: 'expo-module-core'
+apply plugin: 'expo-module-gradle-plugin'
+
+group = 'expo.modules.surakshaktnative'
+version = '1.0.0'
 
 android {
-  compileSdkVersion safeExtGet("compileSdkVersion", 35)
+  namespace "expo.modules.surakshaktnative"
   defaultConfig {
-    minSdkVersion safeExtGet("minSdkVersion", 24)
-    targetSdkVersion safeExtGet("targetSdkVersion", 35)
+    versionCode 1
+    versionName "1.0.0"
   }
-  compileOptions {
-    sourceCompatibility JavaVersion.VERSION_11
-    targetCompatibility JavaVersion.VERSION_11
+  lintOptions {
+    abortOnError false
   }
-  kotlinOptions {
-    jvmTarget = "11"
-  }
-}
-
-repositories {
-  mavenCentral()
 }
 
 dependencies {
-  implementation project(':expo-modules-core')
-  implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:${getKotlinVersion()}"
+  implementation "androidx.core:core-ktx:1.15.0"
 }
