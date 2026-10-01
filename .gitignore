@@ -60,3 +60,15 @@ coverage/
 .env.production
 google-services*.json
 GoogleService-Info*.plist
+
+# Gradle & Android build artifacts
+.gradle/
+**/.gradle/
+build/
+**/build/
+*.lock
+*.bin
+*.dex
+local.properties
+**/local.properties
+
