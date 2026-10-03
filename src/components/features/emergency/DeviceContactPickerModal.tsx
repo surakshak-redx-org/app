@@ -1,15 +1,17 @@
 // SDK 57 deprecated `getContactsAsync` on the main entry — the read API now
 // lives behind the `/legacy` subpath. Permission prompting still uses the
 // non-deprecated main module via `permissions.utils`.
+import { MaterialIcons } from '@expo/vector-icons';
 import { Fields, getContactsAsync } from 'expo-contacts/legacy';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, FlatList, Linking, Modal, Pressable, View } from 'react-native';
+import { Alert, FlatList, Linking, Modal, Pressable, TextInput, View } from 'react-native';
 
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Spinner } from '@/components/ui/Spinner';
 import { Text } from '@/components/ui/Text';
+import { COLORS } from '@/constants/colors';
 import type { EmergencyContactFormValues } from '@/types/emergency.types';
 import { requestContactsPermission } from '@/utils/permissions.utils';
 import { formatIndianPhone } from '@/utils/phone.utils';
@@ -36,7 +38,21 @@ export function DeviceContactPickerModal({
 }: DeviceContactPickerModalProps): React.JSX.Element {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [rows, setRows] = useState<DeviceContactRow[]>([]);
+
+  const handleClose = useCallback((): void => {
+    setSearchQuery('');
+    onClose();
+  }, [onClose]);
+
+  const handlePick = useCallback(
+    (values: EmergencyContactFormValues): void => {
+      setSearchQuery('');
+      onPick(values);
+    },
+    [onPick],
+  );
 
   useEffect(() => {
     if (!visible) return;
@@ -46,6 +62,7 @@ export function DeviceContactPickerModal({
     async function load(): Promise<void> {
       setLoading(true);
       setRows([]);
+      setSearchQuery('');
       try {
         const granted = await requestContactsPermission();
         if (!granted) {
@@ -91,12 +108,55 @@ export function DeviceContactPickerModal({
     };
   }, [visible, t, onClose]);
 
+  const filteredRows = useMemo(() => {
+    const trimmed = searchQuery.trim().toLowerCase();
+    if (trimmed.length === 0) return rows;
+
+    const digitsQuery = trimmed.replace(/\D/g, '');
+
+    return rows.filter((row) => {
+      const matchesName = row.name.toLowerCase().includes(trimmed);
+      const matchesRawPhone = row.phone.toLowerCase().includes(trimmed);
+      const matchesDigits =
+        digitsQuery.length > 0 && row.phone.replace(/\D/g, '').includes(digitsQuery);
+
+      return matchesName || matchesRawPhone || matchesDigits;
+    });
+  }, [rows, searchQuery]);
+
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
       <View className="flex-1 justify-end bg-near-black/40">
         <View className="h-3/4 rounded-t-3xl bg-off-white px-4 pb-8 pt-6">
           <Text variant="h2" tKey="emergency.importFromContacts" className="mb-1" />
-          <Text variant="caption" tKey="emergency.importSelectPrompt" className="mb-4" />
+          <Text variant="caption" tKey="emergency.importSelectPrompt" className="mb-3" />
+
+          {!loading && rows.length > 0 && (
+            <View className="mb-3 flex-row items-center rounded-xl border border-stone/20 bg-white px-3 dark:border-dark-border dark:bg-charcoal">
+              <MaterialIcons name="search" size={20} color={COLORS.STONE} />
+              <TextInput
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder={t('emergency.searchContacts')}
+                placeholderTextColor={COLORS.STONE}
+                className="ml-2 h-11 flex-1 text-[16px] text-ink dark:text-white"
+                accessibilityLabel={t('emergency.searchContacts')}
+                autoCapitalize="none"
+                autoCorrect={false}
+                clearButtonMode="while-editing"
+              />
+              {searchQuery.length > 0 && (
+                <Pressable
+                  onPress={() => setSearchQuery('')}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('common.close')}
+                  hitSlop={8}
+                >
+                  <MaterialIcons name="close" size={18} color={COLORS.STONE} />
+                </Pressable>
+              )}
+            </View>
+          )}
 
           {loading ? (
             <View className="flex-1 items-center justify-center">
@@ -104,10 +164,13 @@ export function DeviceContactPickerModal({
             </View>
           ) : rows.length === 0 ? (
             <EmptyState icon="person-outline" title={t('emergency.noContactsYet')} />
+          ) : filteredRows.length === 0 ? (
+            <EmptyState icon="search-outline" title={t('emergency.noMatchingContacts')} />
           ) : (
             <FlatList
-              data={rows}
+              data={filteredRows}
               keyExtractor={(row) => row.key}
+              keyboardShouldPersistTaps="handled"
               renderItem={({ item }) => {
                 const normalizedPhone = formatIndianPhone(item.phone);
                 const isAlreadyAdded = existingPhones.has(normalizedPhone);
@@ -115,7 +178,7 @@ export function DeviceContactPickerModal({
                   <Pressable
                     onPress={() => {
                       if (!isAlreadyAdded) {
-                        onPick({ name: item.name, phone: item.phone, relationship: '' });
+                        handlePick({ name: item.name, phone: item.phone, relationship: '' });
                       }
                     }}
                     disabled={isAlreadyAdded}
@@ -141,7 +204,7 @@ export function DeviceContactPickerModal({
             fullWidth
             className="mt-2"
             label={t('common.cancel')}
-            onPress={onClose}
+            onPress={handleClose}
           />
         </View>
       </View>
