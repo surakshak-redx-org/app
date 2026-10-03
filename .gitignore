@@ -72,3 +72,11 @@ build/
 local.properties
 **/local.properties
 
+# IDEs and Editors
+.idea/
+*.iml
+.vscode/
+
+# Temporary / maintenance scripts
+scripts/dedup-emergency-contacts.mjs
+

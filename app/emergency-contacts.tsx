@@ -1,5 +1,5 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Pressable, View } from 'react-native';
 
@@ -42,6 +42,13 @@ export default function EmergencyContactsScreen(): React.JSX.Element {
   const [pickerVisible, setPickerVisible] = useState(false);
   const [editing, setEditing] = useState<EmergencyContact | null>(null);
   const [prefill, setPrefill] = useState<EmergencyContact | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  /**
+   * Normalized E.164 phone numbers already saved as emergency contacts.
+   * Used to block duplicates in the form and in the device-contact picker.
+   */
+  const existingPhones = useMemo(() => new Set(contacts.map((c) => c.phone)), [contacts]);
 
   const refresh = useCallback(async (): Promise<void> => {
     if (userId === null) return;
@@ -112,7 +119,23 @@ export default function EmergencyContactsScreen(): React.JSX.Element {
       return;
     }
 
-    const payload = { ...values, phone: formatIndianPhone(values.phone) };
+    const normalizedPhone = formatIndianPhone(values.phone);
+
+    // Front-end duplicate guard: check the in-memory contact list before
+    // hitting Firestore. This fires for both add and edit paths so that
+    // editing contact A to use contact B's phone is also rejected.
+    const isDuplicate = contacts.some(
+      (c) =>
+        c.phone === normalizedPhone &&
+        // When editing, the same phone belonging to THIS contact is allowed.
+        c.id !== (editing?.id ?? ''),
+    );
+    if (isDuplicate) {
+      Alert.alert(t('emergency.contactAlreadyExists'));
+      return;
+    }
+
+    const payload = { ...values, phone: normalizedPhone };
     const action = editing
       ? updateEmergencyContact(userId, editing.id, payload).then(() =>
           trackEmergencyContactChange('updated'),
@@ -123,6 +146,7 @@ export default function EmergencyContactsScreen(): React.JSX.Element {
           order: contacts.length,
         }).then(() => trackEmergencyContactChange('added'));
 
+    setIsSubmitting(true);
     action
       .then(() => refresh())
       .then(() => {
@@ -132,6 +156,9 @@ export default function EmergencyContactsScreen(): React.JSX.Element {
       .catch((error: unknown) => {
         captureException(error);
         Alert.alert(t('errors.contactSaveFailed'));
+      })
+      .finally(() => {
+        setIsSubmitting(false);
       });
   }
 
@@ -247,11 +274,13 @@ export default function EmergencyContactsScreen(): React.JSX.Element {
       <ContactFormModal
         visible={formVisible}
         initial={editing ?? prefill}
+        isSubmitting={isSubmitting}
         onSubmit={handleSubmit}
         onClose={() => setFormVisible(false)}
       />
       <DeviceContactPickerModal
         visible={pickerVisible}
+        existingPhones={existingPhones}
         onPick={handleImportPick}
         onClose={() => setPickerVisible(false)}
       />

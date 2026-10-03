@@ -5,11 +5,13 @@ import {
   doc,
   getDoc,
   getDocs,
+  limit,
   orderBy,
   query,
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
   writeBatch,
 } from '@react-native-firebase/firestore';
 import { getDownloadURL, putFile, ref } from '@react-native-firebase/storage';
@@ -152,8 +154,22 @@ export async function addEmergencyContact(
   contact: Omit<EmergencyContact, 'id'>,
 ): Promise<EmergencyContact> {
   try {
-    const created = await addDoc(contactsCollection(userId), contact);
-    return { id: created.id, ...contact };
+    // Defensive server-side duplicate guard: query for any existing document
+    // with the same phone number before creating a new one. The front-end
+    // performs this check first, so this path should only be hit if the
+    // front-end guard was bypassed (e.g. concurrent writes, direct API calls).
+    const duplicateSnap = await getDocs(
+      query(contactsCollection(userId), where('phone', '==', contact.phone), limit(1)),
+    );
+    if (!duplicateSnap.docs.length) {
+      const created = await addDoc(contactsCollection(userId), contact);
+      return { id: created.id, ...contact };
+    }
+    // Duplicate found — log the id for debuggability and reject.
+    const existingId = duplicateSnap.docs[0]?.id ?? 'unknown';
+    throw new Error(
+      `addEmergencyContact: a contact with phone ${contact.phone} already exists (id: ${existingId})`,
+    );
   } catch (error) {
     console.error('addEmergencyContact failed:', error);
     throw error;

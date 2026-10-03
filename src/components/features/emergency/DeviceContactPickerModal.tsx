@@ -12,9 +12,12 @@ import { Spinner } from '@/components/ui/Spinner';
 import { Text } from '@/components/ui/Text';
 import type { EmergencyContactFormValues } from '@/types/emergency.types';
 import { requestContactsPermission } from '@/utils/permissions.utils';
+import { formatIndianPhone } from '@/utils/phone.utils';
 
 export interface DeviceContactPickerModalProps {
   visible: boolean;
+  /** Normalized E.164 phone numbers that already exist in the user's emergency contacts. */
+  existingPhones: ReadonlySet<string>;
   onPick: (values: EmergencyContactFormValues) => void;
   onClose: () => void;
 }
@@ -27,6 +30,7 @@ interface DeviceContactRow {
 
 export function DeviceContactPickerModal({
   visible,
+  existingPhones,
   onPick,
   onClose,
 }: DeviceContactPickerModalProps): React.JSX.Element {
@@ -104,16 +108,30 @@ export function DeviceContactPickerModal({
             <FlatList
               data={rows}
               keyExtractor={(row) => row.key}
-              renderItem={({ item }) => (
-                <Pressable
-                  onPress={() => onPick({ name: item.name, phone: item.phone, relationship: '' })}
-                  accessibilityRole="button"
-                  className="border-b border-stone/15 py-3"
-                >
-                  <Text variant="body">{item.name}</Text>
-                  <Text variant="caption">{item.phone}</Text>
-                </Pressable>
-              )}
+              renderItem={({ item }) => {
+                const normalizedPhone = formatIndianPhone(item.phone);
+                const isAlreadyAdded = existingPhones.has(normalizedPhone);
+                return (
+                  <Pressable
+                    onPress={() => {
+                      if (!isAlreadyAdded) {
+                        onPick({ name: item.name, phone: item.phone, relationship: '' });
+                      }
+                    }}
+                    disabled={isAlreadyAdded}
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: isAlreadyAdded }}
+                    className={`border-b border-stone/15 py-3 ${
+                      isAlreadyAdded ? 'opacity-40' : ''
+                    }`}
+                  >
+                    <Text variant="body">{item.name}</Text>
+                    <Text variant="caption">
+                      {isAlreadyAdded ? t('emergency.alreadyAdded') : item.phone}
+                    </Text>
+                  </Pressable>
+                );
+              }}
             />
           )}
 

@@ -162,6 +162,8 @@
     "contactSaved": "संपर्क सेव्ह झाला",
     "contactRemoved": "संपर्क काढला",
     "importSelectPrompt": "जोडण्यासाठी संपर्कावर टॅप करा",
+    "contactAlreadyExists": "या फोन नंबरचा संपर्क आधीच अस्तित्वात आहे",
+    "alreadyAdded": "आधीच जोडले आहे",
     "nameRequired": "नाव टाका",
     "invalidPhone": "योग्य १० अंकी मोबाइल नंबर टाका",
     "relationshipRequired": "नाते टाका",

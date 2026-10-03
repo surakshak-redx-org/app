@@ -162,6 +162,8 @@
     "contactSaved": "Contact saved",
     "contactRemoved": "Contact removed",
     "importSelectPrompt": "Tap a contact to import",
+    "contactAlreadyExists": "A contact with this phone number already exists",
+    "alreadyAdded": "Already added",
     "nameRequired": "Enter a name",
     "invalidPhone": "Enter a valid 10-digit mobile number",
     "relationshipRequired": "Enter a relationship",
