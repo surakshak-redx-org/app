@@ -6,6 +6,11 @@ import { DeviceContactPickerModal } from '@/components/features/emergency/Device
 
 const mockGetContactsAsync = jest.fn();
 
+jest.mock('expo-contacts', () => ({
+  requestPermissionsAsync: jest.fn(),
+  getPermissionsAsync: jest.fn(),
+}));
+
 jest.mock('expo-contacts/legacy', () => ({
   Fields: { PhoneNumbers: 'phoneNumbers' },
   getContactsAsync: (...args: unknown[]) => mockGetContactsAsync(...args),
@@ -29,7 +34,12 @@ describe('DeviceContactPickerModal', () => {
     const onPick = jest.fn();
 
     const { findByText } = await render(
-      <DeviceContactPickerModal visible onPick={onPick} onClose={jest.fn()} />,
+      <DeviceContactPickerModal
+        visible
+        existingPhones={new Set<string>()}
+        onPick={onPick}
+        onClose={jest.fn()}
+      />,
     );
 
     await fireEvent.press(await findByText('Ma'));
@@ -46,9 +56,36 @@ describe('DeviceContactPickerModal', () => {
       .mockResolvedValue({ granted: false, status: 'denied' } as never);
     const onClose = jest.fn();
 
-    await render(<DeviceContactPickerModal visible onPick={jest.fn()} onClose={onClose} />);
+    await render(
+      <DeviceContactPickerModal
+        visible
+        existingPhones={new Set<string>()}
+        onPick={jest.fn()}
+        onClose={onClose}
+      />,
+    );
 
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(mockGetContactsAsync).not.toHaveBeenCalled();
+  });
+
+  it('disables already added emergency contacts and ignores clicks on them', async () => {
+    mockGetContactsAsync.mockResolvedValue({
+      data: [{ id: '1', name: 'Ma', phoneNumbers: [{ number: '+919876543210' }] }],
+    });
+    const onPick = jest.fn();
+
+    const { findByText } = await render(
+      <DeviceContactPickerModal
+        visible
+        existingPhones={new Set<string>(['+919876543210'])}
+        onPick={onPick}
+        onClose={jest.fn()}
+      />,
+    );
+
+    const contactName = await findByText('Ma');
+    await fireEvent.press(contactName);
+    expect(onPick).not.toHaveBeenCalled();
   });
 });
