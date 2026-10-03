@@ -92,6 +92,8 @@
   },
   "scripts": {
     "start": "expo start",
+    "start:dev": "expo start --dev-client",
+    "setup:check": "node scripts/setup-check.js",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",

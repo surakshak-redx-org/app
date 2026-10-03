@@ -108,13 +108,27 @@ cannot commit them by accident.
 
 ---
 
-## Step 5 — Run it
+## Step 5 — Run it (Expo Development Build)
 
-```bash
-yarn start
-```
+> ⚠️ **Expo Go is NOT compatible with this project**:
+> Surakshak uses `@react-native-firebase`, custom native Kotlin code in `modules/surakshak-native` (for zero-tap emergency SMS and calls), and OneSignal. None of these native binaries exist in standard Expo Go. Scanning the QR code in Expo Go will crash the app. You must use the **Expo Development Client (`expo-dev-client`)**.
 
-Press `a` for Android or `i` for iOS, or scan the QR code with the Expo Go app.
+### Quick start for Android:
+
+1. Verify prerequisites:
+   ```bash
+   yarn setup:check
+   ```
+2. Build and install the dev client on your connected device (first time only):
+   ```bash
+   yarn android
+   ```
+3. For subsequent daily work, start Metro:
+   ```bash
+   yarn start:dev
+   ```
+
+For detailed Windows environment instructions (SDK, JDK 21, USB debugging, troubleshooting), see the [Android Setup Guide](ANDROID_SETUP.md).
 
 You should land on the Welcome screen with a purple tab bar at the bottom.
 
