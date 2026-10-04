@@ -41,7 +41,7 @@ jest.mock('expo-file-system', () => {
 });
 
 function entry(overrides: Partial<{ data: unknown; cachedAt: number; version: number }>): string {
-  return JSON.stringify({ data: ['a'], cachedAt: Date.now(), version: 1, ...overrides });
+  return JSON.stringify({ data: ['a'], cachedAt: Date.now(), version: 2, ...overrides });
 }
 
 describe('cache.utils', () => {
@@ -95,7 +95,7 @@ describe('cache.utils', () => {
       };
       expect(written.data).toEqual([{ id: 'news_1' }]);
       expect(typeof written.cachedAt).toBe('number');
-      expect(written.version).toBe(1);
+      expect(written.version).toBe(2);
     });
   });
 

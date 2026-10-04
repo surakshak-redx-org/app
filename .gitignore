@@ -39,6 +39,9 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+modules/**/android/build/
+modules/**/ios/build/
+modules/**/.gradle/
 
 # Yarn 4 (node-modules linker)
 .yarn/*
@@ -60,3 +63,12 @@ coverage/
 .env.production
 google-services*.json
 GoogleService-Info*.plist
+
+# IDEs and Editors
+.idea/
+*.iml
+.vscode/
+
+# Temporary / maintenance scripts
+scripts/dedup-emergency-contacts.mjs
+

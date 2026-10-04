@@ -72,7 +72,7 @@ describe('safe-journey.service', () => {
     jest.mocked(getDoc).mockResolvedValueOnce({
       exists: () => true,
       id: 'journey-1',
-      data: () => ({ etaMinutes: 20 }),
+      data: () => ({ etaMinutes: 20, expectedArrivalAt: { toDate: () => new Date() } }),
     } as never);
 
     const before = Date.now();
@@ -84,6 +84,22 @@ describe('safe-journey.service', () => {
     expect(payload.expectedArrivalAt.toDate().getTime()).toBeGreaterThanOrEqual(
       before + 20 * 60 * 1000,
     );
+  });
+
+  it('checkInSafeJourney never pulls an extended deadline earlier', async () => {
+    const extended = new Date(Date.now() + 50 * 60 * 1000);
+    jest.mocked(getDoc).mockResolvedValueOnce({
+      exists: () => true,
+      id: 'journey-1',
+      data: () => ({ etaMinutes: 20, expectedArrivalAt: { toDate: () => extended } }),
+    } as never);
+
+    await checkInSafeJourney('journey-1');
+
+    const payload = jest.mocked(updateDoc).mock.calls[0]?.[1] as unknown as {
+      expectedArrivalAt: { toDate: () => Date };
+    };
+    expect(payload.expectedArrivalAt.toDate().getTime()).toBe(extended.getTime());
   });
 
   it('getActiveJourneySession returns null when none is active', async () => {

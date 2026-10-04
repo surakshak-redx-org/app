@@ -6,6 +6,8 @@ interface SurakshakNativeModuleInterface {
   sendSms: (phoneNumber: string, message: string) => Promise<string>;
   checkSmsPermission: () => Promise<boolean>;
   placeCall: (phoneNumber: string) => Promise<string>;
+  setProximityScreenOff: (enabled: boolean) => Promise<void>;
+  setAppIcon: (name: string | null) => Promise<void>;
 }
 
 const NativeModule = requireNativeModule<SurakshakNativeModuleInterface>('SurakshakNative');
@@ -54,6 +56,24 @@ export async function checkSmsPermission(): Promise<boolean> {
 export async function placeCallDirectly(phone: string): Promise<CallResult> {
   await NativeModule.placeCall(phone);
   return { success: true, phone, method: 'direct' };
+}
+
+/**
+ * Turns the screen off while the phone is held to the ear (proximity
+ * sensor), as during a real call. Best-effort: devices without a proximity
+ * sensor simply keep the screen on.
+ */
+export async function setProximityScreenOff(enabled: boolean): Promise<void> {
+  await NativeModule.setProximityScreenOff(enabled);
+}
+
+/**
+ * Switches the launcher icon and name to a registered alternate (`null` for
+ * the default). Android toggles `activity-alias` launchers; iOS uses
+ * `setAlternateIconName`. Both are registered by `plugins/withDisguiseIcon.js`.
+ */
+export async function setAppIcon(name: string | null): Promise<void> {
+  await NativeModule.setAppIcon(name);
 }
 
 export type { CallResult, SendSmsResult } from './SurakshakNative.types';

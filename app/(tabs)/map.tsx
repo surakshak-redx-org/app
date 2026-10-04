@@ -35,9 +35,10 @@ import {
   subscribeToUnsafeAreas,
   voteOnUnsafeArea,
 } from '@/services/firebase/unsafe-areas.service';
-import { getCurrentLocation } from '@/services/location.service';
+import { getFreshLocation } from '@/services/location.service';
 import { useAuthStore } from '@/stores/auth.store';
 import type { UnsafeArea, UnsafeAreaCategory } from '@/types/location.types';
+import { locationErrorKey } from '@/utils/location.utils';
 
 interface ReportFormValues {
   title: string;
@@ -67,10 +68,19 @@ export default function MapScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
 
   const [unsafeAreas, setUnsafeAreas] = useState<UnsafeArea[]>([]);
-  const [selectedArea, setSelectedArea] = useState<UnsafeArea | null>(null);
+  // Only the id is kept: the card reads the area from the live list, so its
+  // vote count and "already voted" state follow every snapshot instead of
+  // freezing at the moment the pin was tapped (BUG-015).
+  const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
+  const [votingAreaId, setVotingAreaId] = useState<string | null>(null);
   const [legendVisible, setLegendVisible] = useState(false);
   const [isReportModalVisible, setReportModalVisible] = useState(false);
   const [isSubmitting, setSubmitting] = useState(false);
+
+  const selectedArea = useMemo(
+    () => unsafeAreas.find((area) => area.id === selectedAreaId) ?? null,
+    [unsafeAreas, selectedAreaId],
+  );
 
   useEffect(() => {
     void requestPermission();
@@ -134,7 +144,7 @@ export default function MapScreen(): React.JSX.Element {
       if (userId === null) return;
       try {
         setSubmitting(true);
-        const fix = await getCurrentLocation();
+        const fix = await getFreshLocation();
         await reportUnsafeArea(
           userId,
           fix.latitude,
@@ -148,7 +158,7 @@ export default function MapScreen(): React.JSX.Element {
         trackUnsafeAreaReported(values.category);
       } catch (error) {
         captureException(error);
-        Alert.alert(t('errors.generic'));
+        Alert.alert(t(locationErrorKey(error) ?? 'errors.generic'));
       } finally {
         setSubmitting(false);
       }
@@ -158,15 +168,19 @@ export default function MapScreen(): React.JSX.Element {
 
   const handleVote = useCallback(
     (area: UnsafeArea, vote: 'up' | 'down'): void => {
-      if (requireSignIn() || userId === null) return;
+      if (requireSignIn() || userId === null || votingAreaId !== null) return;
+      // One vote in flight at a time — a quick double tap used to pass the
+      // "already voted" check twice.
+      setVotingAreaId(area.id);
       voteOnUnsafeArea(area.id, userId, vote)
         .then(() => trackUnsafeAreaVoted(vote))
         .catch((error: unknown) => {
           captureException(error);
           Alert.alert(t('errors.generic'));
-        });
+        })
+        .finally(() => setVotingAreaId(null));
     },
-    [requireSignIn, userId, t],
+    [requireSignIn, userId, votingAreaId, t],
   );
 
   const hasVoted =
@@ -197,7 +211,8 @@ export default function MapScreen(): React.JSX.Element {
               <Marker
                 coordinate={{ latitude: area.latitude, longitude: area.longitude }}
                 pinColor={PIN_HEX[area.pinColor]}
-                onPress={() => setSelectedArea(area)}
+                testID={`unsafe-area-${area.id}`}
+                onPress={() => setSelectedAreaId(area.id)}
               />
               <Circle
                 center={{ latitude: area.latitude, longitude: area.longitude }}
@@ -240,15 +255,20 @@ export default function MapScreen(): React.JSX.Element {
           )}
         </SafeAreaView>
 
-        <Pressable
-          onPress={openReport}
-          accessibilityRole="button"
-          accessibilityLabel={t('map.reportArea')}
-          style={{ bottom: APP_CONFIG.MAP_FAB_OFFSET + insets.bottom }}
-          className="absolute right-5 h-14 w-14 items-center justify-center rounded-full bg-primary-red shadow-lg"
-        >
-          <MaterialIcons name="add-location" size={ICON_SIZE.PERMISSION} color={COLORS.WHITE} />
-        </Pressable>
+        {/* A labelled button rather than an icon-only FAB, and hidden while
+            an area card would cover it (BUG-008). */}
+        {selectedArea === null && (
+          <Pressable
+            onPress={openReport}
+            accessibilityRole="button"
+            accessibilityLabel={t('map.reportArea')}
+            style={{ bottom: APP_CONFIG.MAP_FAB_OFFSET + insets.bottom }}
+            className="absolute right-5 h-14 flex-row items-center gap-2 rounded-full bg-primary-red px-5 shadow-lg"
+          >
+            <MaterialIcons name="add-location" size={ICON_SIZE.ROW} color={COLORS.WHITE} />
+            <Text variant="label" tKey="map.reportArea" className="text-white" />
+          </Pressable>
+        )}
 
         {selectedArea !== null && (
           <View className="absolute inset-x-0 bottom-0" style={{ paddingBottom: insets.bottom }}>
@@ -278,14 +298,14 @@ export default function MapScreen(): React.JSX.Element {
                   variant="ghost"
                   size="sm"
                   label={t('map.upvote')}
-                  disabled={hasVoted}
+                  disabled={hasVoted || votingAreaId !== null}
                   onPress={() => handleVote(selectedArea, 'up')}
                 />
                 <Button
                   variant="ghost"
                   size="sm"
                   label={t('map.downvote')}
-                  disabled={hasVoted}
+                  disabled={hasVoted || votingAreaId !== null}
                   onPress={() => handleVote(selectedArea, 'down')}
                 />
               </View>
@@ -295,7 +315,7 @@ export default function MapScreen(): React.JSX.Element {
                 size="sm"
                 className="mt-3 self-center"
                 label={t('common.close')}
-                onPress={() => setSelectedArea(null)}
+                onPress={() => setSelectedAreaId(null)}
               />
             </Card>
           </View>
@@ -303,7 +323,7 @@ export default function MapScreen(): React.JSX.Element {
 
         <BottomSheet visible={isReportModalVisible} onClose={() => setReportModalVisible(false)}>
           <Text variant="h3" tKey="map.reportArea" />
-          <Text variant="caption" tKey="map.tapToSetLocation" className="mt-1" />
+          <Text variant="caption" tKey="map.reportUsesCurrentLocation" className="mt-1" />
 
           <Controller
             control={control}

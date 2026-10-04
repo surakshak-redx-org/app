@@ -2,6 +2,7 @@ import { fireEvent, render } from '@testing-library/react-native';
 import React from 'react';
 
 import { useAuthStore } from '@/stores/auth.store';
+import { useLocationStore } from '@/stores/location.store';
 import SafeJourneyScreen from '@app/safe-journey';
 
 jest.mock('expo-router', () => ({
@@ -10,6 +11,9 @@ jest.mock('expo-router', () => ({
 
 jest.mock('@/services/location.service', () => ({
   getCurrentLocation: jest.fn(() => Promise.resolve({ latitude: 19, longitude: 72, timestamp: 0 })),
+  getLocationWithTimeout: jest.fn(() =>
+    Promise.resolve({ latitude: 19, longitude: 72, timestamp: 0 }),
+  ),
   autocompletePlaces: jest.fn(() => Promise.resolve([])),
   getPlaceLocation: jest.fn(),
 }));
@@ -78,7 +82,43 @@ describe('SafeJourneyScreen', () => {
 
     const { findByText } = await render(<SafeJourneyScreen />);
     expect(await findByText('Andheri Station')).toBeTruthy();
-    expect(await findByText("I'm Safe ✓")).toBeTruthy();
+    expect(await findByText("Check in: I'm safe (reset timer)")).toBeTruthy();
     expect(await findByText('Cancel Journey')).toBeTruthy();
+  });
+
+  it('hands an already-overdue journey to the monitor instead of showing it', async () => {
+    useAuthStore.setState({
+      ...authSnapshot,
+      surakshakUser: { userId: 'u1', name: 'Asha', language: 'en' } as never,
+    });
+    mockGetActiveJourney.mockResolvedValue({
+      id: 'j1',
+      userId: 'u1',
+      destinationName: 'Andheri Station',
+      destinationLatitude: 19.1,
+      destinationLongitude: 72.8,
+      etaMinutes: 30,
+      sharedWithUserIds: [],
+      startedAt: { toDate: () => new Date(Date.now() - 3_600_000) },
+      expectedArrivalAt: { toDate: () => new Date(Date.now() - 60_000) },
+      status: 'active',
+    } as never);
+    const revisionBefore = useLocationStore.getState().safeJourneyRevision;
+
+    const { findByText, queryByText } = await render(<SafeJourneyScreen />);
+
+    expect(await findByText('Start Journey')).toBeTruthy();
+    expect(queryByText('Andheri Station')).toBeNull();
+    expect(useLocationStore.getState().safeJourneyRevision).toBeGreaterThan(revisionBefore);
+  });
+
+  it('warns when the destination was typed instead of picked', async () => {
+    const { getByPlaceholderText, findByText } = await render(<SafeJourneyScreen />);
+    await fireEvent.changeText(getByPlaceholderText('Where are you going?'), 'Andheri Station');
+    expect(
+      await findByText(
+        'Not picked from the suggestions: your current location will be saved as the destination.',
+      ),
+    ).toBeTruthy();
   });
 });

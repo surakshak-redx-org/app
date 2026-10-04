@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { Alert, FlatList, Pressable, View } from 'react-native';
 import { z } from 'zod';
 
+import { ImageViewer } from '@/components/features/community/ImageViewer';
 import { Badge, type BadgeVariant } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -29,10 +30,11 @@ import {
   uploadIncidentPhoto,
   type IncidentReport,
 } from '@/services/firebase/incident.service';
-import { getCurrentLocation } from '@/services/location.service';
+import { getCurrentLocation, getFreshLocation } from '@/services/location.service';
 import { useAuthStore } from '@/stores/auth.store';
 import type { LocationData } from '@/types/location.types';
 import { formatTimestamp } from '@/utils/date.utils';
+import { locationErrorKey } from '@/utils/location.utils';
 
 type ActiveView = 'new' | 'history';
 
@@ -48,6 +50,7 @@ const STATUS_BADGE: Record<IncidentReport['status'], BadgeVariant> = {
 };
 
 const DESCRIPTION_LINES = 4;
+const BYTES_PER_MB = 1024 * 1024;
 
 export default function IncidentReportScreen(): React.JSX.Element {
   const { t } = useTranslation();
@@ -61,6 +64,8 @@ export default function IncidentReportScreen(): React.JSX.Element {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [incidents, setIncidents] = useState<IncidentReport[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [historyError, setHistoryError] = useState(false);
+  const [viewerUri, setViewerUri] = useState<string | null>(null);
 
   const schema = useMemo(
     () =>
@@ -109,8 +114,16 @@ export default function IncidentReportScreen(): React.JSX.Element {
   const runHistoryLoad = useCallback((): void => {
     if (userId === null) return;
     getMyIncidentReports(userId)
-      .then(setIncidents)
-      .catch((error: unknown) => captureException(error))
+      .then((reports) => {
+        setIncidents(reports);
+        setHistoryError(false);
+      })
+      .catch((error: unknown) => {
+        // Surfaced rather than shown as "no reports" — a failed query (e.g. a
+        // missing index) used to look exactly like an empty history.
+        captureException(error);
+        setHistoryError(true);
+      })
       .finally(() => setIsLoadingHistory(false));
   }, [userId]);
 
@@ -133,6 +146,13 @@ export default function IncidentReportScreen(): React.JSX.Element {
     });
     const asset = result.canceled ? undefined : result.assets[0];
     if (asset === undefined) return;
+    if (
+      asset.fileSize !== undefined &&
+      asset.fileSize > APP_CONFIG.MAX_COMMUNITY_IMAGE_MB * BYTES_PER_MB
+    ) {
+      Alert.alert(t('incidentReport.photoTooLarge', { mb: APP_CONFIG.MAX_COMMUNITY_IMAGE_MB }));
+      return;
+    }
     setPhotoUris((current) => [...current, asset.uri]);
   }
 
@@ -143,20 +163,48 @@ export default function IncidentReportScreen(): React.JSX.Element {
   const handleSubmitReport = useCallback(
     async (values: IncidentFormValues): Promise<void> => {
       if (userId === null || location === null) return;
+      setIsSubmitting(true);
       try {
-        setIsSubmitting(true);
+        // Re-read the position now: the one shown was captured when the
+        // screen opened and may predate location being switched off.
+        let fix: LocationData;
+        try {
+          fix = await getFreshLocation();
+        } catch (locationError) {
+          captureException(locationError);
+          Alert.alert(t(locationErrorKey(locationError) ?? 'incidentReport.locationUnavailable'));
+          return;
+        }
+        setLocation(fix);
+
         // Photo count is capped at INCIDENT_MAX_PHOTOS, so uploading them
         // concurrently rather than one-at-a-time is a bounded burst, not an
-        // unbounded one.
-        const photoUrls = await Promise.all(
+        // unbounded one. Settled individually so one bad upload names itself
+        // instead of failing the whole report with a generic error (BUG-016).
+        const uploads = await Promise.allSettled(
           photoUris.map((uri) => uploadIncidentPhoto(userId, uri)),
+        );
+        const failedUploads = uploads.filter((upload) => upload.status === 'rejected');
+        if (failedUploads.length > 0) {
+          failedUploads.forEach((upload) => captureException(upload.reason));
+          Alert.alert(
+            t('incidentReport.photoUploadFailedTitle'),
+            t('incidentReport.photoUploadFailedBody', {
+              failed: failedUploads.length,
+              total: photoUris.length,
+            }),
+          );
+          return;
+        }
+        const photoUrls = uploads.flatMap((upload) =>
+          upload.status === 'fulfilled' ? [upload.value] : [],
         );
 
         await submitIncidentReport(userId, {
           title: values.title.trim(),
           description: values.description.trim(),
-          latitude: location.latitude,
-          longitude: location.longitude,
+          latitude: fix.latitude,
+          longitude: fix.longitude,
           photoUrls,
         });
 
@@ -331,6 +379,13 @@ export default function IncidentReportScreen(): React.JSX.Element {
           </View>
         ) : isLoadingHistory ? (
           <Spinner size="lg" className="mt-8 items-center" />
+        ) : historyError ? (
+          <EmptyState
+            icon="alert-circle-outline"
+            title={t('incidentReport.historyLoadError')}
+            actionLabel={t('common.retry')}
+            onAction={loadHistory}
+          />
         ) : incidents.length === 0 ? (
           <EmptyState
             icon="document-text"
@@ -352,7 +407,7 @@ export default function IncidentReportScreen(): React.JSX.Element {
                   />
                   <View className="flex-1" />
                   <Text variant="caption" className="text-stone">
-                    {formatTimestamp(item.createdAt.toDate())}
+                    {formatTimestamp(item.createdAt?.toDate?.() ?? new Date())}
                   </Text>
                 </View>
 
@@ -364,12 +419,26 @@ export default function IncidentReportScreen(): React.JSX.Element {
                 </Text>
 
                 {item.photoUrls.length > 0 && (
-                  <Text
-                    variant="caption"
-                    tKey="incidentReport.photosAttached"
-                    tOptions={{ count: item.photoUrls.length }}
-                    className="mt-1 text-stone"
-                  />
+                  <View className="mt-2 flex-row flex-wrap gap-2">
+                    {item.photoUrls.map((url, index) => (
+                      <Pressable
+                        key={url}
+                        onPress={() => setViewerUri(url)}
+                        accessibilityRole="imagebutton"
+                        accessibilityLabel={t('incidentReport.viewPhoto', {
+                          index: index + 1,
+                          total: item.photoUrls.length,
+                        })}
+                      >
+                        <Image
+                          source={{ uri: url }}
+                          className="h-16 w-16 rounded-xl"
+                          contentFit="cover"
+                          cachePolicy="memory-disk"
+                        />
+                      </Pressable>
+                    ))}
+                  </View>
                 )}
 
                 <View className="mt-2 flex-row items-center gap-1">
@@ -383,6 +452,7 @@ export default function IncidentReportScreen(): React.JSX.Element {
           />
         )}
       </SafeScreen>
+      <ImageViewer uri={viewerUri} onClose={() => setViewerUri(null)} />
     </ErrorBoundary>
   );
 }

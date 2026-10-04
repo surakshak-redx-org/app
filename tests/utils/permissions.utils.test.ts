@@ -3,6 +3,7 @@ import { Camera } from 'expo-camera';
 import * as Contacts from 'expo-contacts';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
+import { PermissionsAndroid, Platform } from 'react-native';
 
 import {
   checkAllPermissions,
@@ -12,6 +13,7 @@ import {
   requestLocationPermission,
   requestMicrophonePermission,
   requestNotificationPermission,
+  requestSmsPermission,
 } from '@/utils/permissions.utils';
 
 jest.mock('expo-audio', () => ({ requestRecordingPermissionsAsync: jest.fn() }));
@@ -100,6 +102,7 @@ describe('checkAllPermissions', () => {
       microphone: false,
       contacts: true,
       notifications: false,
+      sms: true,
     });
   });
 
@@ -110,5 +113,44 @@ describe('checkAllPermissions', () => {
 
     const result = await checkAllPermissions();
     expect(Object.values(result).every((value) => value === false)).toBe(true);
+  });
+});
+
+describe('requestSmsPermission', () => {
+  const originalOS = Platform.OS;
+
+  afterEach(() => {
+    Platform.OS = originalOS;
+    jest.restoreAllMocks();
+  });
+
+  it('reports granted on iOS without prompting', async () => {
+    Platform.OS = 'ios';
+    const spy = jest.spyOn(PermissionsAndroid, 'requestMultiple');
+
+    await expect(requestSmsPermission()).resolves.toBe(true);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('asks Android for SEND_SMS and CALL_PHONE and reports the SMS grant', async () => {
+    Platform.OS = 'android';
+    const spy = jest.spyOn(PermissionsAndroid, 'requestMultiple').mockResolvedValueOnce({
+      [PermissionsAndroid.PERMISSIONS.SEND_SMS]: PermissionsAndroid.RESULTS.GRANTED,
+      [PermissionsAndroid.PERMISSIONS.CALL_PHONE]: PermissionsAndroid.RESULTS.DENIED,
+    } as never);
+
+    await expect(requestSmsPermission()).resolves.toBe(true);
+    expect(spy).toHaveBeenCalledWith([
+      PermissionsAndroid.PERMISSIONS.SEND_SMS,
+      PermissionsAndroid.PERMISSIONS.CALL_PHONE,
+    ]);
+  });
+
+  it('reports denied when the Android request throws', async () => {
+    Platform.OS = 'android';
+    jest.spyOn(PermissionsAndroid, 'requestMultiple').mockRejectedValueOnce(new Error('boom'));
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    await expect(requestSmsPermission()).resolves.toBe(false);
   });
 });

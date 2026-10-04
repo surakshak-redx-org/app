@@ -20,7 +20,8 @@ function pad(value: number): string {
   return value.toString().padStart(2, '0');
 }
 
-function formatClockTime(date: Date): string {
+/** `Date` → `"3:30 PM"` in ASCII digits, for UI and SMS alike. */
+export function formatClockTime(date: Date): string {
   const hours24 = date.getHours();
   const suffix = hours24 < 12 ? 'AM' : 'PM';
   const hours12 = hours24 % 12 === 0 ? 12 : hours24 % 12;
@@ -28,8 +29,38 @@ function formatClockTime(date: Date): string {
   return `${hours12}:${pad(date.getMinutes())} ${suffix}`;
 }
 
+const MS_PER_SECOND = 1000;
+
+/**
+ * Epoch millis from whatever a date field arrived as: a Firestore Timestamp,
+ * its JSON form (`{ seconds }`), a number, an ISO string or a `Date`.
+ * `null` when it can't be read.
+ */
+export function toMillis(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string') {
+    const parsed = Date.parse(value);
+    return Number.isNaN(parsed) ? null : parsed;
+  }
+  if (value instanceof Date) {
+    const time = value.getTime();
+    return Number.isNaN(time) ? null : time;
+  }
+  if (typeof value === 'object' && value !== null) {
+    if ('toMillis' in value && typeof value.toMillis === 'function') {
+      const millis = (value as { toMillis: () => unknown }).toMillis();
+      return typeof millis === 'number' ? millis : null;
+    }
+    if ('seconds' in value && typeof value.seconds === 'number') {
+      return value.seconds * MS_PER_SECOND;
+    }
+  }
+  return null;
+}
+
 /** Relative for anything under a day, absolute date beyond that. */
 export function formatTimestamp(date: Date, now: Date = new Date()): string {
+  if (Number.isNaN(date.getTime())) return '';
   const diffMinutes = Math.floor((now.getTime() - date.getTime()) / MS_PER_MINUTE);
 
   if (diffMinutes < 1) return 'just now';
@@ -70,4 +101,15 @@ export function formatDuration(minutes: number): string {
 export function formatEta(minutes: number, from: Date = new Date()): string {
   const arrival = new Date(from.getTime() + minutes * MS_PER_MINUTE);
   return `Arrives at ${formatClockTime(arrival)}`;
+}
+
+const SECONDS_PER_HOUR = 3600;
+
+/** `5400` → `"1:30:00"`, `95` → `"1:35"` — a live countdown that stays exact past an hour. */
+export function formatCountdown(seconds: number): string {
+  const safeSeconds = Math.max(0, Math.floor(seconds));
+  const hours = Math.floor(safeSeconds / SECONDS_PER_HOUR);
+  if (hours === 0) return formatSecondsAsClock(safeSeconds);
+  const rest = safeSeconds % SECONDS_PER_HOUR;
+  return `${hours}:${pad(Math.floor(rest / SECONDS_PER_MINUTE))}:${pad(rest % SECONDS_PER_MINUTE)}`;
 }

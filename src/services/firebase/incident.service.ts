@@ -105,7 +105,8 @@ export async function uploadIncidentPhoto(userId: string, localUri: string): Pro
   try {
     const filename = `${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`;
     const photoRef = ref(storage, `incidents/${userId}/${filename}`);
-    await putFile(photoRef, localUri);
+    // Storage rules typically gate uploads on an image content type.
+    await putFile(photoRef, localUri, { contentType: 'image/jpeg' });
     return await getDownloadURL(photoRef);
   } catch (error) {
     console.error('uploadIncidentPhoto failed:', error);

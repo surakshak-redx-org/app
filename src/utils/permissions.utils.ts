@@ -3,9 +3,16 @@ import { Camera } from 'expo-camera';
 import * as Contacts from 'expo-contacts';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
+import { PermissionsAndroid, Platform } from 'react-native';
 
 export type PermissionKey =
-  'location' | 'backgroundLocation' | 'camera' | 'microphone' | 'contacts' | 'notifications';
+  | 'location'
+  | 'backgroundLocation'
+  | 'camera'
+  | 'microphone'
+  | 'contacts'
+  | 'notifications'
+  | 'sms';
 
 export async function requestLocationPermission(): Promise<boolean> {
   try {
@@ -71,6 +78,31 @@ export async function requestNotificationPermission(): Promise<boolean> {
   }
 }
 
+/**
+ * Android's silent SOS SMS (`SmsManager`) and direct helpline calls both need
+ * runtime grants — declaring them in `app.config.ts` is not enough on
+ * Android 6+. iOS has no such permission (it always uses the compose sheet /
+ * dialer), so it reports granted.
+ */
+export async function requestSmsPermission(): Promise<boolean> {
+  if (Platform.OS !== 'android') return true;
+  try {
+    const results = await PermissionsAndroid.requestMultiple([
+      PermissionsAndroid.PERMISSIONS.SEND_SMS,
+      PermissionsAndroid.PERMISSIONS.CALL_PHONE,
+    ]);
+    return results[PermissionsAndroid.PERMISSIONS.SEND_SMS] === PermissionsAndroid.RESULTS.GRANTED;
+  } catch (error) {
+    console.error('requestSmsPermission failed:', error);
+    return false;
+  }
+}
+
+async function checkSmsGranted(): Promise<boolean> {
+  if (Platform.OS !== 'android') return true;
+  return PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.SEND_SMS);
+}
+
 /** Reads current status without prompting — safe to call on every app start. */
 export async function checkAllPermissions(): Promise<Record<PermissionKey, boolean>> {
   const fallback: Record<PermissionKey, boolean> = {
@@ -80,14 +112,16 @@ export async function checkAllPermissions(): Promise<Record<PermissionKey, boole
     microphone: false,
     contacts: false,
     notifications: false,
+    sms: false,
   };
 
   try {
-    const [location, backgroundLocation, contacts, notifications] = await Promise.all([
+    const [location, backgroundLocation, contacts, notifications, sms] = await Promise.all([
       Location.getForegroundPermissionsAsync(),
       Location.getBackgroundPermissionsAsync(),
       Contacts.getPermissionsAsync(),
       Notifications.getPermissionsAsync(),
+      checkSmsGranted(),
     ]);
 
     return {
@@ -96,6 +130,7 @@ export async function checkAllPermissions(): Promise<Record<PermissionKey, boole
       backgroundLocation: backgroundLocation.granted,
       contacts: contacts.granted,
       notifications: notifications.granted,
+      sms,
     };
   } catch (error) {
     console.error('checkAllPermissions failed:', error);

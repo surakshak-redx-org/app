@@ -1,6 +1,6 @@
 import * as SMS from 'expo-sms';
 import { Platform } from 'react-native';
-import { sendSmsToContacts } from 'surakshak-native';
+import { checkSmsPermission, sendSmsToContacts } from 'surakshak-native';
 
 import { sendLowBatteryAlert, sendSOSAlert } from '@/services/sms.service';
 import type { EmergencyContact } from '@/types/user.types';
@@ -47,6 +47,30 @@ describe('sms.service', () => {
         expect.stringContaining('Asha'),
       );
       expect(result).toEqual({ sent: ['+919876543210'], failed: [] });
+    });
+
+    it('falls back to the compose sheet when SEND_SMS has not been granted', async () => {
+      jest.mocked(checkSmsPermission).mockResolvedValueOnce(false);
+
+      const result = await sendSOSAlert([contact()], 'https://maps.example/1', 'Asha', 'en');
+
+      expect(mockedSendSmsToContacts).not.toHaveBeenCalled();
+      expect(mockedSendSMSAsync).toHaveBeenCalledWith(
+        ['+919876543210'],
+        expect.stringContaining('Asha'),
+      );
+      expect(result).toEqual({ sent: ['+919876543210'], failed: [] });
+    });
+
+    it('falls back to the compose sheet when the permission lookup throws', async () => {
+      jest.mocked(checkSmsPermission).mockRejectedValueOnce(new Error('no module'));
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+      await sendSOSAlert([contact()], 'https://maps.example/1', 'Asha', 'en');
+
+      expect(mockedSendSmsToContacts).not.toHaveBeenCalled();
+      expect(mockedSendSMSAsync).toHaveBeenCalled();
+      warnSpy.mockRestore();
     });
 
     it('excludes predefined helpline contacts from the recipient list entirely', async () => {

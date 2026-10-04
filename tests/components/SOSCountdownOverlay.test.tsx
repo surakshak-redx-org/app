@@ -19,4 +19,14 @@ describe('SOSCountdownOverlay', () => {
     await fireEvent.press(getByLabelText('Cancel'));
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
+
+  it('shows a non-cancellable sending state once the countdown has elapsed', async () => {
+    const { getByText, queryByLabelText, queryByText } = await render(
+      <SOSCountdownOverlay countdown={0} isSending onCancel={jest.fn()} />,
+    );
+
+    expect(getByText('Sending SOS alert to your contacts…')).toBeTruthy();
+    expect(queryByText('0')).toBeNull();
+    expect(queryByLabelText('Cancel')).toBeNull();
+  });
 });

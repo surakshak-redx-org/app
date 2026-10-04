@@ -2,7 +2,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FlatList, Pressable, TextInput, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, TextInput, View } from 'react-native';
 
 import { CategoryFilter, OfflineBanner } from '@/components/features/info/InfoFilters';
 import { Badge } from '@/components/ui/Badge';
@@ -17,26 +17,30 @@ import { COLORS } from '@/constants/colors';
 import { ALL_CATEGORIES, APP_CONFIG } from '@/constants/config';
 import { ROUTES } from '@/constants/routes';
 import { FLATLIST_PERF_PROPS } from '@/constants/ui';
-import { useInfoContent } from '@/hooks/useInfoContent';
-import { getLawCategories, getLaws, type Law } from '@/services/firebase/laws.service';
+import { byCategory, useInfoContent } from '@/hooks/useInfoContent';
+import { getLaws, type Law } from '@/services/firebase/laws.service';
 import { CACHE_KEYS } from '@/utils/cache.utils';
+import { matchesSearch } from '@/utils/search.utils';
 
 function matchesQuery(law: Law, query: string): boolean {
-  if (query === '') return true;
-  const needle = query.toLowerCase();
-  return (
-    law.title.toLowerCase().includes(needle) ||
-    law.shortDescription.toLowerCase().includes(needle) ||
-    law.tags.some((tag) => tag.toLowerCase().includes(needle))
-  );
+  return matchesSearch(query, [law.title, law.shortDescription, law.category, ...law.tags]);
 }
 
 export default function LawsScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const router = useRouter();
 
-  const { items, categories, isLoading, hasError, isOffline, lastSyncDate, reload } =
-    useInfoContent<Law>(getLaws, getLawCategories, CACHE_KEYS.LAWS);
+  const {
+    items,
+    categories,
+    isLoading,
+    isRefreshing,
+    hasError,
+    isOffline,
+    lastSyncDate,
+    reload,
+    refresh,
+  } = useInfoContent<Law>(getLaws, byCategory, CACHE_KEYS.LAWS);
 
   const [selectedCategory, setSelectedCategory] = useState<string>(ALL_CATEGORIES);
   const [searchQuery, setSearchQuery] = useState('');
@@ -106,6 +110,7 @@ export default function LawsScreen(): React.JSX.Element {
           className="flex-1"
           contentContainerClassName="pb-8"
           {...FLATLIST_PERF_PROPS}
+          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={refresh} />}
           renderItem={({ item }) => (
             <Pressable onPress={() => router.push(`${ROUTES.LAW_DETAIL}/${item.id}`)}>
               <Card padding="md" className="mb-3">

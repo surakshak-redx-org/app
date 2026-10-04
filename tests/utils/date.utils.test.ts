@@ -1,4 +1,11 @@
-import { formatDuration, formatEta, formatTimestamp } from '@/utils/date.utils';
+import {
+  toMillis,
+  formatClockTime,
+  formatCountdown,
+  formatDuration,
+  formatEta,
+  formatTimestamp,
+} from '@/utils/date.utils';
 
 describe('formatTimestamp', () => {
   const now = new Date('2026-01-12T15:00:00');
@@ -61,5 +68,49 @@ describe('formatEta', () => {
 
   it('rolls past midnight', () => {
     expect(formatEta(90, new Date('2026-01-12T23:00:00'))).toBe('Arrives at 12:30 AM');
+  });
+});
+
+describe('formatCountdown', () => {
+  it('uses m:ss under an hour', () => {
+    expect(formatCountdown(95)).toBe('1:35');
+  });
+
+  it('switches to h:mm:ss at an hour or more', () => {
+    expect(formatCountdown(5400)).toBe('1:30:00');
+    expect(formatCountdown(3661)).toBe('1:01:01');
+  });
+
+  it('never goes negative', () => {
+    expect(formatCountdown(-5)).toBe('0:00');
+  });
+});
+
+describe('formatClockTime', () => {
+  it('formats a 12-hour clock time', () => {
+    expect(formatClockTime(new Date(2026, 0, 1, 18, 5))).toBe('6:05 PM');
+  });
+});
+
+describe('toMillis', () => {
+  it('reads a Firestore Timestamp, its JSON form, numbers, strings and Dates', () => {
+    expect(toMillis({ toMillis: () => 1_000 })).toBe(1_000);
+    expect(toMillis({ seconds: 2, nanoseconds: 0 })).toBe(2_000);
+    expect(toMillis(3_000)).toBe(3_000);
+    expect(toMillis('1970-01-01T00:00:04.000Z')).toBe(4_000);
+    expect(toMillis(new Date(5_000))).toBe(5_000);
+  });
+
+  it('returns null for anything unreadable', () => {
+    expect(toMillis(undefined)).toBeNull();
+    expect(toMillis('not a date')).toBeNull();
+    expect(toMillis(Number.NaN)).toBeNull();
+    expect(toMillis({})).toBeNull();
+  });
+});
+
+describe('formatTimestamp with an invalid date', () => {
+  it('renders nothing rather than "NaN NaN"', () => {
+    expect(formatTimestamp(new Date(Number.NaN))).toBe('');
   });
 });

@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SMS from 'expo-sms';
 import { Platform } from 'react-native';
-import { sendSmsToContacts } from 'surakshak-native';
+import { checkSmsPermission, sendSmsToContacts } from 'surakshak-native';
 
 import { SMS_HISTORY_LIMIT } from '@/constants/config';
 import { STORAGE_KEYS } from '@/constants/storage';
@@ -10,8 +10,10 @@ import type { EmergencyContact, Language } from '@/types/user.types';
 import { formatIndianPhone, validateIndianPhone } from '@/utils/phone.utils';
 import {
   buildCheckInMissedMessage,
+  buildLiveLocationMessage,
   buildLowBatteryMessage,
   buildSafeJourneyMessage,
+  buildSafeJourneyStartMessage,
   buildSOSMessage,
 } from '@/utils/sms.utils';
 
@@ -46,12 +48,24 @@ function resolveRecipients(contacts: EmergencyContact[]): string[] {
  * (`SmsManager`, `SEND_SMS` permission) — silent, no compose UI, one send
  * per recipient in parallel. iOS has no equivalent API; it keeps using
  * `expo-sms`'s single compose sheet covering every recipient at once, which
- * needs exactly one tap from the user to confirm.
+ * needs exactly one tap from the user to confirm. An Android device without
+ * the `SEND_SMS` grant takes the compose-sheet path too, rather than having
+ * every silent send rejected and the alert never leave the phone.
  */
+async function canSendSilently(): Promise<boolean> {
+  if (Platform.OS !== 'android') return false;
+  try {
+    return await checkSmsPermission();
+  } catch (error) {
+    console.warn('sms: could not read SEND_SMS permission:', error);
+    return false;
+  }
+}
+
 async function dispatch(recipients: string[], message: string): Promise<SMSAlertResult> {
   if (recipients.length === 0) return { sent: [], failed: [] };
 
-  if (Platform.OS === 'android') {
+  if (await canSendSilently()) {
     try {
       const results = await sendSmsToContacts(recipients, message);
       return {
@@ -116,6 +130,35 @@ export async function sendSafeJourneyAlert(
   return dispatch(
     resolveRecipients(contacts),
     buildSafeJourneyMessage(userName, destination, etaTime, locationUrl, language),
+  );
+}
+
+/** Lets the chosen contacts know a journey has started — not an alarm. */
+export async function sendSafeJourneyStart(
+  contacts: EmergencyContact[],
+  locationUrl: string,
+  userName: string,
+  destination: string,
+  etaTime: string,
+  language: Language,
+): Promise<SMSAlertResult> {
+  return dispatch(
+    resolveRecipients(contacts),
+    buildSafeJourneyStartMessage(userName, destination, etaTime, locationUrl, language),
+  );
+}
+
+/** Shares a live-location session with the chosen contacts. */
+export async function sendLiveLocationShare(
+  contacts: EmergencyContact[],
+  locationUrl: string,
+  userName: string,
+  untilTime: string,
+  language: Language,
+): Promise<SMSAlertResult> {
+  return dispatch(
+    resolveRecipients(contacts),
+    buildLiveLocationMessage(userName, locationUrl, untilTime, language),
   );
 }
 

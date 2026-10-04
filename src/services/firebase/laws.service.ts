@@ -46,10 +46,6 @@ const LAWS_COLLECTION = 'laws';
 const FAQS_COLLECTION = 'faqs';
 const SAFETY_TIPS_COLLECTION = 'safetyTips';
 
-function uniqueSorted(values: string[]): string[] {
-  return [...new Set(values)].sort();
-}
-
 async function fetchPublished<T>(collectionName: string, cacheKey: string): Promise<T[]> {
   const snapshot = await getDocs(
     query(
@@ -64,27 +60,16 @@ async function fetchPublished<T>(collectionName: string, cacheKey: string): Prom
 }
 
 /**
- * Cache-first list read: returns cached content immediately and refreshes in
- * the background; on a cold cache it awaits the network. See `cache.utils`.
- */
-async function getCachedList<T>(collectionName: string, cacheKey: string): Promise<T[]> {
-  const cached = await readCache<T[]>(cacheKey);
-  if (cached) {
-    void fetchPublished<T>(collectionName, cacheKey).catch((error: unknown) =>
-      console.warn(`${cacheKey} background refresh failed:`, error),
-    );
-    return cached;
-  }
-  return fetchPublished<T>(collectionName, cacheKey);
-}
-
-/**
- * Lists published laws in display order (cache-first).
+ * Fetches published laws in display order from Firestore and refreshes the
+ * offline cache. Always goes to the network: the old cache-first read showed
+ * the previous copy and only refreshed the file in the background, so admin
+ * edits never reached an open screen (BUG-002). `useInfoContent` paints the
+ * cached copy first and falls back to it when this rejects.
  * @phase Phase 6 — Information Hub
  */
 export async function getLaws(): Promise<Law[]> {
   try {
-    return await getCachedList<Law>(LAWS_COLLECTION, CACHE_KEYS.LAWS);
+    return await fetchPublished<Law>(LAWS_COLLECTION, CACHE_KEYS.LAWS);
   } catch (error) {
     console.error('getLaws failed:', error);
     throw error;
@@ -92,31 +77,31 @@ export async function getLaws(): Promise<Law[]> {
 }
 
 /**
- * Reads a single law by id — from the cached list when possible, else Firestore.
+ * Reads a single law by id — from Firestore, falling back to the cached list
+ * when offline so a law opened once stays readable.
  * @phase Phase 6 — Information Hub
  */
 export async function getLawById(lawId: string): Promise<Law | null> {
   try {
-    const cached = await readCache<Law[]>(CACHE_KEYS.LAWS);
-    const hit = cached?.find((law) => law.id === lawId);
-    if (hit) return hit;
-
     const snapshot = await getDoc(doc(firestore, LAWS_COLLECTION, lawId));
     if (!snapshot.exists()) return null;
     return { id: snapshot.id, ...(snapshot.data() as Omit<Law, 'id'>) };
   } catch (error) {
+    const cached = await readCache<Law[]>(CACHE_KEYS.LAWS, { allowStale: true });
+    const hit = cached?.find((law) => law.id === lawId);
+    if (hit) return hit;
     console.error('getLawById failed:', error);
     throw error;
   }
 }
 
 /**
- * Lists published safety tips in display order (cache-first).
+ * Fetches published safety tips in display order (network; see `getLaws`).
  * @phase Phase 6 — Information Hub
  */
 export async function getSafetyTips(): Promise<SafetyTip[]> {
   try {
-    return await getCachedList<SafetyTip>(SAFETY_TIPS_COLLECTION, CACHE_KEYS.TIPS);
+    return await fetchPublished<SafetyTip>(SAFETY_TIPS_COLLECTION, CACHE_KEYS.TIPS);
   } catch (error) {
     console.error('getSafetyTips failed:', error);
     throw error;
@@ -124,47 +109,14 @@ export async function getSafetyTips(): Promise<SafetyTip[]> {
 }
 
 /**
- * Lists published FAQs in display order (cache-first).
+ * Fetches published FAQs in display order (network; see `getLaws`).
  * @phase Phase 6 — Information Hub
  */
 export async function getFaqs(): Promise<Faq[]> {
   try {
-    return await getCachedList<Faq>(FAQS_COLLECTION, CACHE_KEYS.FAQS);
+    return await fetchPublished<Faq>(FAQS_COLLECTION, CACHE_KEYS.FAQS);
   } catch (error) {
     console.error('getFaqs failed:', error);
-    throw error;
-  }
-}
-
-/** Distinct law categories, alphabetically sorted. */
-export async function getLawCategories(): Promise<string[]> {
-  try {
-    const laws = await getLaws();
-    return uniqueSorted(laws.map((law) => law.category));
-  } catch (error) {
-    console.error('getLawCategories failed:', error);
-    throw error;
-  }
-}
-
-/** Distinct safety-tip categories, alphabetically sorted. */
-export async function getSafetyTipCategories(): Promise<string[]> {
-  try {
-    const tips = await getSafetyTips();
-    return uniqueSorted(tips.map((tip) => tip.category));
-  } catch (error) {
-    console.error('getSafetyTipCategories failed:', error);
-    throw error;
-  }
-}
-
-/** Distinct FAQ categories, alphabetically sorted. */
-export async function getFaqCategories(): Promise<string[]> {
-  try {
-    const faqs = await getFaqs();
-    return uniqueSorted(faqs.map((faq) => faq.category));
-  } catch (error) {
-    console.error('getFaqCategories failed:', error);
     throw error;
   }
 }

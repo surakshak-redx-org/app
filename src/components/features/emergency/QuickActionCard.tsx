@@ -15,8 +15,14 @@ export interface QuickActionCardProps {
   onPress: () => void;
   /** Highlights the card when the feature it toggles is currently on. */
   active?: boolean;
-  /** Small red count badge (e.g. number of saved contacts). */
-  badge?: string | undefined;
+  /** Neutral secondary line under the label (e.g. "2 contacts"). */
+  subtitle?: string | undefined;
+  /**
+   * Corner warning badge — reserved for something that needs action (e.g.
+   * "Add contacts"). A red number here read as an unread notification
+   * count, which is what made the contacts card confusing (BUG-004).
+   */
+  warning?: string | undefined;
   /**
    * Dims the card and swaps its icon for a lock — for a feature guest mode
    * can't use (it writes to the user's own Firestore/Storage data, which
@@ -33,7 +39,8 @@ export function QuickActionCard({
   labelKey,
   onPress,
   active = false,
-  badge,
+  subtitle,
+  warning,
   locked = false,
   testID,
 }: QuickActionCardProps): React.JSX.Element {
@@ -57,11 +64,17 @@ export function QuickActionCard({
             color={COLORS.SHAKTI_PURPLE}
           />
           <Text variant="label" tKey={labelKey} className="mt-2 text-center text-ink" />
+          {subtitle !== undefined && (
+            <Text variant="caption" className="mt-0.5 text-center text-stone">
+              {subtitle}
+            </Text>
+          )}
         </View>
-        {badge !== undefined && (
-          <View className="absolute right-0 top-0 min-w-[20px] items-center rounded-full bg-error-red px-1.5 py-0.5">
+        {warning !== undefined && (
+          <View className="absolute right-0 top-0 flex-row items-center gap-0.5 rounded-full bg-saffron px-2 py-0.5">
+            <Ionicons name="alert-circle" size={ICON_SIZE.BADGE} color={COLORS.WHITE} />
             <Text variant="caption" className="text-xs text-white">
-              {badge}
+              {warning}
             </Text>
           </View>
         )}

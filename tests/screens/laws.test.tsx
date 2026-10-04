@@ -4,7 +4,6 @@ import React from 'react';
 import LawsScreen from '@app/laws';
 
 const mockGetLaws = jest.fn();
-const mockGetLawCategories = jest.fn();
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
@@ -12,7 +11,6 @@ jest.mock('expo-router', () => ({
 
 jest.mock('@/services/firebase/laws.service', () => ({
   getLaws: (...args: unknown[]) => mockGetLaws(...args),
-  getLawCategories: (...args: unknown[]) => mockGetLawCategories(...args),
 }));
 
 const LAWS = [
@@ -42,7 +40,6 @@ describe('LawsScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetLaws.mockResolvedValue(LAWS);
-    mockGetLawCategories.mockResolvedValue(['Domestic Safety', 'Workplace Safety']);
   });
 
   it('renders the search field, an All chip, and the law list', async () => {
@@ -58,5 +55,17 @@ describe('LawsScreen', () => {
     await fireEvent.changeText(getByPlaceholderText('Search'), 'workplace');
     expect(getByText('Workplace Harassment Act')).toBeTruthy();
     expect(queryByText('Domestic Violence Act')).toBeNull();
+  });
+
+  it('finds laws by their category name (BUG-022)', async () => {
+    const { getByPlaceholderText, getByText, queryByText } = await render(<LawsScreen />);
+    await fireEvent.changeText(getByPlaceholderText('Search'), 'Domestic Safety');
+    expect(getByText('Domestic Violence Act')).toBeTruthy();
+    expect(queryByText('Workplace Harassment Act')).toBeNull();
+  });
+
+  it('derives the category chips from the laws', async () => {
+    const { getAllByText } = await render(<LawsScreen />);
+    expect(getAllByText('Workplace Safety').length).toBeGreaterThan(0);
   });
 });

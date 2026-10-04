@@ -4,7 +4,6 @@ import React from 'react';
 import FaqsScreen from '@app/faqs';
 
 const mockGetFaqs = jest.fn();
-const mockGetFaqCategories = jest.fn();
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
@@ -12,7 +11,6 @@ jest.mock('expo-router', () => ({
 
 jest.mock('@/services/firebase/laws.service', () => ({
   getFaqs: (...args: unknown[]) => mockGetFaqs(...args),
-  getFaqCategories: (...args: unknown[]) => mockGetFaqCategories(...args),
 }));
 
 const FAQS = [
@@ -24,13 +22,20 @@ const FAQS = [
     order: 1,
     isPublished: true,
   },
+  {
+    id: 'faq_2',
+    question: 'How do I report cyberstalking?',
+    answer: 'File a complaint on cybercrime.gov.in.',
+    category: 'Digital Safety',
+    order: 2,
+    isPublished: true,
+  },
 ];
 
 describe('FaqsScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetFaqs.mockResolvedValue(FAQS);
-    mockGetFaqCategories.mockResolvedValue(['Emergency']);
   });
 
   it('renders questions with the answer collapsed by default', async () => {
@@ -43,5 +48,12 @@ describe('FaqsScreen', () => {
     const { getByText } = await render(<FaqsScreen />);
     await fireEvent.press(getByText('What is the Women Helpline number?'));
     expect(getByText('The national Women Helpline number is 1091.')).toBeTruthy();
+  });
+
+  it('finds questions by their category name (BUG-023)', async () => {
+    const { getByPlaceholderText, getByText, queryByText } = await render(<FaqsScreen />);
+    await fireEvent.changeText(getByPlaceholderText('Search'), 'Digital Safety');
+    expect(getByText('How do I report cyberstalking?')).toBeTruthy();
+    expect(queryByText('What is the Women Helpline number?')).toBeNull();
   });
 });

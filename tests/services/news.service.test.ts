@@ -1,6 +1,6 @@
 import { getDoc, getDocs, limit, orderBy } from '@react-native-firebase/firestore';
 
-import { getNews, getNewsById, getNewsCategories } from '@/services/firebase/news.service';
+import { getNews, getNewsById } from '@/services/firebase/news.service';
 import { readCache, writeCache } from '@/utils/cache.utils';
 
 jest.mock('@react-native-firebase/firestore', () => ({
@@ -58,13 +58,7 @@ describe('news.service', () => {
     warnSpy.mockRestore();
   });
 
-  it('getNews returns the cache when available', async () => {
-    jest.mocked(readCache).mockResolvedValueOnce([ARTICLE]);
-    await expect(getNews(30)).resolves.toEqual([ARTICLE]);
-  });
-
   it('getNews fetches newest-first with a limit and writes the cache', async () => {
-    jest.mocked(readCache).mockResolvedValueOnce(null);
     const { id: _id, ...rest } = ARTICLE;
     jest.mocked(getDocs).mockResolvedValueOnce(docsFrom([{ id: 'news_1', ...rest }]) as never);
 
@@ -74,25 +68,44 @@ describe('news.service', () => {
     expect(writeCache).toHaveBeenCalledWith('news', [ARTICLE]);
   });
 
-  it('getNewsById finds the article in the cached list first', async () => {
-    jest.mocked(readCache).mockResolvedValueOnce([ARTICLE]);
-    await expect(getNewsById('news_1')).resolves.toEqual(ARTICLE);
-    expect(getDoc).not.toHaveBeenCalled();
+  it('converts the Firestore Timestamp the admin writes into epoch millis', async () => {
+    const { id: _id, publishedAt, ...rest } = ARTICLE;
+    jest
+      .mocked(getDocs)
+      .mockResolvedValueOnce(
+        docsFrom([
+          { id: 'news_1', ...rest, publishedAt: { toMillis: () => publishedAt } },
+        ]) as never,
+      );
+
+    const [article] = await getNews(30);
+
+    expect(article?.publishedAt).toBe(publishedAt);
+    expect(Number.isNaN(new Date(article?.publishedAt ?? Number.NaN).getTime())).toBe(false);
   });
 
-  it('getNewsById falls back to Firestore and returns null when missing', async () => {
-    jest.mocked(readCache).mockResolvedValueOnce(null);
+  it('getNewsById reads Firestore first and converts the timestamp', async () => {
+    const { id: _id, publishedAt, ...rest } = ARTICLE;
+    jest
+      .mocked(getDoc)
+      .mockResolvedValueOnce(
+        snap({ ...rest, publishedAt: { seconds: publishedAt / 1000 } }) as never,
+      );
+
+    await expect(getNewsById('news_1')).resolves.toEqual(ARTICLE);
+    expect(readCache).not.toHaveBeenCalled();
+  });
+
+  it('getNewsById falls back to the cached list when Firestore fails', async () => {
+    jest.mocked(getDoc).mockRejectedValueOnce(new Error('offline'));
+    jest.mocked(readCache).mockResolvedValueOnce([ARTICLE]);
+
+    await expect(getNewsById('news_1')).resolves.toEqual(ARTICLE);
+  });
+
+  it('getNewsById returns null when missing', async () => {
     jest.mocked(getDoc).mockResolvedValueOnce(snap(undefined) as never);
     await expect(getNewsById('gone')).resolves.toBeNull();
-  });
-
-  it('getNewsCategories returns unique, sorted categories', async () => {
-    jest.mocked(readCache).mockResolvedValueOnce([
-      { ...ARTICLE, id: 'a', category: 'Safety News' },
-      { ...ARTICLE, id: 'b', category: 'App News' },
-      { ...ARTICLE, id: 'c', category: 'Safety News' },
-    ]);
-    await expect(getNewsCategories()).resolves.toEqual(['App News', 'Safety News']);
   });
 
   it.each([

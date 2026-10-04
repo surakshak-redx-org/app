@@ -108,7 +108,7 @@ const config: ExpoConfig = {
   // native build built before it existed — runtimeVersion's "appVersion"
   // policy keys compatibility off this exact string. Minor bump (not patch):
   // this is a feature phase, not a fix.
-  version: '1.2.0',
+  version: '1.3.0',
   orientation: 'portrait',
   scheme: `surakshak-${APP_ENV}`,
   userInterfaceStyle: 'automatic',
@@ -138,6 +138,8 @@ const config: ExpoConfig = {
       'android.permission.READ_PHONE_STATE',
       'android.permission.RECEIVE_BOOT_COMPLETED',
       'android.permission.VIBRATE',
+      // Proximity screen-off while a fake call is answered.
+      'android.permission.WAKE_LOCK',
       'android.permission.READ_CONTACTS',
     ],
   },
@@ -215,6 +217,9 @@ const config: ExpoConfig = {
     // ...and set $RNFirebaseAsStaticFramework = true, which those podspecs
     // require under use_frameworks! and the RNFirebase plugin doesn't expose.
     './plugins/withReactNativeFirebaseStaticFramework',
+    // Disguise Mode's "Calculator" launcher icon (Android aliases + iOS
+    // alternate icon) — see the plugin header.
+    './plugins/withDisguiseIcon',
     '@react-native-firebase/auth',
     [
       '@sentry/react-native/expo',
@@ -229,9 +234,6 @@ const config: ExpoConfig = {
       },
     ],
     ['onesignal-expo-plugin', { mode: APP_ENV === 'prod' ? 'production' : 'development' }],
-    // Local Expo module: direct SMS + call on Android (zero-tap emergency
-    // alerts); documented no-op stubs on iOS, which has no equivalent API.
-    './modules/surakshak-native',
   ],
   experiments: {
     typedRoutes: true,

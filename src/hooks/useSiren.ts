@@ -2,6 +2,7 @@ import { type AudioPlayer, createAudioPlayer, setAudioModeAsync } from 'expo-aud
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useCallback, useEffect, useRef } from 'react';
 
+import { KEEP_AWAKE_TAGS } from '@/constants/ui';
 import { trackSirenToggled } from '@/services/analytics.service';
 import { useSOSStore } from '@/stores/sos.store';
 import SIREN_SOURCE from '@assets/sounds/siren.wav';
@@ -45,10 +46,10 @@ export function useSiren(): UseSirenResult {
     if (isActive) {
       void setAudioModeAsync({ playsInSilentMode: true });
       player.play();
-      void activateKeepAwakeAsync();
+      void activateKeepAwakeAsync(KEEP_AWAKE_TAGS.SIREN);
     } else {
       player.pause();
-      void deactivateKeepAwake();
+      void deactivateKeepAwake(KEEP_AWAKE_TAGS.SIREN);
     }
   }, [isActive]);
 

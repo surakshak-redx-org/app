@@ -21,27 +21,22 @@ import { captureException } from '@/config/sentry';
 import { COLORS } from '@/constants/colors';
 import { APP_CONFIG, SAFE_JOURNEY_ETA_PRESETS_MINUTES } from '@/constants/config';
 import { ICON_SIZE, TIMING } from '@/constants/ui';
-import {
-  trackSafeJourneyAlertSent,
-  trackSafeJourneyArrived,
-  trackSafeJourneyStarted,
-} from '@/services/analytics.service';
+import { trackSafeJourneyArrived, trackSafeJourneyStarted } from '@/services/analytics.service';
 import {
   cancelSafeJourney,
   checkInSafeJourney,
   createSafeJourneySession,
   extendSafeJourneyEta,
   getActiveJourneySession,
-  markAlertSent,
   markSafeJourneyArrived,
 } from '@/services/firebase/safe-journey.service';
-import { getCurrentLocation } from '@/services/location.service';
-import { recordSMSAlert, sendSafeJourneyAlert } from '@/services/sms.service';
+import { getCurrentLocation, getLocationWithTimeout } from '@/services/location.service';
+import { recordSMSAlert, sendSafeJourneyStart } from '@/services/sms.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { useLocationStore } from '@/stores/location.store';
 import { useUserStore } from '@/stores/user.store';
 import type { PlaceLocation, SafeJourneySession } from '@/types/location.types';
-import { formatDuration, formatEta } from '@/utils/date.utils';
+import { formatClockTime, formatCountdown } from '@/utils/date.utils';
 import { getLocationUrl } from '@/utils/location.utils';
 
 interface JourneyFormValues {
@@ -51,6 +46,11 @@ interface JourneyFormValues {
 
 const DESTINATION_MIN = 2;
 const DESTINATION_MAX = 100;
+const MS_PER_MINUTE = 60_000;
+
+function isExpired(session: SafeJourneySession): boolean {
+  return session.expectedArrivalAt.toDate().getTime() <= Date.now();
+}
 
 export default function SafeJourneyScreen(): React.JSX.Element {
   const { t } = useTranslation();
@@ -68,6 +68,8 @@ export default function SafeJourneyScreen(): React.JSX.Element {
   );
 
   const setSafeJourneyActive = useLocationStore((state) => state.setSafeJourneyActive);
+  const isSafeJourneyActive = useLocationStore((state) => state.isSafeJourneyActive);
+  const bumpSafeJourneyRevision = useLocationStore((state) => state.bumpSafeJourneyRevision);
 
   const [activeSession, setActiveSession] = useState<SafeJourneySession | null>(null);
   const [selectedContactIds, setSelectedContactIds] = useState<string[]>([]);
@@ -77,7 +79,7 @@ export default function SafeJourneyScreen(): React.JSX.Element {
   const [biasCoords, setBiasCoords] = useState<{ latitude: number; longitude: number } | undefined>(
     undefined,
   );
-  const alertFiredRef = useRef(false);
+  const expiryReportedRef = useRef(false);
 
   // One-shot current location, only to bias the destination autocomplete.
   useEffect(() => {
@@ -109,7 +111,7 @@ export default function SafeJourneyScreen(): React.JSX.Element {
     control,
     handleSubmit,
     setValue,
-    formState: { isValid },
+    formState: { isValid, errors },
   } = useForm<JourneyFormValues>({
     resolver: zodResolver(schema),
     mode: 'onChange',
@@ -117,6 +119,7 @@ export default function SafeJourneyScreen(): React.JSX.Element {
   });
 
   const etaMinutes = useWatch({ control, name: 'etaMinutes' });
+  const destination = useWatch({ control, name: 'destination' });
 
   const toggleContact = useCallback((id: string): void => {
     setSelectedContactIds((current) =>
@@ -124,15 +127,23 @@ export default function SafeJourneyScreen(): React.JSX.Element {
     );
   }, []);
 
+  // An already-overdue journey is the app-wide monitor's to resolve (alert or
+  // quietly expire) — showing it here at 0:00 is what let a stale session
+  // fire the overdue SMS the moment the screen opened (BUG-028).
   const applySession = useCallback(
     (session: SafeJourneySession | null): void => {
+      if (session !== null && isExpired(session)) {
+        setActiveSession(null);
+        bumpSafeJourneyRevision();
+        return;
+      }
       setActiveSession(session);
       if (session !== null) {
         setSafeJourneyActive(true, session.id);
-        alertFiredRef.current = false;
+        expiryReportedRef.current = false;
       }
     },
-    [setSafeJourneyActive],
+    [setSafeJourneyActive, bumpSafeJourneyRevision],
   );
 
   const refreshActiveSession = useCallback(async (): Promise<void> => {
@@ -158,37 +169,6 @@ export default function SafeJourneyScreen(): React.JSX.Element {
     [emergencyContacts],
   );
 
-  const sendMissedAlert = useCallback(
-    async (session: SafeJourneySession): Promise<void> => {
-      await markAlertSent(session.id);
-      let locationUrl = getLocationUrl(session.destinationLatitude, session.destinationLongitude);
-      try {
-        const fix = await getCurrentLocation();
-        locationUrl = getLocationUrl(fix.latitude, fix.longitude);
-      } catch (locationError) {
-        console.warn('safe-journey: location unavailable for alert:', locationError);
-      }
-      const name = surakshakUser?.name ?? 'User';
-      const language = surakshakUser?.language ?? 'en';
-      const result = await sendSafeJourneyAlert(
-        contactsFor(session.sharedWithUserIds),
-        locationUrl,
-        name,
-        session.destinationName,
-        formatEta(session.etaMinutes, session.startedAt.toDate()),
-        language,
-      );
-      await recordSMSAlert({
-        type: 'safe_journey',
-        locationUrl,
-        contactsSent: result.sent,
-        contactsFailed: result.failed,
-      });
-      trackSafeJourneyAlertSent();
-    },
-    [surakshakUser, contactsFor],
-  );
-
   // Per-second countdown tick for the active journey.
   useEffect(() => {
     if (activeSession === null) return;
@@ -201,25 +181,27 @@ export default function SafeJourneyScreen(): React.JSX.Element {
       ? 0
       : Math.max(0, Math.floor((activeSession.expectedArrivalAt.toDate().getTime() - now) / 1000));
 
-  // Fire the missed-arrival alert exactly once when the countdown hits zero.
+  // At zero, hand over to the app-wide monitor (useSafeJourneyMonitor), which
+  // owns the overdue alert whether or not this screen is open.
   useEffect(() => {
-    if (activeSession === null || activeSession.status !== 'active' || secondsLeft > 0) return;
-    if (alertFiredRef.current) return;
-    alertFiredRef.current = true;
-    void sendMissedAlert(activeSession)
-      .then(() => {
-        setSafeJourneyActive(false);
-        setActiveSession(null);
-      })
-      .catch((error: unknown) => captureException(error));
-  }, [activeSession, secondsLeft, sendMissedAlert, setSafeJourneyActive]);
+    if (activeSession === null || secondsLeft > 0 || expiryReportedRef.current) return;
+    expiryReportedRef.current = true;
+    bumpSafeJourneyRevision();
+  }, [activeSession, secondsLeft, bumpSafeJourneyRevision]);
+
+  // The monitor clears the store once it has resolved an overdue journey.
+  useEffect(() => {
+    if (isSafeJourneyActive || activeSession === null || secondsLeft > 0) return;
+    const timer = setTimeout(() => setActiveSession(null), 0);
+    return (): void => clearTimeout(timer);
+  }, [isSafeJourneyActive, activeSession, secondsLeft]);
 
   const handleStart = useCallback(
     async (values: JourneyFormValues): Promise<void> => {
       if (userId === null) return;
       try {
         setIsLoading(true);
-        const fix = await getCurrentLocation();
+        const fix = await getLocationWithTimeout();
         // Prefer the picked place's coordinates; fall back to the current
         // position when the user typed a destination without picking one.
         const destLat = destinationCoords?.latitude ?? fix.latitude;
@@ -234,15 +216,17 @@ export default function SafeJourneyScreen(): React.JSX.Element {
         );
         setSafeJourneyActive(true, sessionId);
 
+        // A "journey started" note — the overdue warning is only ever sent
+        // by the monitor once the deadline passes (BUG-028).
         const locationUrl = getLocationUrl(fix.latitude, fix.longitude);
         const name = surakshakUser?.name ?? 'User';
         const language = surakshakUser?.language ?? 'en';
-        const result = await sendSafeJourneyAlert(
+        const result = await sendSafeJourneyStart(
           contactsFor(selectedContactIds),
           locationUrl,
           name,
           values.destination.trim(),
-          formatEta(values.etaMinutes),
+          formatClockTime(new Date(Date.now() + values.etaMinutes * MS_PER_MINUTE)),
           language,
         );
         await recordSMSAlert({
@@ -252,7 +236,14 @@ export default function SafeJourneyScreen(): React.JSX.Element {
           contactsFailed: result.failed,
         });
         trackSafeJourneyStarted(values.etaMinutes, selectedContactIds.length);
+        if (result.failed.length > 0) {
+          Alert.alert(
+            t('location.journeyStartSmsFailedTitle'),
+            t('location.journeyStartSmsFailedBody', { count: result.failed.length }),
+          );
+        }
         await refreshActiveSession();
+        bumpSafeJourneyRevision();
       } catch (error) {
         captureException(error);
         Alert.alert(t('errors.generic'));
@@ -267,6 +258,7 @@ export default function SafeJourneyScreen(): React.JSX.Element {
       contactsFor,
       setSafeJourneyActive,
       refreshActiveSession,
+      bumpSafeJourneyRevision,
       destinationCoords,
       t,
     ],
@@ -276,11 +268,12 @@ export default function SafeJourneyScreen(): React.JSX.Element {
     if (activeSession === null) return;
     checkInSafeJourney(activeSession.id)
       .then(() => refreshActiveSession())
+      .then(() => bumpSafeJourneyRevision())
       .catch((error: unknown) => {
         captureException(error);
         Alert.alert(t('errors.generic'));
       });
-  }, [activeSession, refreshActiveSession, t]);
+  }, [activeSession, refreshActiveSession, bumpSafeJourneyRevision, t]);
 
   const handleArrived = useCallback((): void => {
     if (activeSession === null) return;
@@ -293,6 +286,7 @@ export default function SafeJourneyScreen(): React.JSX.Element {
             .then(() => {
               setSafeJourneyActive(false);
               setActiveSession(null);
+              bumpSafeJourneyRevision();
               trackSafeJourneyArrived();
               router.back();
             })
@@ -303,19 +297,20 @@ export default function SafeJourneyScreen(): React.JSX.Element {
         },
       },
     ]);
-  }, [activeSession, setSafeJourneyActive, router, t]);
+  }, [activeSession, setSafeJourneyActive, bumpSafeJourneyRevision, router, t]);
 
   const handleExtend = useCallback(
     (minutes: number): void => {
       if (activeSession === null) return;
       extendSafeJourneyEta(activeSession.id, minutes)
         .then(() => refreshActiveSession())
+        .then(() => bumpSafeJourneyRevision())
         .catch((error: unknown) => {
           captureException(error);
           Alert.alert(t('errors.generic'));
         });
     },
-    [activeSession, refreshActiveSession, t],
+    [activeSession, refreshActiveSession, bumpSafeJourneyRevision, t],
   );
 
   const handleCancel = useCallback((): void => {
@@ -330,6 +325,7 @@ export default function SafeJourneyScreen(): React.JSX.Element {
             .then(() => {
               setSafeJourneyActive(false);
               setActiveSession(null);
+              bumpSafeJourneyRevision();
             })
             .catch((error: unknown) => {
               captureException(error);
@@ -338,7 +334,10 @@ export default function SafeJourneyScreen(): React.JSX.Element {
         },
       },
     ]);
-  }, [activeSession, setSafeJourneyActive, t]);
+  }, [activeSession, setSafeJourneyActive, bumpSafeJourneyRevision, t]);
+
+  const isFreeTextDestination =
+    destinationCoords === null && destination.trim().length >= DESTINATION_MIN;
 
   return (
     <ErrorBoundary>
@@ -363,7 +362,7 @@ export default function SafeJourneyScreen(): React.JSX.Element {
                 {t('location.arrivalTime')}
               </Text>
               <Text variant="label">
-                {formatEta(activeSession.etaMinutes, activeSession.startedAt.toDate())}
+                {formatClockTime(activeSession.expectedArrivalAt.toDate())}
               </Text>
 
               <Text
@@ -374,8 +373,9 @@ export default function SafeJourneyScreen(): React.JSX.Element {
                     : 'mt-3'
                 }
               >
-                {formatDuration(Math.ceil(secondsLeft / 60))}
+                {formatCountdown(secondsLeft)}
               </Text>
+              <Text variant="caption" tKey="location.timeLeftCaption" className="text-stone" />
             </Card>
 
             <Button
@@ -385,6 +385,11 @@ export default function SafeJourneyScreen(): React.JSX.Element {
               className="mt-5"
               label={t('location.imSafe')}
               onPress={handleCheckIn}
+            />
+            <Text
+              variant="caption"
+              tKey="location.imSafeHint"
+              className="mt-2 text-center text-stone"
             />
             <Button
               variant="secondary"
@@ -442,6 +447,13 @@ export default function SafeJourneyScreen(): React.JSX.Element {
                   />
                 )}
               />
+              {isFreeTextDestination && (
+                <Text
+                  variant="caption"
+                  tKey="location.destinationNotPicked"
+                  className="mt-1 text-saffron"
+                />
+              )}
             </View>
 
             <Text variant="label" tKey="location.etaMinutes" className="mb-2" />
@@ -468,6 +480,17 @@ export default function SafeJourneyScreen(): React.JSX.Element {
               }
               className="mt-3"
             />
+            {errors.etaMinutes !== undefined && (
+              <Text
+                variant="caption"
+                tKey="location.etaInvalid"
+                tOptions={{
+                  min: APP_CONFIG.SAFE_JOURNEY_ETA_MIN_MINUTES,
+                  max: APP_CONFIG.SAFE_JOURNEY_ETA_MAX_MINUTES,
+                }}
+                className="mt-1 text-error-red"
+              />
+            )}
 
             <Text variant="label" tKey="location.selectContacts" className="mb-2 mt-2" />
             <ContactMultiSelect

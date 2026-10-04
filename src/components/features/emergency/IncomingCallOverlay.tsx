@@ -3,8 +3,10 @@ import { type AudioPlayer, createAudioPlayer, setAudioModeAsync } from 'expo-aud
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal, Pressable, Vibration, View } from 'react-native';
+import { setProximityScreenOff } from 'surakshak-native';
 
 import { Text } from '@/components/ui/Text';
+import { captureException } from '@/config/sentry';
 import { COLORS } from '@/constants/colors';
 import { TIMING } from '@/constants/ui';
 import RINGTONE_SOURCE from '@assets/sounds/ringtone.wav';
@@ -83,6 +85,17 @@ export function IncomingCallOverlay({
       if (intervalRef.current !== null) clearInterval(intervalRef.current);
     };
   }, [answered]);
+
+  // Like a real call, the screen goes dark against the ear once answered —
+  // a fake call that stays lit was a giveaway (BUG-005).
+  const inCall = visible && answered;
+  useEffect(() => {
+    if (!inCall) return;
+    setProximityScreenOff(true).catch((error: unknown) => captureException(error));
+    return (): void => {
+      setProximityScreenOff(false).catch((error: unknown) => captureException(error));
+    };
+  }, [inCall]);
 
   function handleAnswer(): void {
     setAnswered(true);

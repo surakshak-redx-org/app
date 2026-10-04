@@ -17,14 +17,19 @@ import { formatTimestamp } from '@/utils/date.utils';
 export interface PostCardProps {
   post: CommunityPost;
   isGuest: boolean;
+  /** Shows a delete control instead of report on the viewer's own posts. */
+  isOwn?: boolean;
   onReport: (postId: string) => void;
+  onDelete?: (post: CommunityPost) => void;
   onOpenImage: (imageUrl: string) => void;
 }
 
 export function PostCard({
   post,
   isGuest,
+  isOwn = false,
   onReport,
+  onDelete,
   onOpenImage,
 }: PostCardProps): React.JSX.Element {
   const { t } = useTranslation();
@@ -48,10 +53,21 @@ export function PostCard({
           <Text variant="label">
             {post.isAnonymous ? t('community.anonymousUser') : post.authorName}
           </Text>
-          <Text variant="caption">{formatTimestamp(post.createdAt.toDate())}</Text>
+          <Text variant="caption">{formatTimestamp(post.createdAt?.toDate?.() ?? new Date())}</Text>
         </View>
 
-        {!isGuest && (
+        {isOwn && onDelete !== undefined && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('community.deletePost')}
+            hitSlop={DANGER_ROW_HITSLOP}
+            onPress={() => onDelete(post)}
+          >
+            <MaterialIcons name="delete-outline" size={ICON_SIZE.ROW} color={COLORS.STONE} />
+          </Pressable>
+        )}
+
+        {!isGuest && !isOwn && (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('community.report')}

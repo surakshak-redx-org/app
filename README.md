@@ -4,13 +4,14 @@
 
 A women's safety app for India. Expo SDK 57, TypeScript, Firebase.
 
-|                      |                                                                |
-| -------------------- | -------------------------------------------------------------- |
-| Setup                | [docs/SETUP.md](docs/SETUP.md) — zero to running in 15 minutes |
-| Contributing         | [CONTRIBUTING.md](CONTRIBUTING.md) — read before your first PR |
-| Working with Claude  | [docs/SKILL.md](docs/SKILL.md)                                 |
-| Architecture & rules | [CLAUDE.md](CLAUDE.md) — the single source of truth            |
-| Security checklist   | [docs/SECURITY_CHECKLIST.md](docs/SECURITY_CHECKLIST.md)       |
+|                      |                                                                                      |
+| -------------------- | ------------------------------------------------------------------------------------ |
+| Android Setup (Win)  | [docs/ANDROID_SETUP.md](docs/ANDROID_SETUP.md) — Windows & Android development guide |
+| Setup                | [docs/SETUP.md](docs/SETUP.md) — general setup guide                                 |
+| Contributing         | [CONTRIBUTING.md](CONTRIBUTING.md) — read before your first PR                       |
+| Working with Claude  | [docs/SKILL.md](docs/SKILL.md)                                                       |
+| Architecture & rules | [CLAUDE.md](CLAUDE.md) — the single source of truth                                  |
+| Security checklist   | [docs/SECURITY_CHECKLIST.md](docs/SECURITY_CHECKLIST.md)                             |
 
 ## Features
 
@@ -104,18 +105,22 @@ surakshak-redx-org/
 ## Getting started
 
 ```bash
-corepack enable      # this project uses Yarn 4, never npm
+corepack enable                 # this project uses Yarn 4, never npm
 yarn install
-cp .env.example .env.local   # then fill it in — see docs/SETUP.md
-yarn start
+cp .env.example .env.local      # then fill it in — see docs/ANDROID_SETUP.md
+yarn setup:check                # validate your environment, Android SDK & keys
+yarn android                    # build & install dev app on your Android device (first time)
+yarn start:dev                  # daily Fast Refresh development server
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/SETUP.md](docs/SETUP.md) for
-the full picture, including Firebase config files and Maestro setup.
+For a comprehensive Windows & Android setup guide, see [docs/ANDROID_SETUP.md](docs/ANDROID_SETUP.md). For general setup and iOS, see [docs/SETUP.md](docs/SETUP.md).
 
 ## Scripts
 
 ```bash
+yarn setup:check                  # validate Node, Java, Android SDK, adb, and .env
+yarn android                      # build and run the Android development build
+yarn start:dev                    # start Metro for the Expo development client
 yarn check                        # typecheck + lint + prettier + eslint-disable guard + tests
 yarn test --ci --coverage         # tests with a coverage report
 yarn validate:translations        # verify hi/mr key parity against en
