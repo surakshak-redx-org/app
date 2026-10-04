@@ -38,6 +38,7 @@ A step-by-step setup guide for new developers on **Windows** to set up, build, a
 | **Android SDK Platform** | **Android 15 (API 35)** & **Android 16 (API 36)** | `compileSdk 36`, `targetSdk 36`, `minSdk 24`                   |
 | **Android Build-Tools**  | **36.0.0**                                        | Used by Expo SDK 57 root project                               |
 | **Android NDK**          | **27.1.12297006**                                 | Required for C++ native dependencies                           |
+| **CMake**                | **3.30.5** (or 3.22.1+)                           | Required by React Native 0.86+ C++ toolchain                   |
 | **Android Device**       | Physical Android phone (Android 7.0+ / API 24+)   | With USB Cable & USB Debugging enabled                         |
 
 ---
@@ -82,7 +83,7 @@ A step-by-step setup guide for new developers on **Windows** to set up, build, a
      - Check **NDK (Side by side)** → select **27.1.12297006**
      - Check **Android SDK Command-line Tools (latest)**
      - Check **Android SDK Platform-Tools**
-     - Check **CMake 3.22.1**
+     - Check **CMake** → select **3.30.5** (check "Show Package Details" to select version 3.30.5; keep 3.22.1 as fallback)
 3. Click **Apply** to download and install.
 
 ---
@@ -252,6 +253,10 @@ You **do NOT** need to run `yarn android` every time you write code!
 Once the **Surakshak-dev** app is installed on your phone:
 
 1. Connect your phone via USB (or ensure phone and PC are on the same Wi-Fi network).
+   - If connected via USB, reverse the Metro port so the device routes directly to your PC:
+     ```powershell
+     adb reverse tcp:8081 tcp:8081
+     ```
 2. Start the Metro development server:
    ```powershell
    yarn start:dev

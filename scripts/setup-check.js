@@ -181,6 +181,25 @@ if (androidHome && fs.existsSync(androidHome)) {
     }
   }
 
+  // Check CMake
+  const cmakeDir = path.join(androidHome, 'cmake');
+  if (fs.existsSync(cmakeDir)) {
+    const cmakeVersions = fs.readdirSync(cmakeDir);
+    if (cmakeVersions.some((v) => v.startsWith('3.30') || v.startsWith('3.22'))) {
+      pass('CMake', cmakeVersions.join(', '));
+    } else {
+      warn(
+        `Installed CMake: ${cmakeVersions.join(', ') || 'none'}`,
+        'Install CMake 3.30.5 via Android Studio SDK Manager (SDK Tools → Show Package Details → CMake).',
+      );
+    }
+  } else {
+    warn(
+      'CMake not detected in Android SDK',
+      'Install CMake 3.30.5 via Android Studio SDK Manager (SDK Tools → Show Package Details → CMake).',
+    );
+  }
+
   if (!process.env.ANDROID_HOME) {
     warn(
       'ANDROID_HOME environment variable is not explicitly set',
