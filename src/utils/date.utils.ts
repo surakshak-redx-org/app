@@ -29,8 +29,38 @@ export function formatClockTime(date: Date): string {
   return `${hours12}:${pad(date.getMinutes())} ${suffix}`;
 }
 
+const MS_PER_SECOND = 1000;
+
+/**
+ * Epoch millis from whatever a date field arrived as: a Firestore Timestamp,
+ * its JSON form (`{ seconds }`), a number, an ISO string or a `Date`.
+ * `null` when it can't be read.
+ */
+export function toMillis(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string') {
+    const parsed = Date.parse(value);
+    return Number.isNaN(parsed) ? null : parsed;
+  }
+  if (value instanceof Date) {
+    const time = value.getTime();
+    return Number.isNaN(time) ? null : time;
+  }
+  if (typeof value === 'object' && value !== null) {
+    if ('toMillis' in value && typeof value.toMillis === 'function') {
+      const millis = (value as { toMillis: () => unknown }).toMillis();
+      return typeof millis === 'number' ? millis : null;
+    }
+    if ('seconds' in value && typeof value.seconds === 'number') {
+      return value.seconds * MS_PER_SECOND;
+    }
+  }
+  return null;
+}
+
 /** Relative for anything under a day, absolute date beyond that. */
 export function formatTimestamp(date: Date, now: Date = new Date()): string {
+  if (Number.isNaN(date.getTime())) return '';
   const diffMinutes = Math.floor((now.getTime() - date.getTime()) / MS_PER_MINUTE);
 
   if (diffMinutes < 1) return 'just now';

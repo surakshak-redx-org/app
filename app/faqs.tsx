@@ -1,7 +1,7 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FlatList, Pressable, TextInput, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, TextInput, View } from 'react-native';
 
 import { CategoryFilter, OfflineBanner } from '@/components/features/info/InfoFilters';
 import { Card } from '@/components/ui/Card';
@@ -14,22 +14,30 @@ import { Text } from '@/components/ui/Text';
 import { COLORS } from '@/constants/colors';
 import { ALL_CATEGORIES } from '@/constants/config';
 import { FLATLIST_PERF_PROPS } from '@/constants/ui';
-import { useInfoContent } from '@/hooks/useInfoContent';
+import { byCategory, useInfoContent } from '@/hooks/useInfoContent';
 import { trackFaqViewed } from '@/services/analytics.service';
-import { getFaqCategories, getFaqs, type Faq } from '@/services/firebase/laws.service';
+import { getFaqs, type Faq } from '@/services/firebase/laws.service';
 import { CACHE_KEYS } from '@/utils/cache.utils';
+import { matchesSearch } from '@/utils/search.utils';
 
 function matchesQuery(faq: Faq, query: string): boolean {
-  if (query === '') return true;
-  const needle = query.toLowerCase();
-  return faq.question.toLowerCase().includes(needle) || faq.answer.toLowerCase().includes(needle);
+  return matchesSearch(query, [faq.question, faq.answer, faq.category]);
 }
 
 export default function FaqsScreen(): React.JSX.Element {
   const { t } = useTranslation();
 
-  const { items, categories, isLoading, hasError, isOffline, lastSyncDate, reload } =
-    useInfoContent<Faq>(getFaqs, getFaqCategories, CACHE_KEYS.FAQS);
+  const {
+    items,
+    categories,
+    isLoading,
+    isRefreshing,
+    hasError,
+    isOffline,
+    lastSyncDate,
+    reload,
+    refresh,
+  } = useInfoContent<Faq>(getFaqs, byCategory, CACHE_KEYS.FAQS);
 
   const [selectedCategory, setSelectedCategory] = useState<string>(ALL_CATEGORIES);
   const [searchQuery, setSearchQuery] = useState('');
@@ -107,6 +115,7 @@ export default function FaqsScreen(): React.JSX.Element {
           className="flex-1"
           contentContainerClassName="pb-8"
           {...FLATLIST_PERF_PROPS}
+          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={refresh} />}
           renderItem={({ item }) => {
             const expanded = expandedId === item.id;
             return (

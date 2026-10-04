@@ -4,8 +4,7 @@ import React from 'react';
 import NewsScreen from '@app/news';
 
 const mockGetNews = jest.fn();
-const mockGetNewsCategories = jest.fn();
-const mockClearCache = jest.fn((..._args: unknown[]) => Promise.resolve());
+const mockReadCache = jest.fn((..._args: unknown[]): Promise<unknown> => Promise.resolve(null));
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
@@ -13,12 +12,11 @@ jest.mock('expo-router', () => ({
 
 jest.mock('@/services/firebase/news.service', () => ({
   getNews: (...args: unknown[]) => mockGetNews(...args),
-  getNewsCategories: (...args: unknown[]) => mockGetNewsCategories(...args),
 }));
 
 jest.mock('@/utils/cache.utils', () => ({
   CACHE_KEYS: { LAWS: 'laws', FAQS: 'faqs', TIPS: 'tips', NEWS: 'news' },
-  clearCache: (...args: unknown[]) => mockClearCache(...args),
+  readCache: (...args: unknown[]) => mockReadCache(...args),
   getCacheTimestamp: jest.fn(() => Promise.resolve(null)),
 }));
 
@@ -39,7 +37,6 @@ describe('NewsScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetNews.mockResolvedValue(NEWS);
-    mockGetNewsCategories.mockResolvedValue(['App News']);
   });
 
   it('renders the news list', async () => {
@@ -47,7 +44,28 @@ describe('NewsScreen', () => {
     expect(getByText('Surakshak App Launches for Women Safety')).toBeTruthy();
   });
 
-  it('clears the cache and refetches on pull-to-refresh', async () => {
+  it('shows a readable date rather than "NaN NaN"', async () => {
+    const { queryByText } = await render(<NewsScreen />);
+    expect(queryByText(/NaN/)).toBeNull();
+  });
+
+  it('paints the cached copy, then replaces it with the fresh one', async () => {
+    mockReadCache.mockResolvedValueOnce([{ ...NEWS[0], title: 'Old headline' }]);
+    const { findByText, queryByText } = await render(<NewsScreen />);
+
+    expect(await findByText('Surakshak App Launches for Women Safety')).toBeTruthy();
+    expect(queryByText('Old headline')).toBeNull();
+  });
+
+  it('keeps the cached copy and flags offline when the network fails', async () => {
+    mockReadCache.mockResolvedValueOnce(NEWS);
+    mockGetNews.mockRejectedValueOnce(new Error('offline'));
+    const { findByText } = await render(<NewsScreen />);
+
+    expect(await findByText('Surakshak App Launches for Women Safety')).toBeTruthy();
+  });
+
+  it('refetches on pull-to-refresh', async () => {
     const { getByTestId } = await render(<NewsScreen />);
     expect(mockGetNews).toHaveBeenCalledTimes(1);
 
@@ -57,7 +75,6 @@ describe('NewsScreen', () => {
       await Promise.resolve();
     });
 
-    expect(mockClearCache).toHaveBeenCalledWith('news');
     expect(mockGetNews).toHaveBeenCalledTimes(2);
   });
 });

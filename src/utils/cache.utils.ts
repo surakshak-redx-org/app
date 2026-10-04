@@ -13,7 +13,9 @@ import { APP_CONFIG } from '@/constants/config';
  */
 
 const CACHE_DIR_NAME = 'surakshak';
-const CACHE_VERSION = 1;
+// v2: news `publishedAt` is stored as epoch millis (v1 held serialised
+// Firestore Timestamps, which rendered as "NaN NaN").
+const CACHE_VERSION = 2;
 const MS_PER_HOUR = 3_600_000;
 
 interface CacheEntry<T> {
@@ -49,8 +51,13 @@ function ensureCacheDir(): void {
   }
 }
 
+export interface ReadCacheOptions {
+  /** Return an expired entry too — for an offline fallback, old beats nothing. */
+  allowStale?: boolean;
+}
+
 /** Reads a cache entry, or `null` when missing, corrupt, stale, or outdated. */
-export async function readCache<T>(key: string): Promise<T | null> {
+export async function readCache<T>(key: string, options: ReadCacheOptions = {}): Promise<T | null> {
   try {
     ensureCacheDir();
     const file = cacheFile(key);
@@ -60,7 +67,7 @@ export async function readCache<T>(key: string): Promise<T | null> {
     if (entry.version !== CACHE_VERSION) return null;
 
     const ageHours = (Date.now() - entry.cachedAt) / MS_PER_HOUR;
-    if (ageHours > APP_CONFIG.CACHE_EXPIRY_HOURS) return null;
+    if (ageHours > APP_CONFIG.CACHE_EXPIRY_HOURS && options.allowStale !== true) return null;
 
     return entry.data;
   } catch {
