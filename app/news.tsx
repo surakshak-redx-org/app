@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FlatList, Pressable, RefreshControl, View } from 'react-native';
 
@@ -12,13 +12,12 @@ import { SafeScreen } from '@/components/ui/SafeScreen';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { Spinner } from '@/components/ui/Spinner';
 import { Text } from '@/components/ui/Text';
-import { captureException } from '@/config/sentry';
 import { ALL_CATEGORIES, APP_CONFIG } from '@/constants/config';
 import { ROUTES } from '@/constants/routes';
 import { FLATLIST_PERF_PROPS } from '@/constants/ui';
-import { useInfoContent } from '@/hooks/useInfoContent';
-import { getNews, getNewsCategories, type NewsArticle } from '@/services/firebase/news.service';
-import { CACHE_KEYS, clearCache, getCacheTimestamp } from '@/utils/cache.utils';
+import { byCategory, useInfoContent } from '@/hooks/useInfoContent';
+import { getNews, type NewsArticle } from '@/services/firebase/news.service';
+import { CACHE_KEYS } from '@/utils/cache.utils';
 import { formatTimestamp } from '@/utils/date.utils';
 
 function fetchNewsList(): Promise<NewsArticle[]> {
@@ -37,13 +36,11 @@ export default function NewsScreen(): React.JSX.Element {
     isOffline,
     lastSyncDate,
     reload,
-    setItems,
-    setLastSyncDate,
-    setIsOffline,
-  } = useInfoContent<NewsArticle>(fetchNewsList, getNewsCategories, CACHE_KEYS.NEWS);
+    refresh,
+    isRefreshing,
+  } = useInfoContent<NewsArticle>(fetchNewsList, byCategory, CACHE_KEYS.NEWS);
 
   const [selectedCategory, setSelectedCategory] = useState<string>(ALL_CATEGORIES);
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const filtered = useMemo(
     () =>
@@ -52,22 +49,6 @@ export default function NewsScreen(): React.JSX.Element {
       ),
     [items, selectedCategory],
   );
-
-  const onRefresh = useCallback((): void => {
-    setIsRefreshing(true);
-    void clearCache(CACHE_KEYS.NEWS)
-      .then(() => fetchNewsList())
-      .then(async (fresh) => {
-        setItems(fresh);
-        setLastSyncDate(await getCacheTimestamp(CACHE_KEYS.NEWS));
-        setIsOffline(false);
-      })
-      .catch((error: unknown) => {
-        captureException(error);
-        setIsOffline(true);
-      })
-      .finally(() => setIsRefreshing(false));
-  }, [setItems, setLastSyncDate, setIsOffline]);
 
   if (isLoading) {
     return (
@@ -116,7 +97,7 @@ export default function NewsScreen(): React.JSX.Element {
           className="flex-1"
           contentContainerClassName="pb-8"
           {...FLATLIST_PERF_PROPS}
-          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
+          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={refresh} />}
           renderItem={({ item }) => (
             <Pressable onPress={() => router.push(`${ROUTES.NEWS}/${item.id}`)}>
               <View className="mb-3 overflow-hidden rounded-2xl bg-white shadow-sm">

@@ -19,6 +19,8 @@ export const ICON_SIZE = {
   BRAND: 80,
   /** Small dismiss/close glyph on an inline banner or chip. */
   DISMISS: 14,
+  /** Glyph inside a small corner badge on a card. */
+  BADGE: 12,
 } as const;
 
 export const TIMING = {
@@ -39,4 +41,13 @@ export const FLATLIST_PERF_PROPS = {
   maxToRenderPerBatch: 5,
   initialNumToRender: 8,
   removeClippedSubviews: true,
+} as const;
+
+/**
+ * Separate expo-keep-awake tags per feature: with the shared default tag,
+ * stopping one (e.g. the siren) released the other's wake lock too.
+ */
+export const KEEP_AWAKE_TAGS = {
+  SIREN: 'surakshak-siren',
+  RECORDING: 'surakshak-recording',
 } as const;

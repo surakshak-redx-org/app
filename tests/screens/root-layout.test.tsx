@@ -1,9 +1,13 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getDoc, getDocs } from '@react-native-firebase/firestore';
 import { act, render } from '@testing-library/react-native';
 import React from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
 
 import { ROUTES } from '@/constants/routes';
+import { STORAGE_FLAG_ON, STORAGE_KEYS } from '@/constants/storage';
 import { useAuthStore } from '@/stores/auth.store';
+import { useDisguiseStore } from '@/stores/disguise.store';
 import { useUserStore } from '@/stores/user.store';
 import RootLayout from '@app/_layout';
 
@@ -20,10 +24,13 @@ jest.mock('react-native-gesture-handler', () => {
 const mockReplace = jest.fn();
 const mockSubscribe = jest.fn();
 let mockSegments: string[] = [];
+// Stable, like expo-router's own: a fresh object per render would re-run
+// every effect that depends on `router`.
+const mockRouter = { replace: mockReplace, push: jest.fn(), back: jest.fn() };
 
 jest.mock('expo-router', () => ({
   Stack: (): null => null,
-  useRouter: () => ({ replace: mockReplace, push: jest.fn(), back: jest.fn() }),
+  useRouter: () => mockRouter,
   useSegments: () => mockSegments,
 }));
 
@@ -165,5 +172,75 @@ describe('RootLayout auth listener', () => {
     await render(<RootLayout />);
 
     expect(mockReplace).toHaveBeenCalledWith(ROUTES.HOME);
+  });
+});
+
+describe('RootLayout disguise gate', () => {
+  let appStateListener: ((state: AppStateStatus) => void) | undefined;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    useAuthStore.getState().reset();
+    useDisguiseStore.setState({ isEnabled: null, isUnlockedThisSession: false });
+    mockSegments = ['(tabs)'];
+    jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, listener) => {
+      appStateListener = listener;
+      return { remove: jest.fn() };
+    });
+    jest
+      .mocked(AsyncStorage.getItem)
+      .mockImplementation((key: string) =>
+        Promise.resolve(key === STORAGE_KEYS.DISGUISE_ENABLED ? STORAGE_FLAG_ON : null),
+      );
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.mocked(AsyncStorage.getItem).mockImplementation(() => Promise.resolve(null));
+  });
+
+  async function signIn(): Promise<void> {
+    await render(<RootLayout />);
+    await emitAuth(null);
+  }
+
+  it('loads the flag before routing and opens the calculator', async () => {
+    useAuthStore.getState().setGuest(true);
+    await signIn();
+
+    expect(useDisguiseStore.getState().isEnabled).toBe(true);
+    expect(mockReplace).toHaveBeenCalledWith(ROUTES.CALCULATOR);
+  });
+
+  it('asks for the PIN again after a long enough trip to the background', async () => {
+    useAuthStore.getState().setGuest(true);
+    useDisguiseStore.setState({ isUnlockedThisSession: true });
+    await signIn();
+    mockReplace.mockClear();
+    const now = Date.now();
+    const nowSpy = jest.spyOn(Date, 'now');
+
+    nowSpy.mockReturnValue(now);
+    await act(() => appStateListener?.('background'));
+    nowSpy.mockReturnValue(now + 31_000);
+    await act(() => appStateListener?.('active'));
+
+    expect(useDisguiseStore.getState().isUnlockedThisSession).toBe(false);
+    expect(mockReplace).toHaveBeenCalledWith(ROUTES.CALCULATOR);
+  });
+
+  it('stays unlocked after a brief trip out (picker, SMS sheet)', async () => {
+    useAuthStore.getState().setGuest(true);
+    useDisguiseStore.setState({ isUnlockedThisSession: true });
+    await signIn();
+    const now = Date.now();
+    const nowSpy = jest.spyOn(Date, 'now');
+
+    nowSpy.mockReturnValue(now);
+    await act(() => appStateListener?.('background'));
+    nowSpy.mockReturnValue(now + 5_000);
+    await act(() => appStateListener?.('active'));
+
+    expect(useDisguiseStore.getState().isUnlockedThisSession).toBe(true);
   });
 });

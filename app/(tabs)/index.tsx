@@ -31,6 +31,7 @@ import { useSuspiciousFollow } from '@/hooks/useSuspiciousFollow';
 import { trackEmergencyCallPlaced } from '@/services/analytics.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { useLocationStore } from '@/stores/location.store';
+import { useSOSStore } from '@/stores/sos.store';
 import { useUserStore } from '@/stores/user.store';
 import { formatEta } from '@/utils/date.utils';
 import { placeCall } from '@/utils/phone.utils';
@@ -41,7 +42,9 @@ export default function HomeScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const router = useRouter();
 
-  const { isActive, countdown, handleTap, trigger, cancel } = useSOS();
+  const { isActive, countdown, isSending, handleTap, trigger, cancel } = useSOS();
+  const sosOutcome = useSOSStore((state) => state.lastOutcome);
+  const setSosOutcome = useSOSStore((state) => state.setLastOutcome);
   const siren = useSiren();
   const fakeCall = useFakeCall();
   useBatteryAlert();
@@ -83,6 +86,21 @@ export default function HomeScreen(): React.JSX.Element {
       captureException(error),
     );
   }, []);
+
+  // Report how the SOS fan-out went exactly once — a silent failure is what
+  // made BUG-006 invisible to the person who pressed the button.
+  useEffect(() => {
+    if (sosOutcome === null) return;
+    const { sent, failed } = sosOutcome;
+    const body =
+      sent === 0 && failed === 0
+        ? t('home.sosResultNoContacts')
+        : failed === 0
+          ? t('home.sosResultSent', { count: sent })
+          : t('home.sosResultPartial', { sent, failed });
+    Alert.alert(t('home.sosResultTitle'), body);
+    setSosOutcome(null);
+  }, [sosOutcome, setSosOutcome, t]);
 
   useEffect(() => {
     if (!safeCheckin.isActive) return;
@@ -153,7 +171,7 @@ export default function HomeScreen(): React.JSX.Element {
           <QuickActionCard
             icon="people"
             labelKey="home.emergencyContacts"
-            badge={contactCount > 0 ? String(contactCount) : undefined}
+            warning={!isGuest && contactCount === 0 ? t('home.addContactsWarning') : undefined}
             locked={isGuest}
             onPress={() => openFeatureForGuest(() => router.push(ROUTES.EMERGENCY_CONTACTS))}
           />
@@ -278,7 +296,9 @@ export default function HomeScreen(): React.JSX.Element {
         )}
       </SafeScreen>
 
-      {isActive && <SOSCountdownOverlay countdown={countdown} onCancel={cancel} />}
+      {isActive && (
+        <SOSCountdownOverlay countdown={countdown} isSending={isSending} onCancel={cancel} />
+      )}
 
       <FakeCallScheduler
         visible={fakeCallModalVisible}

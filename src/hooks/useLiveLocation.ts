@@ -21,10 +21,11 @@ import {
   updateLiveLocation,
 } from '@/services/firebase/live-location.service';
 import { getCurrentLocation } from '@/services/location.service';
-import { recordSMSAlert, sendSOSAlert } from '@/services/sms.service';
+import { recordSMSAlert, sendLiveLocationShare } from '@/services/sms.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { useLocationStore } from '@/stores/location.store';
 import { useUserStore } from '@/stores/user.store';
+import { formatClockTime } from '@/utils/date.utils';
 import { getLocationUrl } from '@/utils/location.utils';
 import { requestBackgroundLocationPermission } from '@/utils/permissions.utils';
 
@@ -176,7 +177,8 @@ export function useLiveLocation(): UseLiveLocationResult {
       const language = surakshakUser?.language ?? profile?.language ?? 'en';
       const locationUrl = getLocationUrl(fix.latitude, fix.longitude);
 
-      const result = await sendSOSAlert(selected, locationUrl, name, language);
+      const untilTime = formatClockTime(new Date(Date.now() + durationHours * MS_PER_HOUR));
+      const result = await sendLiveLocationShare(selected, locationUrl, name, untilTime, language);
       await recordSMSAlert({
         type: 'live_location',
         locationUrl,

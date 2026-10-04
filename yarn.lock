@@ -14453,15 +14453,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"surakshak-native@file:./modules/surakshak-native::locator=surakshak%40workspace%3A.":
-  version: 1.0.0
-  resolution: "surakshak-native@file:./modules/surakshak-native#./modules/surakshak-native::hash=94108f&locator=surakshak%40workspace%3A."
+"surakshak-native@workspace:*, surakshak-native@workspace:modules/surakshak-native":
+  version: 0.0.0-use.local
+  resolution: "surakshak-native@workspace:modules/surakshak-native"
   peerDependencies:
     expo: "*"
     react-native: "*"
-  checksum: 10c0/c3c8d7155735d019b20774b59735d4233d08cf44883d217e79a4b4f6566c16a060d120d2ce6709d8536991f81e63073bd7555f15adbdebcf37949b0bb882298a
-  languageName: node
-  linkType: hard
+  languageName: unknown
+  linkType: soft
 
 "surakshak@workspace:.":
   version: 0.0.0-use.local
@@ -14544,7 +14543,7 @@ __metadata:
     react-native-screens: "npm:~4.26.0"
     react-native-web: "npm:^0.21.2"
     react-native-worklets: "npm:0.10.1"
-    surakshak-native: "file:./modules/surakshak-native"
+    surakshak-native: "workspace:*"
     tailwindcss: "npm:^3.4.19"
     test-renderer: "npm:^1.2.0"
     typescript: "npm:~6.0.3"

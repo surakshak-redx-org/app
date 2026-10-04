@@ -4,7 +4,6 @@ import React from 'react';
 import TipsScreen from '@app/tips';
 
 const mockGetSafetyTips = jest.fn();
-const mockGetSafetyTipCategories = jest.fn();
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
@@ -12,7 +11,6 @@ jest.mock('expo-router', () => ({
 
 jest.mock('@/services/firebase/laws.service', () => ({
   getSafetyTips: (...args: unknown[]) => mockGetSafetyTips(...args),
-  getSafetyTipCategories: (...args: unknown[]) => mockGetSafetyTipCategories(...args),
 }));
 
 const TIPS = [
@@ -38,7 +36,6 @@ describe('TipsScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetSafetyTips.mockResolvedValue(TIPS);
-    mockGetSafetyTipCategories.mockResolvedValue(['Home', 'Travel']);
   });
 
   it('renders every tip and the category chips', async () => {

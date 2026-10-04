@@ -1,14 +1,6 @@
 import { getDoc, getDocs } from '@react-native-firebase/firestore';
 
-import {
-  getFaqCategories,
-  getFaqs,
-  getLawById,
-  getLawCategories,
-  getLaws,
-  getSafetyTipCategories,
-  getSafetyTips,
-} from '@/services/firebase/laws.service';
+import { getFaqs, getLawById, getLaws, getSafetyTips } from '@/services/firebase/laws.service';
 import { readCache, writeCache } from '@/utils/cache.utils';
 
 jest.mock('@react-native-firebase/firestore', () => ({
@@ -66,44 +58,37 @@ describe('laws.service', () => {
     warnSpy.mockRestore();
   });
 
-  it('getLaws returns cached data without awaiting the network', async () => {
-    jest.mocked(readCache).mockResolvedValueOnce([LAW]);
-    await expect(getLaws()).resolves.toEqual([LAW]);
-  });
-
-  it('getLaws fetches from Firestore and writes the cache on a cold cache', async () => {
-    jest.mocked(readCache).mockResolvedValueOnce(null);
+  it('getLaws always reads Firestore, so admin edits show up, and refreshes the cache', async () => {
     jest.mocked(getDocs).mockResolvedValueOnce(docsFrom([LAW]) as never);
 
-    const result = await getLaws();
-
-    expect(result).toEqual([LAW]);
+    await expect(getLaws()).resolves.toEqual([LAW]);
+    expect(getDocs).toHaveBeenCalled();
+    expect(readCache).not.toHaveBeenCalled();
     expect(writeCache).toHaveBeenCalledWith('laws', [LAW]);
   });
 
-  it('getLawById resolves from the cached list without a Firestore read', async () => {
-    jest.mocked(readCache).mockResolvedValueOnce([LAW]);
-    await expect(getLawById('law_1')).resolves.toEqual(LAW);
-    expect(getDoc).not.toHaveBeenCalled();
+  it('getLawById reads Firestore first', async () => {
+    const { id: _id, ...rest } = LAW;
+    jest.mocked(getDoc).mockResolvedValueOnce(snap({ ...rest, title: 'Edited' }) as never);
+
+    await expect(getLawById('law_1')).resolves.toMatchObject({ id: 'law_1', title: 'Edited' });
+    expect(readCache).not.toHaveBeenCalled();
   });
 
-  it('getLawById falls back to Firestore when the id is not cached', async () => {
+  it('getLawById falls back to the cached list when Firestore fails', async () => {
+    jest.mocked(getDoc).mockRejectedValueOnce(new Error('offline'));
     jest.mocked(readCache).mockResolvedValueOnce([LAW]);
-    const other = { ...LAW, id: 'law_2', title: 'POCSO' };
-    const { id: _id, ...rest } = other;
-    jest.mocked(getDoc).mockResolvedValueOnce(snap(rest) as never);
 
-    await expect(getLawById('law_2')).resolves.toMatchObject({ id: 'law_1', title: 'POCSO' });
-    expect(getDoc).toHaveBeenCalled();
+    await expect(getLawById('law_1')).resolves.toEqual(LAW);
+    expect(readCache).toHaveBeenCalledWith('laws', { allowStale: true });
   });
 
   it('getLawById returns null when the document is missing', async () => {
-    jest.mocked(readCache).mockResolvedValueOnce(null);
     jest.mocked(getDoc).mockResolvedValueOnce(snap(undefined) as never);
     await expect(getLawById('nope')).resolves.toBeNull();
   });
 
-  it('getFaqs returns the cache when present', async () => {
+  it('getFaqs and getSafetyTips fetch and cache from Firestore', async () => {
     const faq = {
       id: 'faq_1',
       question: 'Q',
@@ -112,11 +97,10 @@ describe('laws.service', () => {
       order: 1,
       isPublished: true,
     };
-    jest.mocked(readCache).mockResolvedValueOnce([faq]);
+    jest.mocked(getDocs).mockResolvedValueOnce(docsFrom([faq]) as never);
     await expect(getFaqs()).resolves.toEqual([faq]);
-  });
+    expect(writeCache).toHaveBeenCalledWith('faqs', [faq]);
 
-  it('getSafetyTips fetches and caches from Firestore when the cache is cold', async () => {
     const tip = {
       id: 'tip_1',
       title: 'T',
@@ -125,35 +109,9 @@ describe('laws.service', () => {
       order: 1,
       isPublished: true,
     };
-    jest.mocked(readCache).mockResolvedValueOnce(null);
-    const { id: _id, ...rest } = tip;
-    jest.mocked(getDocs).mockResolvedValueOnce(docsFrom([{ id: 'tip_1', ...rest }]) as never);
-
+    jest.mocked(getDocs).mockResolvedValueOnce(docsFrom([tip]) as never);
     await expect(getSafetyTips()).resolves.toEqual([tip]);
     expect(writeCache).toHaveBeenCalledWith('tips', [tip]);
-  });
-
-  it('getLawCategories returns unique, sorted categories', async () => {
-    jest.mocked(readCache).mockResolvedValueOnce([
-      { ...LAW, id: 'a', category: 'Workplace Safety' },
-      { ...LAW, id: 'b', category: 'Domestic Safety' },
-      { ...LAW, id: 'c', category: 'Workplace Safety' },
-    ]);
-    await expect(getLawCategories()).resolves.toEqual(['Domestic Safety', 'Workplace Safety']);
-  });
-
-  it('getFaqCategories and getSafetyTipCategories dedupe and sort', async () => {
-    jest.mocked(readCache).mockResolvedValueOnce([
-      { id: 'f1', question: 'Q', answer: 'A', category: 'Emergency', order: 1, isPublished: true },
-      { id: 'f2', question: 'Q', answer: 'A', category: 'App Help', order: 2, isPublished: true },
-    ]);
-    await expect(getFaqCategories()).resolves.toEqual(['App Help', 'Emergency']);
-
-    jest.mocked(readCache).mockResolvedValueOnce([
-      { id: 't1', title: 'T', content: 'C', category: 'Online', order: 1, isPublished: true },
-      { id: 't2', title: 'T', content: 'C', category: 'Home', order: 2, isPublished: true },
-    ]);
-    await expect(getSafetyTipCategories()).resolves.toEqual(['Home', 'Online']);
   });
 
   it.each([

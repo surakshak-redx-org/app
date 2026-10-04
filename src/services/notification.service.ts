@@ -18,9 +18,13 @@ export async function scheduleLocalNotification(
   body: string,
   delaySeconds: number,
   data?: Record<string, unknown>,
+  identifier?: string,
 ): Promise<string> {
   try {
     return await Notifications.scheduleNotificationAsync({
+      // A fixed identifier makes `cancelLocalNotification(identifier)` work;
+      // without one Expo generates a random id the caller never sees.
+      ...(identifier !== undefined ? { identifier } : {}),
       content: { title, body, data: data ?? {} },
       trigger:
         delaySeconds <= 0

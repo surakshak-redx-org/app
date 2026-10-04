@@ -1,5 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useRef } from 'react';
+import { Platform } from 'react-native';
+import { checkSmsPermission } from 'surakshak-native';
 
 import { captureException } from '@/config/sentry';
 import { APP_CONFIG, LOCATION_UNAVAILABLE } from '@/constants/config';
@@ -10,17 +12,20 @@ import {
   trackSosTriggered,
   trackSuspiciousFollowSosTriggered,
 } from '@/services/analytics.service';
-import { buildLocationUrl, getCurrentLocation } from '@/services/location.service';
+import { buildLocationUrl, getLocationWithTimeout } from '@/services/location.service';
 import { recordSMSAlert, sendSOSAlert } from '@/services/sms.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { useSOSStore } from '@/stores/sos.store';
 import { useUserStore } from '@/stores/user.store';
 import type { SOSTriggerMethod } from '@/types/emergency.types';
 import { getCachedEmergencyContacts, getCachedUserInfo } from '@/utils/offline-cache.utils';
+import { requestSmsPermission } from '@/utils/permissions.utils';
 
 export interface UseSOSResult {
   isActive: boolean;
   countdown: number;
+  /** The countdown has elapsed and alerts are going out; cancel no longer applies. */
+  isSending: boolean;
   triggerMethod: SOSTriggerMethod | null;
   /** Every SOS-button press goes here; a triple-tap inside the window fires SOS. */
   handleTap: () => void;
@@ -37,20 +42,40 @@ export interface UseSOSResult {
 export function useSOS(): UseSOSResult {
   const isActive = useSOSStore((state) => state.isActive);
   const countdown = useSOSStore((state) => state.countdown);
+  const isSending = useSOSStore((state) => state.isSending);
   const triggerMethod = useSOSStore((state) => state.triggerMethod);
   const setActive = useSOSStore((state) => state.setActive);
   const setCountdown = useSOSStore((state) => state.setCountdown);
+  const setSending = useSOSStore((state) => state.setSending);
+  const setLastOutcome = useSOSStore((state) => state.setLastOutcome);
   const reset = useSOSStore((state) => state.reset);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const tapTimestampsRef = useRef<number[]>([]);
   const methodRef = useRef<SOSTriggerMethod | null>(null);
+  const permissionRef = useRef<Promise<void> | null>(null);
 
   const clearTimer = useCallback((): void => {
     if (intervalRef.current !== null) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
+  }, []);
+
+  /**
+   * Android's silent send needs a runtime `SEND_SMS` grant. Ask while the
+   * countdown runs so the user still has seconds to answer; if they decline,
+   * `sms.service` falls back to the compose sheet instead of failing silently.
+   */
+  const ensureSmsPermission = useCallback((): void => {
+    if (Platform.OS !== 'android') return;
+    permissionRef.current = (async (): Promise<void> => {
+      try {
+        if (!(await checkSmsPermission())) await requestSmsPermission();
+      } catch (error) {
+        captureException(error);
+      }
+    })();
   }, []);
 
   const fanOut = useCallback(async (): Promise<void> => {
@@ -73,13 +98,23 @@ export function useSOS(): UseSOSResult {
       const name = surakshakUser?.name ?? profile?.name ?? cachedUser?.name ?? 'User';
       const language = surakshakUser?.language ?? profile?.language ?? cachedUser?.language ?? 'en';
 
+      // Bounded wait: a cold GPS, indoors or with no mobile data, used to
+      // hold the SMS back indefinitely (BUG-007 / BUG-011).
       let locationUrl = LOCATION_UNAVAILABLE;
-      try {
-        const fix = await getCurrentLocation();
-        locationUrl = buildLocationUrl(fix.latitude, fix.longitude);
-      } catch (locationError) {
-        console.warn('SOS: location unavailable:', locationError);
-      }
+      const locate = getLocationWithTimeout()
+        .then((fix) => {
+          locationUrl = buildLocationUrl(fix.latitude, fix.longitude);
+        })
+        .catch((locationError: unknown) => {
+          console.warn('SOS: location unavailable:', locationError);
+        });
+      // Give a still-open SMS permission dialog the same bounded window as
+      // the location fix; an unanswered dialog falls back to the compose sheet.
+      const permission = Promise.race([
+        permissionRef.current ?? Promise.resolve(),
+        new Promise<void>((resolve) => setTimeout(resolve, APP_CONFIG.ALERT_LOCATION_TIMEOUT_MS)),
+      ]);
+      await Promise.all([locate, permission]);
 
       const result = await sendSOSAlert(contacts, locationUrl, name, language);
       await recordSMSAlert({
@@ -89,24 +124,28 @@ export function useSOS(): UseSOSResult {
         contactsFailed: result.failed,
       });
       trackSmsAlertSent('sos', result.sent.length, result.failed.length);
+      setLastOutcome({ sent: result.sent.length, failed: result.failed.length });
     } catch (error) {
       captureException(error);
+      setLastOutcome({ sent: 0, failed: 0 });
     } finally {
       methodRef.current = null;
+      permissionRef.current = null;
       reset();
     }
-  }, [reset]);
+  }, [reset, setLastOutcome]);
 
   const tick = useCallback((): void => {
     const next = useSOSStore.getState().countdown - 1;
     if (next <= 0) {
       clearTimer();
       setCountdown(0);
+      setSending(true);
       void fanOut();
     } else {
       setCountdown(next);
     }
-  }, [clearTimer, fanOut, setCountdown]);
+  }, [clearTimer, fanOut, setCountdown, setSending]);
 
   const trigger = useCallback(
     (method: SOSTriggerMethod): void => {
@@ -117,11 +156,14 @@ export function useSOS(): UseSOSResult {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       clearTimer();
       intervalRef.current = setInterval(tick, TIMING.SECOND_MS);
+      ensureSmsPermission();
     },
-    [clearTimer, setActive, tick],
+    [clearTimer, ensureSmsPermission, setActive, tick],
   );
 
   const cancel = useCallback((): void => {
+    // Once the fan-out has started the alerts are already on their way.
+    if (useSOSStore.getState().isSending) return;
     clearTimer();
     trackSosCancelled(methodRef.current);
     methodRef.current = null;
@@ -152,10 +194,11 @@ export function useSOS(): UseSOSResult {
       trackSosTriggered(triggerMethod ?? 'button');
       if (triggerMethod === 'suspicious_follow') trackSuspiciousFollowSosTriggered();
       intervalRef.current = setInterval(tick, TIMING.SECOND_MS);
+      ensureSmsPermission();
     }
-  }, [isActive, triggerMethod, tick]);
+  }, [isActive, triggerMethod, tick, ensureSmsPermission]);
 
   useEffect(() => clearTimer, [clearTimer]);
 
-  return { isActive, countdown, triggerMethod, handleTap, trigger, cancel };
+  return { isActive, countdown, isSending, triggerMethod, handleTap, trigger, cancel };
 }

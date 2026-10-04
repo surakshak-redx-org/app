@@ -30,6 +30,7 @@ jest.mock('@/services/firebase/community.service', () => ({
   subscribeToAllIndiaPosts: (...args: unknown[]) => mockAll(...args),
   createPost: (...args: unknown[]) => mockCreate(...args),
   reportPost: (...args: unknown[]) => mockReport(...args),
+  deletePost: jest.fn(() => Promise.resolve()),
   uploadPostImage: jest.fn(() => Promise.resolve('https://cdn/x.jpg')),
   loadMoreCityPosts: jest.fn(() => Promise.resolve([])),
   loadMoreAllIndiaPosts: jest.fn(() => Promise.resolve([])),

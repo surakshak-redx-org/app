@@ -5,6 +5,8 @@ import {
   buildLocationUrl,
   fetchNearbyPlaces,
   getCurrentLocation,
+  getFreshLocation,
+  getLocationWithTimeout,
   getPlaceLocation,
   reverseGeocode,
   watchLocation,
@@ -50,6 +52,109 @@ describe('getCurrentLocation', () => {
 
     await expect(getCurrentLocation()).rejects.toThrow('errors.locationPermissionDenied');
     expect(errorSpy).toHaveBeenCalled();
+  });
+});
+
+describe('getLocationWithTimeout', () => {
+  let warnSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    jest
+      .mocked(Location.getForegroundPermissionsAsync)
+      .mockResolvedValue({ granted: true } as never);
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+    jest.useRealTimers();
+  });
+
+  it('returns a fresh fix when it arrives in time', async () => {
+    await expect(getLocationWithTimeout(1000)).resolves.toMatchObject({ latitude: 19.076 });
+    expect(Location.getLastKnownPositionAsync).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the last known position when the fresh fix times out', async () => {
+    jest.useFakeTimers();
+    jest
+      .mocked(Location.getCurrentPositionAsync)
+      .mockReturnValueOnce(new Promise(() => undefined) as never);
+    jest.mocked(Location.getLastKnownPositionAsync).mockResolvedValueOnce({
+      coords: { latitude: 10, longitude: 20, accuracy: null },
+      timestamp: 7,
+    } as never);
+
+    const pending = getLocationWithTimeout(1000);
+    await jest.advanceTimersByTimeAsync(1000);
+
+    await expect(pending).resolves.toEqual({ latitude: 10, longitude: 20, timestamp: 7 });
+  });
+
+  it('falls back to the last known position when the fresh fix fails', async () => {
+    jest.mocked(Location.getCurrentPositionAsync).mockRejectedValueOnce(new Error('no gps'));
+    jest.mocked(Location.getLastKnownPositionAsync).mockResolvedValueOnce({
+      coords: { latitude: 10, longitude: 20, accuracy: 3 },
+      timestamp: 7,
+    } as never);
+
+    await expect(getLocationWithTimeout(1000)).resolves.toMatchObject({ latitude: 10 });
+  });
+
+  it('rejects when neither a fresh nor a last known position exists', async () => {
+    jest.mocked(Location.getCurrentPositionAsync).mockRejectedValueOnce(new Error('no gps'));
+
+    await expect(getLocationWithTimeout(1000)).rejects.toThrow('errors.locationUnavailable');
+  });
+
+  it('never prompts: rejects straight away without a foreground grant', async () => {
+    jest
+      .mocked(Location.getForegroundPermissionsAsync)
+      .mockResolvedValueOnce({ granted: false } as never);
+
+    await expect(getLocationWithTimeout(1000)).rejects.toThrow('errors.locationPermissionDenied');
+    expect(Location.requestForegroundPermissionsAsync).not.toHaveBeenCalled();
+  });
+});
+
+describe('getFreshLocation', () => {
+  let errorSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    jest
+      .mocked(Location.requestForegroundPermissionsAsync)
+      .mockResolvedValue({ granted: true } as never);
+    jest.mocked(Location.hasServicesEnabledAsync).mockResolvedValue(true);
+  });
+
+  afterEach(() => errorSpy.mockRestore());
+
+  it('returns a fix taken just now', async () => {
+    jest.mocked(Location.getCurrentPositionAsync).mockResolvedValueOnce({
+      coords: { latitude: 1, longitude: 2, accuracy: 5 },
+      timestamp: Date.now(),
+    } as never);
+
+    await expect(getFreshLocation()).resolves.toMatchObject({ latitude: 1, longitude: 2 });
+  });
+
+  it('rejects when location services are switched off', async () => {
+    jest.mocked(Location.hasServicesEnabledAsync).mockResolvedValueOnce(false);
+
+    await expect(getFreshLocation()).rejects.toThrow('errors.locationServicesOff');
+    expect(Location.getCurrentPositionAsync).not.toHaveBeenCalled();
+  });
+
+  it('rejects a fix older than the allowed age', async () => {
+    jest.mocked(Location.getCurrentPositionAsync).mockResolvedValueOnce({
+      coords: { latitude: 1, longitude: 2, accuracy: 5 },
+      timestamp: Date.now() - 5 * 60_000,
+    } as never);
+
+    await expect(getFreshLocation(60_000)).rejects.toThrow('errors.locationStale');
   });
 });
 

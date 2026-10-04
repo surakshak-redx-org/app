@@ -64,6 +64,7 @@ jest.mock('@react-native-firebase/storage', () => ({
   getStorage: jest.fn(() => ({})),
   ref: jest.fn(() => ({})),
   putFile: jest.fn(() => Promise.resolve()),
+  deleteObject: jest.fn(() => Promise.resolve()),
   getDownloadURL: jest.fn(() => Promise.resolve('https://example.com/avatar.jpg')),
 }));
 
@@ -111,6 +112,8 @@ jest.mock('expo-location', () => ({
       timestamp: 1_700_000_000_000,
     }),
   ),
+  getLastKnownPositionAsync: jest.fn(() => Promise.resolve(null)),
+  hasServicesEnabledAsync: jest.fn(() => Promise.resolve(true)),
   watchPositionAsync: jest.fn(() => Promise.resolve({ remove: jest.fn() })),
   startLocationUpdatesAsync: jest.fn(() => Promise.resolve()),
   stopLocationUpdatesAsync: jest.fn(() => Promise.resolve()),
@@ -132,10 +135,21 @@ jest.mock('react-native-maps', () => {
   const RN = jest.requireActual<typeof import('react-native')>('react-native');
   const Passthrough = (props: { children?: React.ReactNode }): React.ReactElement =>
     ReactActual.createElement(RN.View, null, props.children);
+  // Pressable so a test can tap a pin by its testID.
+  const Marker = (props: {
+    children?: React.ReactNode;
+    onPress?: () => void;
+    testID?: string;
+  }): React.ReactElement =>
+    ReactActual.createElement(
+      RN.Pressable,
+      { onPress: props.onPress, testID: props.testID },
+      props.children,
+    );
   return {
     __esModule: true,
     default: Passthrough,
-    Marker: Passthrough,
+    Marker,
     Circle: Passthrough,
     PROVIDER_GOOGLE: 'google',
   };
@@ -220,6 +234,8 @@ jest.mock('surakshak-native', () => ({
     Promise.resolve(phones.map((phone) => ({ success: true, phone, method: 'direct' as const }))),
   ),
   checkSmsPermission: jest.fn(() => Promise.resolve(true)),
+  setProximityScreenOff: jest.fn(() => Promise.resolve()),
+  setAppIcon: jest.fn(() => Promise.resolve()),
   placeCallDirectly: jest.fn((phone: string) =>
     Promise.resolve({ success: true, phone, method: 'direct' as const }),
   ),

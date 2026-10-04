@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fireEvent, render } from '@testing-library/react-native';
 import React from 'react';
 import { Alert } from 'react-native';
+import { setAppIcon } from 'surakshak-native';
 
 import SettingsScreen from '@app/settings';
 
@@ -94,6 +95,27 @@ describe('SettingsScreen', () => {
       ['surakshak_disguise_enabled', 'true'],
       ['surakshak_disguise_pin_hash', 'hash:1234'],
     ]);
+    // iOS under Jest: the alternate icon registered as "Calculator".
+    expect(setAppIcon).toHaveBeenCalledWith('Calculator');
+  });
+
+  it('keeps Disguise Mode on but explains when the icon cannot be changed', async () => {
+    jest.mocked(setAppIcon).mockRejectedValueOnce(new Error('ICON_UNSUPPORTED'));
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { getAllByRole, getByTestId } = await render(<SettingsScreen />);
+
+    const switches = getAllByRole('switch');
+    await fireEvent(switches[switches.length - 1] as never, 'valueChange', true);
+    await enterPin(getByTestId, '1234');
+    await enterPin(getByTestId, '1234');
+
+    expect(AsyncStorage.multiSet).toHaveBeenCalled();
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Disguise Mode is on, but the home-screen icon could not be changed on this device.',
+    );
+    alertSpy.mockRestore();
+    errorSpy.mockRestore();
   });
 
   it('shows a mismatch error and restarts when the confirm PIN differs', async () => {

@@ -9,10 +9,13 @@ interface LocationStore {
   liveLocationSessionId: string | null;
   isSafeJourneyActive: boolean;
   safeJourneySessionId: string | null;
+  /** Bumped whenever a journey's deadline changes, so the app-wide monitor re-reads it. */
+  safeJourneyRevision: number;
   setCurrentLocation: (location: LocationData) => void;
   setLocationPermission: (granted: boolean) => void;
   setLiveLocationActive: (active: boolean, sessionId?: string) => void;
   setSafeJourneyActive: (active: boolean, sessionId?: string) => void;
+  bumpSafeJourneyRevision: () => void;
   reset: () => void;
 }
 
@@ -23,6 +26,7 @@ const initialState = {
   liveLocationSessionId: null,
   isSafeJourneyActive: false,
   safeJourneySessionId: null,
+  safeJourneyRevision: 0,
 } as const;
 
 export const useLocationStore = create<LocationStore>((set) => ({
@@ -39,5 +43,7 @@ export const useLocationStore = create<LocationStore>((set) => ({
       isSafeJourneyActive: active,
       safeJourneySessionId: active ? (sessionId ?? null) : null,
     }),
+  bumpSafeJourneyRevision: (): void =>
+    set((state) => ({ safeJourneyRevision: state.safeJourneyRevision + 1 })),
   reset: (): void => set({ ...initialState }),
 }));

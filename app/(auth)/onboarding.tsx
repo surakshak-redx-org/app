@@ -6,7 +6,7 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Alert, Pressable, View } from 'react-native';
+import { Alert, Platform, Pressable, View } from 'react-native';
 import { z } from 'zod';
 
 import { Avatar } from '@/components/ui/Avatar';
@@ -45,6 +45,7 @@ import {
   requestContactsPermission,
   requestLocationPermission,
   requestNotificationPermission,
+  requestSmsPermission,
   type PermissionKey,
 } from '@/utils/permissions.utils';
 
@@ -59,7 +60,7 @@ interface PermissionItem {
   request: () => Promise<boolean>;
 }
 
-const PERMISSION_ITEMS: readonly PermissionItem[] = [
+const ALL_PERMISSION_ITEMS: readonly PermissionItem[] = [
   {
     key: 'location',
     icon: 'location-on',
@@ -75,6 +76,14 @@ const PERMISSION_ITEMS: readonly PermissionItem[] = [
     titleKey: 'onboarding.contactsPermission',
     reasonKey: 'onboarding.contactsReason',
     request: requestContactsPermission,
+  },
+  {
+    key: 'sms',
+    icon: 'sms',
+    required: false,
+    titleKey: 'onboarding.smsPermission',
+    reasonKey: 'onboarding.smsReason',
+    request: requestSmsPermission,
   },
   {
     key: 'notifications',
@@ -93,6 +102,11 @@ const PERMISSION_ITEMS: readonly PermissionItem[] = [
     request: requestCameraPermission,
   },
 ];
+
+// iOS has no SMS / call permission to grant — SOS uses the compose sheet there.
+const PERMISSION_ITEMS = ALL_PERMISSION_ITEMS.filter(
+  (item) => item.key !== 'sms' || Platform.OS === 'android',
+);
 
 const profileSchema = z.object({
   name: z

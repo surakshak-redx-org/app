@@ -8,7 +8,7 @@ import {
   stopLiveLocationSession,
 } from '@/services/firebase/live-location.service';
 import { getCurrentLocation } from '@/services/location.service';
-import { sendSOSAlert } from '@/services/sms.service';
+import { sendLiveLocationShare } from '@/services/sms.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { useLocationStore } from '@/stores/location.store';
 
@@ -27,7 +27,7 @@ jest.mock('@/services/location.service', () => ({
 }));
 
 jest.mock('@/services/sms.service', () => ({
-  sendSOSAlert: jest.fn(() => Promise.resolve({ sent: ['+919000000000'], failed: [] })),
+  sendLiveLocationShare: jest.fn(() => Promise.resolve({ sent: ['+919000000000'], failed: [] })),
   recordSMSAlert: jest.fn(() => Promise.resolve()),
 }));
 
@@ -63,7 +63,7 @@ describe('useLiveLocation', () => {
 
     expect(createLiveLocationSession).toHaveBeenCalledWith('u1', ['c1', 'c2'], 4, 19.076, 72.8777);
     expect(getCurrentLocation).toHaveBeenCalled();
-    expect(sendSOSAlert).toHaveBeenCalled();
+    expect(sendLiveLocationShare).toHaveBeenCalled();
     expect(useLocationStore.getState().isLiveLocationActive).toBe(true);
     expect(useLocationStore.getState().liveLocationSessionId).toBe('session-1');
   });

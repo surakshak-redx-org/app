@@ -23,6 +23,10 @@ export const APP_CONFIG = {
   LIVE_LOCATION_MAX_HOURS: 8,
   LIVE_LOCATION_UPDATE_INTERVAL_SECONDS: 30,
   SOS_COUNTDOWN_SECONDS: 5,
+  /** How long an SOS / alert waits for a fresh GPS fix before using the last known one. */
+  ALERT_LOCATION_TIMEOUT_MS: 4000,
+  /** A report's location fix must be no older than this to count as "here, now". */
+  REPORT_LOCATION_MAX_AGE_MS: 60_000,
   SOS_TAP_COUNT: 3,
   SOS_TAP_WINDOW_MS: 1500,
   SHAKE_THRESHOLD: 2.5,
@@ -53,6 +57,12 @@ export const APP_CONFIG = {
   SAFE_JOURNEY_ETA_DEFAULT_MINUTES: 30,
   /** Countdown turns red once the journey has this many seconds or fewer left. */
   SAFE_JOURNEY_ALERT_WARN_SECONDS: 300,
+  /**
+   * A journey found already overdue by more than this (e.g. the app was not
+   * opened for hours) is closed quietly instead of texting contacts a stale
+   * "check on her immediately".
+   */
+  SAFE_JOURNEY_STALE_HOURS: 6,
   UNSAFE_AREA_DEFAULT_RADIUS_METERS: 200,
   NEARBY_HELP_SEARCH_RADIUS_METERS: 5000,
   NEARBY_HELP_MAX_RESULTS: 20,
@@ -80,6 +90,8 @@ export const APP_CONFIG = {
   MAP_CONTROL_BOTTOM_CLEARANCE: 90,
   /** Digits in the Disguise Mode unlock PIN. */
   DISGUISE_PIN_LENGTH: 4,
+  /** Time in the background after which Disguise Mode asks for the PIN again. */
+  DISGUISE_RELOCK_AFTER_SECONDS: 30,
   /** A device must stay within this radius to count as "possibly followed". */
   FOLLOW_RADIUS_METERS: 200,
   /** Minutes spent inside `FOLLOW_RADIUS_METERS` before the alert fires. */

@@ -1,9 +1,9 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FlatList, View } from 'react-native';
+import { FlatList, RefreshControl, View } from 'react-native';
 
-import { CategoryFilter } from '@/components/features/info/InfoFilters';
+import { CategoryFilter, OfflineBanner } from '@/components/features/info/InfoFilters';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
@@ -14,13 +14,9 @@ import { Text } from '@/components/ui/Text';
 import { COLORS } from '@/constants/colors';
 import { ALL_CATEGORIES } from '@/constants/config';
 import { FLATLIST_PERF_PROPS } from '@/constants/ui';
-import { useInfoContent } from '@/hooks/useInfoContent';
+import { byCategory, useInfoContent } from '@/hooks/useInfoContent';
 import { trackTipsViewed } from '@/services/analytics.service';
-import {
-  getSafetyTipCategories,
-  getSafetyTips,
-  type SafetyTip,
-} from '@/services/firebase/laws.service';
+import { getSafetyTips, type SafetyTip } from '@/services/firebase/laws.service';
 import { CACHE_KEYS } from '@/utils/cache.utils';
 
 type MaterialIconName = keyof typeof MaterialIcons.glyphMap;
@@ -43,11 +39,17 @@ const FALLBACK_ICON: CategoryIcon = { name: 'shield', color: COLORS.STONE };
 export default function TipsScreen(): React.JSX.Element {
   const { t } = useTranslation();
 
-  const { items, categories, isLoading, hasError, reload } = useInfoContent<SafetyTip>(
-    getSafetyTips,
-    getSafetyTipCategories,
-    CACHE_KEYS.TIPS,
-  );
+  const {
+    items,
+    categories,
+    isLoading,
+    isRefreshing,
+    hasError,
+    isOffline,
+    lastSyncDate,
+    reload,
+    refresh,
+  } = useInfoContent<SafetyTip>(getSafetyTips, byCategory, CACHE_KEYS.TIPS);
 
   const [selectedCategory, setSelectedCategory] = useState<string>(ALL_CATEGORIES);
 
@@ -95,6 +97,8 @@ export default function TipsScreen(): React.JSX.Element {
       <SafeScreen>
         <ScreenHeader titleKey="info.tips" />
 
+        {isOffline && lastSyncDate !== null && <OfflineBanner syncedAt={lastSyncDate} />}
+
         <CategoryFilter
           categories={categories}
           selected={selectedCategory}
@@ -108,6 +112,7 @@ export default function TipsScreen(): React.JSX.Element {
           className="flex-1"
           contentContainerClassName="pb-8"
           {...FLATLIST_PERF_PROPS}
+          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={refresh} />}
           renderItem={({ item }) => {
             const icon = CATEGORY_ICON[item.category] ?? FALLBACK_ICON;
             return (

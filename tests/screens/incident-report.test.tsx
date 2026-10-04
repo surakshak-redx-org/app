@@ -1,5 +1,7 @@
 import { act, fireEvent, render } from '@testing-library/react-native';
+import * as Location from 'expo-location';
 import React from 'react';
+import { Alert } from 'react-native';
 
 import { getMyIncidentReports, submitIncidentReport } from '@/services/firebase/incident.service';
 import { useAuthStore } from '@/stores/auth.store';
@@ -11,10 +13,11 @@ jest.mock('expo-router', () => ({
 
 jest.mock('expo-location', () => ({
   requestForegroundPermissionsAsync: jest.fn(() => Promise.resolve({ granted: true })),
+  hasServicesEnabledAsync: jest.fn(() => Promise.resolve(true)),
   getCurrentPositionAsync: jest.fn(() =>
     Promise.resolve({
       coords: { latitude: 19.076, longitude: 72.8777, accuracy: 5 },
-      timestamp: 1_700_000_000_000,
+      timestamp: Date.now(),
     }),
   ),
   Accuracy: { Balanced: 3 },
@@ -94,6 +97,82 @@ describe('IncidentReportScreen', () => {
       longitude: 72.8777,
       photoUrls: [],
     });
+  });
+
+  async function fillAndSubmit(
+    getByPlaceholderText: (text: string) => unknown,
+    getByText: (text: string) => unknown,
+  ): Promise<void> {
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await act(async () => {
+      await fireEvent.changeText(
+        getByPlaceholderText('e.g. Harassment near Metro Station') as never,
+        'Followed',
+      );
+      await fireEvent.changeText(
+        getByPlaceholderText(
+          'Describe the incident in detail. Include time, location details, and description of the person(s) involved.',
+        ) as never,
+        'Followed near the station platform',
+      );
+    });
+    await act(async () => {
+      await fireEvent.press(getByText('Submit Report') as never);
+    });
+  }
+
+  it('refuses to submit with a previously captured location once location is off', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    const { getByPlaceholderText, getByText } = await render(<IncidentReportScreen />);
+    jest.mocked(Location.hasServicesEnabledAsync).mockResolvedValueOnce(false);
+
+    await fillAndSubmit(getByPlaceholderText, getByText);
+
+    expect(submitIncidentReport).not.toHaveBeenCalled();
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Location is turned off. Turn on location services to report from where you are.',
+    );
+    alertSpy.mockRestore();
+  });
+
+  it("shows thumbnails for a submitted report's photos and opens them", async () => {
+    jest.mocked(getMyIncidentReports).mockResolvedValueOnce([
+      {
+        id: 'r1',
+        userId: 'user-1',
+        title: 'Followed',
+        description: 'Followed near the station platform',
+        latitude: 19.076,
+        longitude: 72.8777,
+        photoUrls: ['https://cdn/a.jpg', 'https://cdn/b.jpg'],
+        status: 'submitted',
+        createdAt: { toDate: () => new Date() },
+      } as never,
+    ]);
+    const { getByText, findByLabelText, getByLabelText } = await render(<IncidentReportScreen />);
+
+    await act(async () => {
+      await fireEvent.press(getByText('History'));
+    });
+
+    expect(await findByLabelText('View photo 1 of 2')).toBeTruthy();
+    await act(async () => {
+      await fireEvent.press(getByLabelText('View photo 2 of 2'));
+    });
+    expect(getByLabelText('Close')).toBeTruthy();
+  });
+
+  it('shows a retryable error instead of an empty history when loading fails', async () => {
+    jest.mocked(getMyIncidentReports).mockRejectedValueOnce(new Error('failed-precondition'));
+    const { getByText, findByText } = await render(<IncidentReportScreen />);
+
+    await act(async () => {
+      await fireEvent.press(getByText('History'));
+    });
+
+    expect(await findByText("Couldn't load your reports")).toBeTruthy();
   });
 
   it('switches to the history tab and shows the empty state with no reports', async () => {

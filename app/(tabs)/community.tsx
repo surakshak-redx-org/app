@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, FlatList, Pressable, Switch, TextInput, View } from 'react-native';
+import { Alert, FlatList, Linking, Pressable, Switch, TextInput, View } from 'react-native';
 
 import { GuestBanner } from '@/components/features/auth/GuestBanner';
 import { ImageViewer } from '@/components/features/community/ImageViewer';
@@ -22,7 +22,12 @@ import { ICON_SIZE } from '@/constants/ui';
 import { useCommunity } from '@/hooks/useCommunity';
 import { getCurrentLocation } from '@/services/location.service';
 import { useAuthStore } from '@/stores/auth.store';
-import type { CommunityTab, CreatePostInput, PostType } from '@/types/community.types';
+import type {
+  CommunityPost,
+  CommunityTab,
+  CreatePostInput,
+  PostType,
+} from '@/types/community.types';
 import { getLocationUrl } from '@/utils/location.utils';
 
 const TABS: readonly CommunityTab[] = ['city', 'all_india'];
@@ -59,6 +64,8 @@ export default function CommunityScreen(): React.JSX.Element {
     refresh,
     createPost,
     reportPost,
+    deletePost,
+    currentUserId,
     loadMore,
     uploadImage,
   } = useCommunity();
@@ -173,6 +180,27 @@ export default function CommunityScreen(): React.JSX.Element {
     ]);
   };
 
+  const handleDeletePress = (post: CommunityPost): void => {
+    Alert.alert(t('community.deleteConfirmTitle'), t('community.deleteConfirmBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('community.deletePost'),
+        style: 'destructive',
+        onPress: (): void => {
+          void deletePost(post).catch((e: unknown) => {
+            captureException(e);
+            Alert.alert(t('community.deleteFailed'));
+          });
+        },
+      },
+    ]);
+  };
+
+  const openAttachedLocation = (): void => {
+    if (locationUrl === null) return;
+    Linking.openURL(locationUrl).catch((e: unknown) => captureException(e));
+  };
+
   function renderBody(): React.JSX.Element {
     if (isGuest) {
       return (
@@ -210,7 +238,9 @@ export default function CommunityScreen(): React.JSX.Element {
           <PostCard
             post={item}
             isGuest={isGuest}
+            isOwn={currentUserId !== null && item.authorId === currentUserId}
             onReport={handleReportPress}
+            onDelete={handleDeletePress}
             onOpenImage={setViewerUri}
           />
         )}
@@ -326,11 +356,14 @@ export default function CommunityScreen(): React.JSX.Element {
             <Image source={{ uri: imageUrl }} className="mt-3 h-24 w-24 rounded-lg" />
           )}
           {locationUrl !== null && (
-            <Text
-              variant="caption"
-              className="mt-3 text-shakti-purple"
-              tKey="community.viewOnMap"
-            />
+            <Pressable
+              accessibilityRole="link"
+              onPress={openAttachedLocation}
+              className="mt-3 flex-row items-center gap-1 self-start"
+            >
+              <MaterialIcons name="place" size={ICON_SIZE.ROW} color={COLORS.SHAKTI_PURPLE} />
+              <Text variant="caption" className="text-shakti-purple" tKey="community.viewOnMap" />
+            </Pressable>
           )}
 
           <TextInput

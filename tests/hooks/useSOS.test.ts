@@ -1,10 +1,14 @@
 import { act, renderHook } from '@testing-library/react-native';
+import { Platform } from 'react-native';
+import { checkSmsPermission } from 'surakshak-native';
 
 import { APP_CONFIG } from '@/constants/config';
 import { useSOS } from '@/hooks/useSOS';
 import * as analytics from '@/services/analytics.service';
+import * as locationService from '@/services/location.service';
 import * as smsService from '@/services/sms.service';
 import { useSOSStore } from '@/stores/sos.store';
+import { requestSmsPermission } from '@/utils/permissions.utils';
 
 jest.mock('@/services/sms.service', () => ({
   sendSOSAlert: jest.fn(() => Promise.resolve({ sent: ['+919876543210'], failed: [] })),
@@ -12,8 +16,14 @@ jest.mock('@/services/sms.service', () => ({
 }));
 
 jest.mock('@/services/location.service', () => ({
-  getCurrentLocation: jest.fn(() => Promise.resolve({ latitude: 1, longitude: 2, timestamp: 0 })),
+  getLocationWithTimeout: jest.fn(() =>
+    Promise.resolve({ latitude: 1, longitude: 2, timestamp: 0 }),
+  ),
   buildLocationUrl: jest.fn(() => 'https://maps/here'),
+}));
+
+jest.mock('@/utils/permissions.utils', () => ({
+  requestSmsPermission: jest.fn(() => Promise.resolve(true)),
 }));
 
 jest.mock('@/services/analytics.service', () => ({
@@ -33,7 +43,14 @@ describe('useSOS', () => {
   afterEach(() => {
     jest.runOnlyPendingTimers();
     jest.useRealTimers();
+    Platform.OS = 'ios';
   });
+
+  async function elapseCountdown(): Promise<void> {
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(APP_CONFIG.SOS_COUNTDOWN_SECONDS * 1000);
+    });
+  }
 
   it('starts inactive with a full countdown', async () => {
     const { result } = await renderHook(() => useSOS());
@@ -117,5 +134,96 @@ describe('useSOS', () => {
       jest.advanceTimersByTime(10_000);
     });
     expect(smsService.sendSOSAlert).not.toHaveBeenCalled();
+  });
+
+  it('switches to a non-cancellable sending state at zero instead of freezing', async () => {
+    let finishSend: (value: { sent: string[]; failed: string[] }) => void = () => undefined;
+    jest.mocked(smsService.sendSOSAlert).mockReturnValueOnce(
+      new Promise((resolve) => {
+        finishSend = resolve;
+      }),
+    );
+    const { result } = await renderHook(() => useSOS());
+
+    await act(() => {
+      result.current.trigger('button');
+    });
+    await elapseCountdown();
+
+    expect(result.current.isSending).toBe(true);
+    expect(result.current.isActive).toBe(true);
+
+    await act(() => {
+      result.current.cancel();
+    });
+    expect(result.current.isSending).toBe(true);
+    expect(analytics.trackSosCancelled).not.toHaveBeenCalled();
+
+    await act(async () => {
+      finishSend({ sent: ['+919876543210'], failed: [] });
+      await Promise.resolve();
+    });
+    expect(result.current.isActive).toBe(false);
+    expect(result.current.isSending).toBe(false);
+  });
+
+  it('records the send outcome for the dashboard to report', async () => {
+    jest
+      .mocked(smsService.sendSOSAlert)
+      .mockResolvedValueOnce({ sent: ['+919876543210'], failed: ['+918765432109'] });
+    const { result } = await renderHook(() => useSOS());
+
+    await act(() => {
+      result.current.trigger('button');
+    });
+    await elapseCountdown();
+
+    expect(useSOSStore.getState().lastOutcome).toEqual({ sent: 1, failed: 1 });
+  });
+
+  it('still sends, without a location, when no fix is available', async () => {
+    jest
+      .mocked(locationService.getLocationWithTimeout)
+      .mockRejectedValueOnce(new Error('errors.locationUnavailable'));
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { result } = await renderHook(() => useSOS());
+
+    await act(() => {
+      result.current.trigger('button');
+    });
+    await elapseCountdown();
+
+    expect(smsService.sendSOSAlert).toHaveBeenCalledWith(
+      expect.anything(),
+      'Location unavailable',
+      expect.anything(),
+      expect.anything(),
+    );
+    warnSpy.mockRestore();
+  });
+
+  it('asks for SEND_SMS on Android when the countdown starts without the grant', async () => {
+    Platform.OS = 'android';
+    jest.mocked(checkSmsPermission).mockResolvedValueOnce(false);
+    const { result } = await renderHook(() => useSOS());
+
+    await act(async () => {
+      result.current.trigger('button');
+      await Promise.resolve();
+    });
+
+    expect(requestSmsPermission).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not ask for SEND_SMS when it is already granted', async () => {
+    Platform.OS = 'android';
+    const { result } = await renderHook(() => useSOS());
+
+    await act(async () => {
+      result.current.trigger('button');
+      await Promise.resolve();
+    });
+
+    expect(requestSmsPermission).not.toHaveBeenCalled();
   });
 });

@@ -61,7 +61,13 @@
     "triggerSos": "Trigger SOS",
     "callHelplineLabel": "Call {{name}} at {{phone}}",
     "iosHintBody": "On iPhone: tap a contact to open the dialer, then tap Call. SMS opens automatically — tap Send to confirm. (One tap is the minimum Apple allows for safety.)",
-    "iosHintDismissLabel": "Dismiss iPhone tip"
+    "iosHintDismissLabel": "Dismiss iPhone tip",
+    "sosSending": "Sending SOS alert to your contacts…",
+    "sosResultTitle": "SOS alert",
+    "sosResultSent": "Alert sent to {{count}} contact(s).",
+    "sosResultPartial": "Alert sent to {{sent}} contact(s). {{failed}} could not be sent — please call them directly.",
+    "sosResultNoContacts": "No alert was sent: add an emergency contact with a valid mobile number, or call 112.",
+    "addContactsWarning": "Add"
   },
   "auth": {
     "welcome": "Welcome to Surakshak",
@@ -118,7 +124,9 @@
     "changePhoto": "Change Photo",
     "getStarted": "Get Started",
     "next": "Next",
-    "finish": "Finish"
+    "finish": "Finish",
+    "smsPermission": "SMS & Phone",
+    "smsReason": "To send SOS alerts to your contacts automatically, even without mobile data"
   },
   "profile": {
     "title": "Profile",
@@ -162,6 +170,10 @@
     "contactSaved": "Contact saved",
     "contactRemoved": "Contact removed",
     "importSelectPrompt": "Tap a contact to import",
+    "contactAlreadyExists": "A contact with this phone number already exists",
+    "alreadyAdded": "Already added",
+    "searchContacts": "Search by name or number",
+    "noMatchingContacts": "No matching contacts found",
     "nameRequired": "Enter a name",
     "invalidPhone": "Enter a valid 10-digit mobile number",
     "relationshipRequired": "Enter a relationship",
@@ -210,13 +222,13 @@
     "approved": "Verified Unsafe",
     "votes": "{{count}} votes",
     "reportSubmitted": "Report submitted for review",
-    "tapToSetLocation": "Tap on map to set location",
     "useCurrentLocation": "Use My Location",
     "legend": "Map Legend",
     "legendPending": "Reported — pending review",
     "legendApproved": "Verified unsafe area",
     "noUnsafeAreas": "No unsafe areas reported in this region",
-    "guestCannotReport": "Sign in to report or vote on unsafe areas"
+    "guestCannotReport": "Sign in to report or vote on unsafe areas",
+    "reportUsesCurrentLocation": "The report is pinned to your current location."
   },
   "community": {
     "title": "Community",
@@ -247,7 +259,11 @@
     "reportConfirmTitle": "Report this post?",
     "reportConfirmBody": "Our team will review it. Thanks for helping keep the community safe.",
     "reportAction": "Report",
-    "loadError": "Couldn't load posts"
+    "loadError": "Couldn't load posts",
+    "deletePost": "Delete post",
+    "deleteConfirmTitle": "Delete this post?",
+    "deleteConfirmBody": "It will be removed for everyone. This cannot be undone.",
+    "deleteFailed": "Could not delete the post. Please try again."
   },
   "info": {
     "title": "Information",
@@ -291,7 +307,7 @@
     "destinationPlaceholder": "Where are you going?",
     "etaMinutes": "ETA (minutes)",
     "startJourney": "Start Journey",
-    "imSafe": "I'm Safe ✓",
+    "imSafe": "Check in: I'm safe (reset timer)",
     "iArrived": "I've Arrived",
     "extendEta": "Extend ETA",
     "journeyStarted": "Journey started. Contacts will be alerted if you don't check in.",
@@ -318,7 +334,17 @@
     "plus15Min": "+15 min",
     "plus30Min": "+30 min",
     "nearbyHelpError": "Could not load nearby places. Check your connection and try again.",
-    "noPlacesFound": "No places found nearby"
+    "noPlacesFound": "No places found nearby",
+    "imSafeHint": "Restarts your countdown. Your contacts are alerted only if the timer runs out.",
+    "timeLeftCaption": "Time left to check in",
+    "destinationNotPicked": "Not picked from the suggestions: your current location will be saved as the destination.",
+    "etaInvalid": "Enter a time between {{min}} and {{max}} minutes",
+    "journeyStartSmsFailedTitle": "Some contacts were not notified",
+    "journeyStartSmsFailedBody": "{{count}} contact(s) did not receive the journey message. Your journey is still being monitored.",
+    "journeyWarningTitle": "Safe Journey: 5 minutes left",
+    "journeyWarningBody": "Check in or extend your time, or your contacts will be alerted.",
+    "journeyDueTitle": "Safe Journey: are you safe?",
+    "journeyDueBody": "Your expected arrival time has passed, so your contacts are being alerted. Open Surakshak if you need to update them."
   },
   "silentRecording": {
     "title": "Silent Evidence Recording",
@@ -370,12 +396,16 @@
     "viewHistory": "View History",
     "noReportsTitle": "No reports yet",
     "noReportsSubtitle": "Your submitted incident reports will appear here",
-    "photosAttached": "{{count}} photo(s) attached",
     "status": {
       "submitted": "Submitted",
       "under_review": "Under Review",
       "resolved": "Resolved"
-    }
+    },
+    "photoTooLarge": "That photo is larger than {{mb}} MB. Please choose a smaller one.",
+    "photoUploadFailedTitle": "Photo upload failed",
+    "photoUploadFailedBody": "{{failed}} of {{total}} photo(s) could not be uploaded. Check your connection and try again, or remove them to submit without.",
+    "historyLoadError": "Couldn't load your reports",
+    "viewPhoto": "View photo {{index}} of {{total}}"
   },
   "safeCheckin": {
     "active": "Check-In Active",
@@ -417,7 +447,7 @@
     "safeCheckinOff": "Off",
     "silentRecording": "Silent Recording",
     "disguiseMode": "Disguise Mode",
-    "disguiseModeDesc": "Make the app look like a calculator",
+    "disguiseModeDesc": "Show a calculator, and a Calculator icon and name on your home screen",
     "changePin": "Change PIN",
     "enterPin": "Enter a PIN",
     "confirmPin": "Confirm your PIN",
@@ -430,7 +460,8 @@
     "privacyPolicy": "Privacy Policy",
     "deleteAccount": "Delete Account",
     "deleteAccountWarning": "This action is permanent and cannot be undone.",
-    "deleteAccountConfirmFinal": "Yes, delete my account"
+    "deleteAccountConfirmFinal": "Yes, delete my account",
+    "disguiseIconFailed": "Disguise Mode is on, but the home-screen icon could not be changed on this device."
   },
   "errors": {
     "networkError": "No internet connection. Please try again.",
@@ -446,7 +477,9 @@
     "uploadFailed": "Upload failed. Please check your connection.",
     "generic": "Something went wrong. Please try again.",
     "sessionExpired": "Your session has expired. Please sign in again.",
-    "permissionRequired": "This feature requires additional permissions."
+    "permissionRequired": "This feature requires additional permissions.",
+    "locationServicesOff": "Location is turned off. Turn on location services to report from where you are.",
+    "locationStale": "Couldn't get your current location. Move to an open area and try again."
   },
   "screens": {
     "onboarding": "Get Started",
