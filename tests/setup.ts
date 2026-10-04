@@ -64,6 +64,7 @@ jest.mock('@react-native-firebase/storage', () => ({
   getStorage: jest.fn(() => ({})),
   ref: jest.fn(() => ({})),
   putFile: jest.fn(() => Promise.resolve()),
+  deleteObject: jest.fn(() => Promise.resolve()),
   getDownloadURL: jest.fn(() => Promise.resolve('https://example.com/avatar.jpg')),
 }));
 

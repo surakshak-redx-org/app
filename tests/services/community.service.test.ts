@@ -1,5 +1,6 @@
 import {
   addDoc,
+  deleteDoc,
   getDoc,
   getDocs,
   onSnapshot,
@@ -8,11 +9,12 @@ import {
   updateDoc,
   where,
 } from '@react-native-firebase/firestore';
-import { getDownloadURL, putFile, ref } from '@react-native-firebase/storage';
+import { deleteObject, getDownloadURL, putFile, ref } from '@react-native-firebase/storage';
 
 import { APP_CONFIG } from '@/constants/config';
 import {
   createPost,
+  deletePost,
   loadMoreAllIndiaPosts,
   loadMoreCityPosts,
   reportPost,
@@ -27,6 +29,7 @@ jest.mock('@react-native-firebase/firestore', () => ({
   collection: jest.fn((...segments: string[]) => ({ path: segments.join('/') })),
   doc: jest.fn((...segments: string[]) => ({ path: segments.join('/') })),
   addDoc: jest.fn(() => Promise.resolve({ id: 'post-1' })),
+  deleteDoc: jest.fn(() => Promise.resolve()),
   getDoc: jest.fn(),
   getDocs: jest.fn(() => Promise.resolve({ docs: [] })),
   updateDoc: jest.fn(() => Promise.resolve()),
@@ -148,9 +151,52 @@ describe('community.service', () => {
     const url = await uploadPostImage('u1', 'file:///x.jpg');
 
     expect(ref).toHaveBeenCalledWith(expect.anything(), 'community/u1/1700000000000.jpg');
-    expect(putFile).toHaveBeenCalledWith(expect.anything(), 'file:///x.jpg');
+    expect(putFile).toHaveBeenCalledWith(expect.anything(), 'file:///x.jpg', {
+      contentType: 'image/jpeg',
+    });
     expect(url).toBe('https://cdn/x.jpg');
     nowSpy.mockRestore();
+  });
+
+  it('deletePost removes the post and its image', async () => {
+    await deletePost({ id: 'p1', imageUrl: 'https://cdn/x.jpg' });
+
+    expect(deleteDoc).toHaveBeenCalledWith({ path: expect.stringContaining('community/p1') });
+    expect(ref).toHaveBeenCalledWith(expect.anything(), 'https://cdn/x.jpg');
+    expect(deleteObject).toHaveBeenCalled();
+  });
+
+  it('deletePost skips storage for a post without an image', async () => {
+    await deletePost({ id: 'p1', imageUrl: null });
+
+    expect(deleteDoc).toHaveBeenCalled();
+    expect(deleteObject).not.toHaveBeenCalled();
+  });
+
+  it('deletePost still succeeds when the image cannot be removed', async () => {
+    jest.mocked(deleteObject).mockRejectedValueOnce(new Error('not found'));
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    await expect(deletePost({ id: 'p1', imageUrl: 'https://cdn/x.jpg' })).resolves.toBeUndefined();
+    warnSpy.mockRestore();
+  });
+
+  it('deletePost rethrows when the post itself cannot be deleted', async () => {
+    jest.mocked(deleteDoc).mockRejectedValueOnce(new Error('permission-denied'));
+
+    await expect(deletePost({ id: 'p1', imageUrl: null })).rejects.toThrow('permission-denied');
+  });
+
+  it('maps a just-created post with estimated server timestamps', () => {
+    const data = jest.fn(() => ({ content: 'a', createdAt: { toDate: () => new Date() } }));
+    jest.mocked(onSnapshot).mockImplementationOnce((_query, next) => {
+      (next as (snap: unknown) => void)({ docs: [{ id: 'p1', data }] });
+      return jest.fn();
+    });
+
+    subscribeToAllIndiaPosts(jest.fn());
+
+    expect(data).toHaveBeenCalledWith({ serverTimestamps: 'estimate' });
   });
 
   it('subscribeToCityPosts filters, orders, limits and maps the snapshot', () => {

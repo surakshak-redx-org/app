@@ -108,4 +108,42 @@ describe('PostCard', () => {
     );
     expect(queryByLabelText('Report Post')).toBeNull();
   });
+
+  it('does not crash on a post whose server timestamp has not resolved yet', async () => {
+    const { getByText } = await render(
+      <PostCard
+        post={makePost({ createdAt: null as never })}
+        isGuest={false}
+        onReport={jest.fn()}
+        onOpenImage={jest.fn()}
+      />,
+    );
+    expect(getByText('just now')).toBeTruthy();
+  });
+
+  it("shows delete instead of report on the viewer's own post", async () => {
+    const onDelete = jest.fn();
+    const post = makePost({ authorId: 'u1' });
+    const { getByLabelText, queryByLabelText } = await render(
+      <PostCard
+        post={post}
+        isGuest={false}
+        isOwn
+        onReport={jest.fn()}
+        onDelete={onDelete}
+        onOpenImage={jest.fn()}
+      />,
+    );
+
+    expect(queryByLabelText('Report Post')).toBeNull();
+    await fireEvent.press(getByLabelText('Delete post'));
+    expect(onDelete).toHaveBeenCalledWith(post);
+  });
+
+  it("offers no delete on someone else's post", async () => {
+    const { queryByLabelText } = await render(
+      <PostCard post={makePost()} isGuest={false} onReport={jest.fn()} onOpenImage={jest.fn()} />,
+    );
+    expect(queryByLabelText('Delete post')).toBeNull();
+  });
 });

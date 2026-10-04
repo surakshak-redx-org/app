@@ -12,6 +12,7 @@ import {
 } from '@/services/analytics.service';
 import {
   createPost as createPostService,
+  deletePost as deletePostService,
   loadMoreAllIndiaPosts,
   loadMoreCityPosts,
   reportPost as reportPostService,
@@ -34,6 +35,10 @@ export interface UseCommunityResult {
   refresh: () => void;
   createPost: (input: CreatePostInput) => Promise<string>;
   reportPost: (postId: string) => Promise<void>;
+  /** Deletes one of the signed-in user's own posts. */
+  deletePost: (post: CommunityPost) => Promise<void>;
+  /** The signed-in user's id, to tell which posts are theirs. */
+  currentUserId: string | null;
   loadMore: () => Promise<void>;
   uploadImage: (localUri: string) => Promise<string>;
 }
@@ -192,6 +197,16 @@ export function useCommunity(): UseCommunityResult {
     trackCommunityPostReported();
   }, []);
 
+  const deletePost = useCallback(async (post: CommunityPost): Promise<void> => {
+    await deletePostService(post);
+    // The live head drops it on the next snapshot; older loaded pages don't.
+    setFeed((prev) => ({
+      ...prev,
+      head: prev.head.filter((item) => item.id !== post.id),
+      tail: prev.tail.filter((item) => item.id !== post.id),
+    }));
+  }, []);
+
   const uploadImage = useCallback(
     async (localUri: string): Promise<string> => {
       if (userId === null) throw new Error('errors.generic');
@@ -211,6 +226,8 @@ export function useCommunity(): UseCommunityResult {
     refresh,
     createPost,
     reportPost,
+    deletePost,
+    currentUserId: userId,
     loadMore,
     uploadImage,
   };

@@ -1,6 +1,7 @@
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -15,13 +16,15 @@ import {
   where,
   type Timestamp,
 } from '@react-native-firebase/firestore';
-import { getDownloadURL, putFile, ref } from '@react-native-firebase/storage';
+import { deleteObject, getDownloadURL, putFile, ref } from '@react-native-firebase/storage';
 
 import { firestore, storage } from '@/config/firebase';
 import { APP_CONFIG } from '@/constants/config';
 import type { CommunityPost, CreatePostInput } from '@/types/community.types';
 
 const COMMUNITY_COLLECTION = 'community';
+/** Storage rules typically gate uploads on an image content type. */
+const IMAGE_CONTENT_TYPE = 'image/jpeg';
 
 function communityCollection(): ReturnType<typeof collection> {
   return collection(firestore, COMMUNITY_COLLECTION);
@@ -33,11 +36,21 @@ function communityDoc(postId: string): ReturnType<typeof doc> {
 
 interface PostSnapshot {
   id: string;
-  data: () => unknown;
+  data: (options?: { serverTimestamps?: 'estimate' | 'previous' | 'none' }) => unknown;
 }
 
+/**
+ * `serverTimestamps: 'estimate'`: right after `createPost` the listener
+ * delivers the new post from the local cache before the server has filled in
+ * `createdAt`, which otherwise reads as `null` — and `null.toDate()` crashed
+ * the feed into the error boundary's "Try again" screen even though the post
+ * had been saved (BUG-027).
+ */
 function mapPost(snapshot: PostSnapshot): CommunityPost {
-  return { id: snapshot.id, ...(snapshot.data() as Omit<CommunityPost, 'id'>) };
+  return {
+    id: snapshot.id,
+    ...(snapshot.data({ serverTimestamps: 'estimate' }) as Omit<CommunityPost, 'id'>),
+  };
 }
 
 type PostQuerySnapshot = { docs: PostSnapshot[] } | null;
@@ -202,13 +215,32 @@ export async function reportPost(postId: string): Promise<void> {
 }
 
 /**
+ * Deletes the author's own post, and its image if it has one. Firestore
+ * rules must allow a delete when `resource.data.authorId == request.auth.uid`.
+ * A failure to remove the image never blocks the post deletion itself.
+ */
+export async function deletePost(post: Pick<CommunityPost, 'id' | 'imageUrl'>): Promise<void> {
+  try {
+    await deleteDoc(communityDoc(post.id));
+  } catch (error) {
+    console.error('deletePost failed:', error);
+    throw error;
+  }
+  if (post.imageUrl !== null) {
+    await deleteObject(ref(storage, post.imageUrl)).catch((error: unknown) => {
+      console.warn('deletePost: image not removed:', error);
+    });
+  }
+}
+
+/**
  * Uploads a community image and returns its download URL.
  * @phase Phase 5 — Community
  */
 export async function uploadPostImage(userId: string, localUri: string): Promise<string> {
   try {
     const imageRef = ref(storage, `community/${userId}/${Date.now()}.jpg`);
-    await putFile(imageRef, localUri);
+    await putFile(imageRef, localUri, { contentType: IMAGE_CONTENT_TYPE });
     return await getDownloadURL(imageRef);
   } catch (error) {
     console.error('uploadPostImage failed:', error);

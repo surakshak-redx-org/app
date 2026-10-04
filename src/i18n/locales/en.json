@@ -258,7 +258,11 @@
     "reportConfirmTitle": "Report this post?",
     "reportConfirmBody": "Our team will review it. Thanks for helping keep the community safe.",
     "reportAction": "Report",
-    "loadError": "Couldn't load posts"
+    "loadError": "Couldn't load posts",
+    "deletePost": "Delete post",
+    "deleteConfirmTitle": "Delete this post?",
+    "deleteConfirmBody": "It will be removed for everyone. This cannot be undone.",
+    "deleteFailed": "Could not delete the post. Please try again."
   },
   "info": {
     "title": "Information",
