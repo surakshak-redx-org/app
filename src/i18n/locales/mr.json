@@ -448,7 +448,7 @@
     "safeCheckinOff": "बंद",
     "silentRecording": "सायलेंट रेकॉर्डिंग",
     "disguiseMode": "लपविण्याचा मोड",
-    "disguiseModeDesc": "अॅपला कॅल्क्युलेटरसारखे दाखवा",
+    "disguiseModeDesc": "होम स्क्रीनवर कॅल्क्युलेटर, आणि कॅल्क्युलेटरचे आयकॉन व नाव दाखवा",
     "changePin": "PIN बदला",
     "enterPin": "एक PIN टाका",
     "confirmPin": "तुमचा PIN पुन्हा टाका",
@@ -461,7 +461,8 @@
     "privacyPolicy": "गोपनीयता धोरण",
     "deleteAccount": "खाते हटवा",
     "deleteAccountWarning": "ही क्रिया कायमची आहे आणि परत होणार नाही.",
-    "deleteAccountConfirmFinal": "हो, माझे खाते हटवा"
+    "deleteAccountConfirmFinal": "हो, माझे खाते हटवा",
+    "disguiseIconFailed": "डिसगाइज मोड सुरू आहे, पण या डिव्हाइसवर होम स्क्रीन आयकॉन बदलता आला नाही."
   },
   "errors": {
     "networkError": "इंटरनेट नाही. कृपया पुन्हा प्रयत्न करा.",

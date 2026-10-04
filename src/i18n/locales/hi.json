@@ -448,7 +448,7 @@
     "safeCheckinOff": "बंद",
     "silentRecording": "साइलेंट रिकॉर्डिंग",
     "disguiseMode": "छुपाने का मोड",
-    "disguiseModeDesc": "ऐप को कैलकुलेटर जैसा दिखाएं",
+    "disguiseModeDesc": "होम स्क्रीन पर कैलकुलेटर, और कैलकुलेटर का आइकन और नाम दिखाएँ",
     "changePin": "PIN बदलें",
     "enterPin": "एक PIN डालें",
     "confirmPin": "अपना PIN फिर से डालें",
@@ -461,7 +461,8 @@
     "privacyPolicy": "गोपनीयता नीति",
     "deleteAccount": "अकाउंट हटाएं",
     "deleteAccountWarning": "यह कार्य स्थायी है और वापस नहीं हो सकता।",
-    "deleteAccountConfirmFinal": "हाँ, मेरा अकाउंट हटाएं"
+    "deleteAccountConfirmFinal": "हाँ, मेरा अकाउंट हटाएं",
+    "disguiseIconFailed": "डिसगाइज़ मोड चालू है, लेकिन इस डिवाइस पर होम स्क्रीन आइकन नहीं बदला जा सका।"
   },
   "errors": {
     "networkError": "इंटरनेट नहीं है। कृपया फिर कोशिश करें।",

@@ -1,7 +1,9 @@
 import ExpoModulesCore
+import UIKit
 
 /**
- * iOS stubs for SurakshakNative.
+ * iOS side of SurakshakNative. `setAppIcon` and `setProximityScreenOff` are
+ * real implementations; `sendSms` and `placeCall` are stubs:
  *
  * Apple does not allow either of these without a user tap — this is an OS
  * restriction enforced at the kernel level, not a gap in this module:
@@ -34,6 +36,24 @@ public class SurakshakNativeModule: Module {
     AsyncFunction("setProximityScreenOff") { (enabled: Bool) in
       DispatchQueue.main.async {
         UIDevice.current.isProximityMonitoringEnabled = enabled
+      }
+    }
+
+    // Disguise Mode: swap to the "Calculator" alternate icon registered in
+    // Info.plist by plugins/withDisguiseIcon.js (nil restores the default).
+    AsyncFunction("setAppIcon") { (name: String?, promise: Promise) in
+      DispatchQueue.main.async {
+        guard UIApplication.shared.supportsAlternateIcons else {
+          promise.reject("ICON_UNSUPPORTED", "Alternate app icons are not supported on this device")
+          return
+        }
+        UIApplication.shared.setAlternateIconName(name) { error in
+          if let error = error {
+            promise.reject("ICON_FAILED", error.localizedDescription)
+          } else {
+            promise.resolve(nil)
+          }
+        }
       }
     }
 

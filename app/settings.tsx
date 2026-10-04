@@ -32,6 +32,7 @@ import {
   resetUser as resetAnalytics,
   trackEvent,
 } from '@/services/analytics.service';
+import { setDisguiseIcon } from '@/services/disguise.service';
 import { AuthError, deleteAccount } from '@/services/firebase/auth.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { useDisguiseStore } from '@/stores/disguise.store';
@@ -104,6 +105,16 @@ export default function SettingsScreen(): React.JSX.Element {
     setDisguiseModalMode(value ? 'enable' : 'disable');
   }
 
+  /** The icon swap is best-effort: Disguise Mode still works without it. */
+  async function applyDisguiseIcon(enabled: boolean): Promise<void> {
+    try {
+      await setDisguiseIcon(enabled);
+    } catch (iconError) {
+      captureException(iconError);
+      Alert.alert(t('settings.disguiseIconFailed'));
+    }
+  }
+
   function handleDisguiseModalSuccess(newPinHash: string | null): void {
     const mode = disguiseModalMode;
     setDisguiseModalMode(null);
@@ -115,7 +126,9 @@ export default function SettingsScreen(): React.JSX.Element {
           STORAGE_KEYS.DISGUISE_PIN_HASH,
         ]);
         setDisguiseEnabled(false);
+        useDisguiseStore.getState().setEnabled(false);
         useDisguiseStore.getState().lock();
+        await applyDisguiseIcon(false);
         return;
       }
       if (newPinHash === null) return;
@@ -124,11 +137,15 @@ export default function SettingsScreen(): React.JSX.Element {
         [STORAGE_KEYS.DISGUISE_PIN_HASH, newPinHash],
       ]);
       setDisguiseEnabled(true);
+      if (mode === 'enable') {
+        await applyDisguiseIcon(true);
+        trackDisguiseModeEnabled();
+      }
       // Re-arm the calculator gate immediately: if the PIN was unlocked
       // earlier this session, that flag must not let a fresh (re-)enable
       // skip the calculator on the very next launch/navigation.
+      useDisguiseStore.getState().setEnabled(true);
       useDisguiseStore.getState().lock();
-      if (mode === 'enable') trackDisguiseModeEnabled();
     }
 
     apply().catch((error: unknown) => captureException(error));

@@ -217,6 +217,9 @@ const config: ExpoConfig = {
     // ...and set $RNFirebaseAsStaticFramework = true, which those podspecs
     // require under use_frameworks! and the RNFirebase plugin doesn't expose.
     './plugins/withReactNativeFirebaseStaticFramework',
+    // Disguise Mode's "Calculator" launcher icon (Android aliases + iOS
+    // alternate icon) — see the plugin header.
+    './plugins/withDisguiseIcon',
     '@react-native-firebase/auth',
     [
       '@sentry/react-native/expo',

@@ -22,7 +22,8 @@ import { initMixPanel } from '@/config/mixpanel';
 import { initOneSignal } from '@/config/onesignal';
 import { captureException, initSentry } from '@/config/sentry';
 import { ROUTES } from '@/constants/routes';
-import { STORAGE_FLAG_ON, STORAGE_KEYS } from '@/constants/storage';
+import { STORAGE_KEYS } from '@/constants/storage';
+import { useDisguiseGate } from '@/hooks/useDisguiseGate';
 import { registerLiveLocationTask } from '@/hooks/useLiveLocation';
 import { useSafeJourneyMonitor } from '@/hooks/useSafeJourneyMonitor';
 import { changeLanguage } from '@/i18n';
@@ -174,26 +175,19 @@ function RootLayout(): React.JSX.Element {
   }, [isInitialized, user, isGuest, isGuestSigningIn, segments, router]);
 
   // Disguise Mode: hide the real app behind a working calculator until the
-  // correct PIN is entered there. Checked once isInitialized so it never
-  // races the auth-redirect effect above, and skipped if already showing the
-  // calculator so a PIN-unlock navigation isn't immediately bounced back.
-  // `DISGUISE_ENABLED` in AsyncStorage stays on across app restarts (so it
-  // re-arms on the next cold start), so once the PIN has been entered this
-  // session we also check the in-memory unlock flag — otherwise this effect
-  // re-fires on every post-unlock navigation and bounces straight back to
-  // the calculator.
+  // correct PIN is entered there. The flag is loaded into the store before
+  // the navigator renders (`useDisguiseGate`), so this redirects without an
+  // async read — the real Home tab no longer flashes first — and it re-runs
+  // when the gate re-locks after time in the background. Skipped while the
+  // calculator is showing so a PIN-unlock navigation isn't bounced back.
+  const isDisguiseReady = useDisguiseGate();
+  const isDisguiseEnabled = useDisguiseStore((state) => state.isEnabled);
   const isDisguiseUnlocked = useDisguiseStore((state) => state.isUnlockedThisSession);
   useEffect(() => {
-    if (!isInitialized) return;
+    if (!isInitialized || isDisguiseEnabled !== true || isDisguiseUnlocked) return;
     if (segments[0] === DISGUISE_SEGMENT) return;
-    if (isDisguiseUnlocked) return;
-
-    AsyncStorage.getItem(STORAGE_KEYS.DISGUISE_ENABLED)
-      .then((flag) => {
-        if (flag === STORAGE_FLAG_ON) router.replace(ROUTES.CALCULATOR);
-      })
-      .catch((error: unknown) => captureException(error));
-  }, [isInitialized, segments, router, isDisguiseUnlocked]);
+    router.replace(ROUTES.CALCULATOR);
+  }, [isInitialized, isDisguiseEnabled, isDisguiseUnlocked, segments, router]);
 
   // Local notification handlers for Phase 7's background safety features —
   // see `useSuspiciousFollow` and `useSafeCheckin` for where these are fired.
@@ -239,7 +233,7 @@ function RootLayout(): React.JSX.Element {
             off-white/white screens; a full-bleed dark screen (e.g. the
             recording view) can override locally with its own <StatusBar/>. */}
         <StatusBar style="dark" />
-        {isInitialized && fontsLoaded ? (
+        {isInitialized && fontsLoaded && isDisguiseReady ? (
           // A bare <Slot/> only ever renders the current top-of-stack screen
           // — it unmounts everything underneath, including `(tabs)`. So
           // pushing any sibling screen (emergency-contacts, live-location,

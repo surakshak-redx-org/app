@@ -7,6 +7,7 @@ interface SurakshakNativeModuleInterface {
   checkSmsPermission: () => Promise<boolean>;
   placeCall: (phoneNumber: string) => Promise<string>;
   setProximityScreenOff: (enabled: boolean) => Promise<void>;
+  setAppIcon: (name: string | null) => Promise<void>;
 }
 
 const NativeModule = requireNativeModule<SurakshakNativeModuleInterface>('SurakshakNative');
@@ -64,6 +65,15 @@ export async function placeCallDirectly(phone: string): Promise<CallResult> {
  */
 export async function setProximityScreenOff(enabled: boolean): Promise<void> {
   await NativeModule.setProximityScreenOff(enabled);
+}
+
+/**
+ * Switches the launcher icon and name to a registered alternate (`null` for
+ * the default). Android toggles `activity-alias` launchers; iOS uses
+ * `setAlternateIconName`. Both are registered by `plugins/withDisguiseIcon.js`.
+ */
+export async function setAppIcon(name: string | null): Promise<void> {
+  await NativeModule.setAppIcon(name);
 }
 
 export type { CallResult, SendSmsResult } from './SurakshakNative.types';

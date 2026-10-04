@@ -90,6 +90,8 @@ export const APP_CONFIG = {
   MAP_CONTROL_BOTTOM_CLEARANCE: 90,
   /** Digits in the Disguise Mode unlock PIN. */
   DISGUISE_PIN_LENGTH: 4,
+  /** Time in the background after which Disguise Mode asks for the PIN again. */
+  DISGUISE_RELOCK_AFTER_SECONDS: 30,
   /** A device must stay within this radius to count as "possibly followed". */
   FOLLOW_RADIUS_METERS: 200,
   /** Minutes spent inside `FOLLOW_RADIUS_METERS` before the alert fires. */

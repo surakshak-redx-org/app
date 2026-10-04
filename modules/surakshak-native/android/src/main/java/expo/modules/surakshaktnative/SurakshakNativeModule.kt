@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Activity
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -91,6 +92,41 @@ class SurakshakNativeModule : Module() {
         sendWithResult(context, smsManager, phoneNumber, parts, promise)
       } catch (e: Exception) {
         promise.reject("SMS_FAILED", "Failed to send SMS: ${e.message}", e)
+      }
+    }
+
+    /**
+     * Switches the launcher entry between the default icon and the
+     * "Calculator" disguise. Both are `activity-alias` launchers added by
+     * `plugins/withDisguiseIcon.js`, named `<applicationId>.<Alias>`.
+     */
+    AsyncFunction("setAppIcon") { name: String?, promise: expo.modules.kotlin.Promise ->
+      val context = appContext.reactContext
+      if (context == null) {
+        promise.reject("NO_CONTEXT", "No React context", null)
+        return@AsyncFunction
+      }
+      val packageName = context.packageName
+      val default = ComponentName(packageName, "$packageName.$DEFAULT_LAUNCHER_ALIAS")
+      val calculator = ComponentName(packageName, "$packageName.$CALCULATOR_LAUNCHER_ALIAS")
+      val (enable, disable) =
+        if (name == CALCULATOR_ICON_NAME) calculator to default else default to calculator
+      try {
+        val pm = context.packageManager
+        // Enable first so there is never a moment with no launcher entry.
+        pm.setComponentEnabledSetting(
+          enable,
+          PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+          PackageManager.DONT_KILL_APP,
+        )
+        pm.setComponentEnabledSetting(
+          disable,
+          PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+          PackageManager.DONT_KILL_APP,
+        )
+        promise.resolve(null)
+      } catch (e: Exception) {
+        promise.reject("ICON_FAILED", "Failed to switch launcher icon: ${e.message}", e)
       }
     }
 
@@ -236,6 +272,9 @@ class SurakshakNativeModule : Module() {
   }
 
   companion object {
+    private const val DEFAULT_LAUNCHER_ALIAS = "DefaultLauncher"
+    private const val CALCULATOR_LAUNCHER_ALIAS = "CalculatorLauncher"
+    private const val CALCULATOR_ICON_NAME = "calculator"
     private const val SEND_RESULT_TIMEOUT_MS = 30_000L
     /** Safety net so a wake lock is never held forever if JS never releases it. */
     private const val PROXIMITY_WAKE_LOCK_MAX_MS = 60 * 60 * 1000L

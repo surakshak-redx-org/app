@@ -448,7 +448,7 @@
     "safeCheckinOff": "Off",
     "silentRecording": "Silent Recording",
     "disguiseMode": "Disguise Mode",
-    "disguiseModeDesc": "Make the app look like a calculator",
+    "disguiseModeDesc": "Show a calculator, and a Calculator icon and name on your home screen",
     "changePin": "Change PIN",
     "enterPin": "Enter a PIN",
     "confirmPin": "Confirm your PIN",
@@ -461,7 +461,8 @@
     "privacyPolicy": "Privacy Policy",
     "deleteAccount": "Delete Account",
     "deleteAccountWarning": "This action is permanent and cannot be undone.",
-    "deleteAccountConfirmFinal": "Yes, delete my account"
+    "deleteAccountConfirmFinal": "Yes, delete my account",
+    "disguiseIconFailed": "Disguise Mode is on, but the home-screen icon could not be changed on this device."
   },
   "errors": {
     "networkError": "No internet connection. Please try again.",
