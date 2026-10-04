@@ -136,12 +136,19 @@ if (gradleJavaHome && !fs.existsSync(gradleJavaHome)) {
 }
 
 // 4. Android SDK & Environment Variables
+// Android Studio's default SDK install location differs per OS
+function defaultAndroidSdkPath() {
+  if (process.platform === 'win32') {
+    return path.join(process.env.LOCALAPPDATA || '', 'Android', 'Sdk');
+  }
+  if (process.platform === 'darwin') {
+    return path.join(process.env.HOME || '', 'Library', 'Android', 'sdk');
+  }
+  return path.join(process.env.HOME || '', 'Android', 'Sdk');
+}
+
 const androidHome =
-  process.env.ANDROID_HOME ||
-  process.env.ANDROID_SDK_ROOT ||
-  (process.platform === 'win32'
-    ? path.join(process.env.LOCALAPPDATA || '', 'Android', 'Sdk')
-    : path.join(process.env.HOME || '', 'Android', 'Sdk'));
+  process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT || defaultAndroidSdkPath();
 
 if (androidHome && fs.existsSync(androidHome)) {
   pass('Android SDK directory', androidHome);
@@ -183,7 +190,7 @@ if (androidHome && fs.existsSync(androidHome)) {
 } else {
   fail(
     'Android SDK not found',
-    'Install Android Studio and ensure Android SDK is installed at %LOCALAPPDATA%\\Android\\Sdk',
+    `Install Android Studio and ensure the Android SDK is installed at ${defaultAndroidSdkPath()}, or set ANDROID_HOME.`,
   );
 }
 
@@ -194,7 +201,8 @@ if (adbPath) {
   const shortVer = adbVer ? adbVer.split('\n')[0] : 'available';
   pass('Android Debug Bridge (adb)', shortVer);
 } else {
-  const candidateAdb = androidHome ? path.join(androidHome, 'platform-tools', 'adb.exe') : null;
+  const adbBinary = process.platform === 'win32' ? 'adb.exe' : 'adb';
+  const candidateAdb = androidHome ? path.join(androidHome, 'platform-tools', adbBinary) : null;
   if (candidateAdb && fs.existsSync(candidateAdb)) {
     fail(
       'adb is installed but not in your PATH',
@@ -260,34 +268,49 @@ if (fs.existsSync(nativeGradlePath)) {
 }
 
 // 8. Environment Variables (.env.local / .env)
-const envLocalPath = path.join(ROOT_DIR, '.env.local');
-const envPath = path.join(ROOT_DIR, '.env');
-const targetEnvFile = fs.existsSync(envLocalPath)
-  ? envLocalPath
-  : fs.existsSync(envPath)
-    ? envPath
-    : null;
+// Mirrors dotenv's value rules: optional `export`, quoted values kept verbatim,
+// unquoted values end at an inline ` #` comment.
+function parseEnvFile(filePath) {
+  const parsed = {};
+  const content = fs.readFileSync(filePath, 'utf-8');
+  content.split(/\r?\n/).forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) return;
+    const eqIdx = trimmed.indexOf('=');
+    if (eqIdx === -1) return;
+    const key = trimmed
+      .slice(0, eqIdx)
+      .replace(/^export\s+/, '')
+      .trim();
+    let val = trimmed.slice(eqIdx + 1).trim();
+    const quoted = val.match(/^(['"`])(.*)\1/);
+    if (quoted) {
+      val = quoted[2];
+    } else {
+      const commentIdx = val.search(/\s#/);
+      if (commentIdx !== -1) val = val.slice(0, commentIdx).trim();
+    }
+    parsed[key] = val;
+  });
+  return parsed;
+}
 
-if (!targetEnvFile) {
+// Expo loads both files and .env.local overrides .env, so merge in that order
+const envFiles = ['.env', '.env.local'].filter((name) => fs.existsSync(path.join(ROOT_DIR, name)));
+const envFilesLabel = envFiles.join(' + ');
+
+if (envFiles.length === 0) {
   fail(
     'No .env.local or .env file found',
     'Run `cp .env.example .env.local` and configure your environment variables.',
   );
 } else {
-  pass('Environment file', path.basename(targetEnvFile));
+  pass('Environment file', envFilesLabel);
 
-  const content = fs.readFileSync(targetEnvFile, 'utf-8');
-  const parsedEnv = {};
-  content.split('\n').forEach((line) => {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) return;
-    const eqIdx = trimmed.indexOf('=');
-    if (eqIdx !== -1) {
-      const key = trimmed.slice(0, eqIdx).trim();
-      const val = trimmed.slice(eqIdx + 1).trim();
-      parsedEnv[key] = val;
-    }
-  });
+  const parsedEnv = envFiles.reduce(
+    (acc, name) => ({ ...acc, ...parseEnvFile(path.join(ROOT_DIR, name)) }),
+    {},
+  );
 
   const requiredKeys = [
     { key: 'EXPO_PUBLIC_APP_ENV', expected: 'dev' },
@@ -303,7 +326,13 @@ if (!targetEnvFile) {
     const val = parsedEnv[item.key];
     if (!val) {
       envOk = false;
-      fail(`Missing ${item.key}`, `Set ${item.key} in ${path.basename(targetEnvFile)}`);
+      fail(`Missing ${item.key}`, `Set ${item.key} in .env.local`);
+    } else if (item.expected && val !== item.expected) {
+      envOk = false;
+      fail(
+        `Invalid ${item.key}="${val}"`,
+        `Local development must use ${item.key}=${item.expected} (staging Firebase, no MixPanel/Sentry).`,
+      );
     } else if (item.isUrl) {
       if (!val.startsWith('http://') && !val.startsWith('https://')) {
         envOk = false;
@@ -321,12 +350,12 @@ if (!targetEnvFile) {
 }
 
 // 9. Firebase Config Files
+// app.config.ts only reads the repo-root file; /android is regenerated by prebuild
 const devJsonPath = path.join(ROOT_DIR, 'google-services.dev.json');
-const androidAppJsonPath = path.join(ROOT_DIR, 'android', 'app', 'google-services.json');
-if (fs.existsSync(devJsonPath) || fs.existsSync(androidAppJsonPath)) {
-  pass('Firebase Android Config', 'google-services.json detected');
+if (fs.existsSync(devJsonPath)) {
+  pass('Firebase Android Config', 'google-services.dev.json detected');
 } else {
-  warn(
+  fail(
     'Firebase config google-services.dev.json missing',
     'Download google-services.json for com.surakshak.dev from Firebase Console and place as google-services.dev.json at repo root.',
   );
@@ -345,4 +374,8 @@ if (failures === 0 && warnings === 0) {
   console.log(
     `\x1b[31m\x1b[1m❌ Setup incomplete: ${failures} failure(s), ${warnings} warning(s) (${passedChecks}/${totalChecks} passed). Resolve the issues above.\x1b[0m\n`,
   );
+}
+
+if (failures > 0) {
+  process.exitCode = 1;
 }
