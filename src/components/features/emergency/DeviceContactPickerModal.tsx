@@ -3,7 +3,7 @@
 // non-deprecated main module via `permissions.utils`.
 import { MaterialIcons } from '@expo/vector-icons';
 import { Fields, getContactsAsync } from 'expo-contacts/legacy';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, FlatList, Linking, Modal, Pressable, TextInput, View } from 'react-native';
 
@@ -41,6 +41,14 @@ export function DeviceContactPickerModal({
   const [searchQuery, setSearchQuery] = useState('');
   const [rows, setRows] = useState<DeviceContactRow[]>([]);
 
+  // Parents usually pass `onClose` as an inline arrow. Reading it through a ref
+  // keeps the load effect keyed on `visible` alone, so a parent re-render while
+  // the picker is open doesn't refetch contacts and wipe the search text.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   const handleClose = useCallback((): void => {
     setSearchQuery('');
     onClose();
@@ -75,7 +83,7 @@ export function DeviceContactPickerModal({
               },
             },
           ]);
-          onClose();
+          onCloseRef.current();
           return;
         }
 
@@ -96,7 +104,7 @@ export function DeviceContactPickerModal({
       } catch (error) {
         console.error('DeviceContactPickerModal load failed:', error);
         Alert.alert(t('errors.deviceContactsFailed'));
-        onClose();
+        onCloseRef.current();
       } finally {
         if (active) setLoading(false);
       }
@@ -106,7 +114,7 @@ export function DeviceContactPickerModal({
     return (): void => {
       active = false;
     };
-  }, [visible, t, onClose]);
+  }, [visible, t]);
 
   const filteredRows = useMemo(() => {
     const trimmed = searchQuery.trim().toLowerCase();

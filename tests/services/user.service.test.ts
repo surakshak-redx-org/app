@@ -6,6 +6,7 @@ import {
   orderBy,
   setDoc,
   updateDoc,
+  where,
   writeBatch,
 } from '@react-native-firebase/firestore';
 import { getDownloadURL, putFile } from '@react-native-firebase/storage';
@@ -31,7 +32,10 @@ jest.mock('@react-native-firebase/firestore', () => {
   const batch = { update: jest.fn(), commit: jest.fn(() => Promise.resolve()) };
   return {
     getFirestore: jest.fn(() => ({})),
-    doc: jest.fn((...segments: string[]) => ({ path: segments.join('/') })),
+    doc: jest.fn((...segments: string[]) => ({
+      path: segments.join('/'),
+      id: segments[segments.length - 1],
+    })),
     collection: jest.fn((...segments: string[]) => ({ path: segments.join('/') })),
     getDoc: jest.fn(() =>
       Promise.resolve({ exists: () => false, id: 'test-uid', data: () => undefined }),
@@ -209,25 +213,45 @@ describe('emergency contacts', () => {
     ]);
   });
 
-  it('returns the new contact with its generated id', async () => {
+  const NEW_CONTACT = {
+    name: 'Ma',
+    phone: '+919876543210',
+    relationship: 'Mother',
+    isPredefined: false,
+    order: 7,
+  };
+
+  it('keys a new contact by its phone number so racing adds collapse into one', async () => {
+    const created = await addEmergencyContact('user-1', NEW_CONTACT);
+
+    expect(setDoc).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'phone_919876543210' }),
+      NEW_CONTACT,
+    );
+    expect(addDoc).not.toHaveBeenCalled();
+    expect(created).toEqual({ id: 'phone_919876543210', ...NEW_CONTACT });
+  });
+
+  it('checks every stored form of the number for duplicates', async () => {
+    await addEmergencyContact('user-1', NEW_CONTACT);
+
+    expect(where).toHaveBeenCalledWith('phone', 'in', [
+      '+919876543210',
+      '9876543210',
+      '919876543210',
+    ]);
+  });
+
+  it('falls back to a generated id when the keyed id belongs to an edited contact', async () => {
+    jest
+      .mocked(getDoc)
+      .mockResolvedValueOnce(mockSnapshot(true, { phone: '+919000000000' }) as never);
     jest.mocked(addDoc).mockResolvedValueOnce({ id: 'generated-1' } as never);
 
-    const created = await addEmergencyContact('user-1', {
-      name: 'Ma',
-      phone: '+919876543210',
-      relationship: 'Mother',
-      isPredefined: false,
-      order: 7,
-    });
+    const created = await addEmergencyContact('user-1', NEW_CONTACT);
 
-    expect(created).toEqual({
-      id: 'generated-1',
-      name: 'Ma',
-      phone: '+919876543210',
-      relationship: 'Mother',
-      isPredefined: false,
-      order: 7,
-    });
+    expect(setDoc).not.toHaveBeenCalled();
+    expect(created).toEqual({ id: 'generated-1', ...NEW_CONTACT });
   });
 
   it('rejects a duplicate phone without writing or leaking the number', async () => {
@@ -244,6 +268,7 @@ describe('emergency contacts', () => {
     await expect(attempt).rejects.toBeInstanceOf(DuplicateContactError);
     await expect(attempt).rejects.not.toThrow('+919876543210');
     expect(addDoc).not.toHaveBeenCalled();
+    expect(setDoc).not.toHaveBeenCalled();
   });
 
   it('updates and deletes a single contact document', async () => {
@@ -281,7 +306,7 @@ describe('emergency contacts', () => {
           isPredefined: false,
           order: 0,
         }),
-      addDoc,
+      setDoc,
     ],
   ])('%s logs and rethrows when Firestore fails', async (_name, call, mockFn) => {
     (mockFn as jest.Mock).mockRejectedValueOnce(new Error('firestore down'));

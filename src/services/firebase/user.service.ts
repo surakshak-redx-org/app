@@ -19,9 +19,14 @@ import { getDownloadURL, putFile, ref } from '@react-native-firebase/storage';
 import { firestore, storage } from '@/config/firebase';
 import type { CreateUserInput, EmergencyContact, User } from '@/types/user.types';
 import { cacheEmergencyContacts } from '@/utils/offline-cache.utils';
+import { formatIndianPhone, toNationalDigits } from '@/utils/phone.utils';
 
 const USERS_COLLECTION = 'users';
 const CONTACTS_SUBCOLLECTION = 'emergencyContacts';
+/** Prefix for contact documents keyed by their E.164 digits, e.g. `phone_919876543210`. */
+const CONTACT_ID_PREFIX = 'phone_';
+/** Country code without `+`, as some older documents store it. */
+const INDIA_DIAL_PREFIX = '91';
 
 /**
  * Thrown by `addEmergencyContact` when the phone number is already saved.
@@ -160,24 +165,57 @@ export async function getEmergencyContacts(userId: string): Promise<EmergencyCon
   }
 }
 
-/** Adds a custom emergency contact and returns it with its generated id. */
+/**
+ * Every stored form a phone number may have — older documents (or ones edited
+ * by hand in the console) are not always E.164, and Firestore cannot normalise
+ * inside a query.
+ */
+function storedPhoneVariants(phone: string): string[] {
+  const national = toNationalDigits(phone);
+  return [...new Set([formatIndianPhone(phone), national, `${INDIA_DIAL_PREFIX}${national}`])];
+}
+
+/**
+ * Adds a custom emergency contact and returns it with its id.
+ *
+ * Duplicates are guarded twice: a query rejects a number already stored in any
+ * form, and new documents are keyed by the phone number itself, so two adds
+ * racing past the query (double tap, two devices) write the same document
+ * instead of two. A keyed `setDoc` also keeps working offline, unlike a
+ * transaction.
+ * @throws DuplicateContactError when the number is already saved.
+ */
 export async function addEmergencyContact(
   userId: string,
   contact: Omit<EmergencyContact, 'id'>,
 ): Promise<EmergencyContact> {
   try {
-    // Defensive server-side duplicate guard: query for any existing document
-    // with the same phone number before creating a new one. The front-end
-    // performs this check first, so this path should only be hit if the
-    // front-end guard was bypassed (e.g. concurrent writes, direct API calls).
     const duplicateSnap = await getDocs(
-      query(contactsCollection(userId), where('phone', '==', contact.phone), limit(1)),
+      query(
+        contactsCollection(userId),
+        where('phone', 'in', storedPhoneVariants(contact.phone)),
+        limit(1),
+      ),
     );
-    if (!duplicateSnap.docs.length) {
+    if (duplicateSnap.docs.length > 0) {
+      throw new DuplicateContactError();
+    }
+
+    const keyedRef = contactDoc(
+      userId,
+      `${CONTACT_ID_PREFIX}${formatIndianPhone(contact.phone).replace(/\D/g, '')}`,
+    );
+    // The query found no document with this number, so a document already at
+    // the keyed id belongs to a contact whose phone was edited since — fall
+    // back to a generated id rather than overwrite it.
+    const occupied = await getDoc(keyedRef);
+    if (occupied.exists()) {
       const created = await addDoc(contactsCollection(userId), contact);
       return { id: created.id, ...contact };
     }
-    throw new DuplicateContactError();
+
+    await setDoc(keyedRef, contact);
+    return { id: keyedRef.id, ...contact };
   } catch (error) {
     if (error instanceof DuplicateContactError) throw error;
     console.error('addEmergencyContact failed:', error);

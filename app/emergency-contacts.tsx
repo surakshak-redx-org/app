@@ -51,8 +51,12 @@ export default function EmergencyContactsScreen(): React.JSX.Element {
   /**
    * Normalized E.164 phone numbers already saved as emergency contacts.
    * Used to block duplicates in the form and in the device-contact picker.
+   * Stored numbers are normalized too — older documents are not all E.164.
    */
-  const existingPhones = useMemo(() => new Set(contacts.map((c) => c.phone)), [contacts]);
+  const existingPhones = useMemo(
+    () => new Set(contacts.map((c) => formatIndianPhone(c.phone))),
+    [contacts],
+  );
 
   const refresh = useCallback(async (): Promise<void> => {
     if (userId === null) return;
@@ -131,7 +135,7 @@ export default function EmergencyContactsScreen(): React.JSX.Element {
     // editing contact A to use contact B's phone is also rejected.
     const isDuplicate = contacts.some(
       (c) =>
-        c.phone === normalizedPhone &&
+        formatIndianPhone(c.phone) === normalizedPhone &&
         // When editing, the same phone belonging to THIS contact is allowed.
         c.id !== (editing?.id ?? ''),
     );
@@ -160,6 +164,8 @@ export default function EmergencyContactsScreen(): React.JSX.Element {
         Alert.alert(t('emergency.contactSaved'));
       })
       .catch((error: unknown) => {
+        // The service re-checks Firestore, which catches duplicates the
+        // in-memory list missed (e.g. it had not loaded yet).
         if (error instanceof DuplicateContactError) {
           Alert.alert(t('emergency.contactAlreadyExists'));
           return;

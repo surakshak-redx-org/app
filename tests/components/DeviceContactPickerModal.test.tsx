@@ -226,4 +226,39 @@ describe('DeviceContactPickerModal', () => {
     await fireEvent.press(papaContact);
     expect(onPick).not.toHaveBeenCalled();
   });
+
+  it('keeps the loaded list and search text when the parent re-renders with a new onClose', async () => {
+    mockGetContactsAsync.mockResolvedValue({
+      data: [
+        { id: '1', name: 'Papa', phoneNumbers: [{ number: '9876543210' }] },
+        { id: '2', name: 'Sister', phoneNumbers: [{ number: '9123456780' }] },
+      ],
+    });
+    const existingPhones = new Set<string>();
+
+    const { findByPlaceholderText, findByText, queryByText, rerender } = await render(
+      <DeviceContactPickerModal
+        visible
+        existingPhones={existingPhones}
+        onPick={jest.fn()}
+        onClose={() => undefined}
+      />,
+    );
+
+    const searchInput = await findByPlaceholderText('Search by name or number');
+    await fireEvent.changeText(searchInput, 'Papa');
+
+    await rerender(
+      <DeviceContactPickerModal
+        visible
+        existingPhones={existingPhones}
+        onPick={jest.fn()}
+        onClose={() => undefined}
+      />,
+    );
+
+    expect(await findByText('Papa')).toBeTruthy();
+    expect(queryByText('Sister')).toBeNull();
+    expect(mockGetContactsAsync).toHaveBeenCalledTimes(1);
+  });
 });
