@@ -67,7 +67,6 @@
     "sosResultSent": "Alert sent to {{count}} contact(s).",
     "sosResultPartial": "Alert sent to {{sent}} contact(s). {{failed}} could not be sent — please call them directly.",
     "sosResultNoContacts": "No alert was sent: add an emergency contact with a valid mobile number, or call 112.",
-    "contactCount": "{{count}} saved",
     "addContactsWarning": "Add"
   },
   "auth": {

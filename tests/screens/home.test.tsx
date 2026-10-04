@@ -63,7 +63,7 @@ describe('HomeScreen', () => {
     expect(getByText('Fake Call')).toBeTruthy();
   });
 
-  it('shows how many contacts are saved as plain text, not a red notification badge', async () => {
+  it('does not show how many contacts are saved on the contacts card', async () => {
     useUserStore.setState({
       emergencyContacts: [
         {
@@ -87,7 +87,8 @@ describe('HomeScreen', () => {
 
     const { getByText, queryByText } = await render(<HomeScreen />);
 
-    expect(getByText('2 saved')).toBeTruthy();
+    expect(getByText('Emergency Contacts')).toBeTruthy();
+    expect(queryByText('2 saved')).toBeNull();
     expect(queryByText('2')).toBeNull();
     useUserStore.setState({ emergencyContacts: [] } as never);
   });

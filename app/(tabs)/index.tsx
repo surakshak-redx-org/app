@@ -171,9 +171,6 @@ export default function HomeScreen(): React.JSX.Element {
           <QuickActionCard
             icon="people"
             labelKey="home.emergencyContacts"
-            subtitle={
-              contactCount > 0 ? t('home.contactCount', { count: contactCount }) : undefined
-            }
             warning={!isGuest && contactCount === 0 ? t('home.addContactsWarning') : undefined}
             locked={isGuest}
             onPress={() => openFeatureForGuest(() => router.push(ROUTES.EMERGENCY_CONTACTS))}
