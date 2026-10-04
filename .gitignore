@@ -63,3 +63,12 @@ coverage/
 .env.production
 google-services*.json
 GoogleService-Info*.plist
+
+# IDEs and Editors
+.idea/
+*.iml
+.vscode/
+
+# Temporary / maintenance scripts
+scripts/dedup-emergency-contacts.mjs
+

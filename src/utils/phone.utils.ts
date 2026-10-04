@@ -9,7 +9,7 @@ const VISIBLE_DIGITS_WHEN_MASKED = 4;
 const SHORT_CODE_PATTERN = /^\d{3,5}$/;
 
 /** Strips everything non-numeric and any leading country code / trunk zero. */
-function toNationalDigits(phone: string): string {
+export function toNationalDigits(phone: string): string {
   let digits = phone.replace(/\D/g, '');
 
   if (digits.length > INDIAN_MOBILE_LENGTH && digits.startsWith('91')) {

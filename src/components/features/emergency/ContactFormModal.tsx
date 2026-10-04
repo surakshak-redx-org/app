@@ -15,6 +15,8 @@ import { validateIndianPhone } from '@/utils/phone.utils';
 export interface ContactFormModalProps {
   visible: boolean;
   initial?: EmergencyContact | null;
+  /** True while the parent is executing the async save — disables Save to prevent double-submit. */
+  isSubmitting?: boolean;
   onSubmit: (values: EmergencyContactFormValues) => void;
   onClose: () => void;
 }
@@ -27,6 +29,7 @@ const EMPTY: EmergencyContactFormValues = { name: '', phone: '', relationship: '
 export function ContactFormModal({
   visible,
   initial,
+  isSubmitting = false,
   onSubmit,
   onClose,
 }: ContactFormModalProps): React.JSX.Element {
@@ -135,7 +138,8 @@ export function ContactFormModal({
         fullWidth
         className="mt-2"
         label={t('common.save')}
-        disabled={!isValid}
+        disabled={!isValid || isSubmitting}
+        loading={isSubmitting}
         onPress={() => {
           void handleSubmit(submit)();
         }}

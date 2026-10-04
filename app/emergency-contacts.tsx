@@ -1,5 +1,5 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Pressable, View } from 'react-native';
 
@@ -23,6 +23,7 @@ import {
 import {
   addEmergencyContact,
   deleteEmergencyContact,
+  DuplicateContactError,
   getEmergencyContacts,
   updateEmergencyContact,
 } from '@/services/firebase/user.service';
@@ -42,6 +43,20 @@ export default function EmergencyContactsScreen(): React.JSX.Element {
   const [pickerVisible, setPickerVisible] = useState(false);
   const [editing, setEditing] = useState<EmergencyContact | null>(null);
   const [prefill, setPrefill] = useState<EmergencyContact | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Synchronous re-entry guard: `isSubmitting` only disables the button after
+  // a re-render, so two fast taps can both reach handleSubmit before it lands.
+  const submittingRef = useRef(false);
+
+  /**
+   * Normalized E.164 phone numbers already saved as emergency contacts.
+   * Used to block duplicates in the form and in the device-contact picker.
+   * Stored numbers are normalized too — older documents are not all E.164.
+   */
+  const existingPhones = useMemo(
+    () => new Set(contacts.map((c) => formatIndianPhone(c.phone))),
+    [contacts],
+  );
 
   const refresh = useCallback(async (): Promise<void> => {
     if (userId === null) return;
@@ -111,8 +126,25 @@ export default function EmergencyContactsScreen(): React.JSX.Element {
       setFormVisible(false);
       return;
     }
+    if (submittingRef.current) return;
 
-    const payload = { ...values, phone: formatIndianPhone(values.phone) };
+    const normalizedPhone = formatIndianPhone(values.phone);
+
+    // Front-end duplicate guard: check the in-memory contact list before
+    // hitting Firestore. This fires for both add and edit paths so that
+    // editing contact A to use contact B's phone is also rejected.
+    const isDuplicate = contacts.some(
+      (c) =>
+        formatIndianPhone(c.phone) === normalizedPhone &&
+        // When editing, the same phone belonging to THIS contact is allowed.
+        c.id !== (editing?.id ?? ''),
+    );
+    if (isDuplicate) {
+      Alert.alert(t('emergency.contactAlreadyExists'));
+      return;
+    }
+
+    const payload = { ...values, phone: normalizedPhone };
     const action = editing
       ? updateEmergencyContact(userId, editing.id, payload).then(() =>
           trackEmergencyContactChange('updated'),
@@ -123,6 +155,8 @@ export default function EmergencyContactsScreen(): React.JSX.Element {
           order: contacts.length,
         }).then(() => trackEmergencyContactChange('added'));
 
+    submittingRef.current = true;
+    setIsSubmitting(true);
     action
       .then(() => refresh())
       .then(() => {
@@ -130,8 +164,18 @@ export default function EmergencyContactsScreen(): React.JSX.Element {
         Alert.alert(t('emergency.contactSaved'));
       })
       .catch((error: unknown) => {
+        // The service re-checks Firestore, which catches duplicates the
+        // in-memory list missed (e.g. it had not loaded yet).
+        if (error instanceof DuplicateContactError) {
+          Alert.alert(t('emergency.contactAlreadyExists'));
+          return;
+        }
         captureException(error);
         Alert.alert(t('errors.contactSaveFailed'));
+      })
+      .finally(() => {
+        submittingRef.current = false;
+        setIsSubmitting(false);
       });
   }
 
@@ -247,11 +291,13 @@ export default function EmergencyContactsScreen(): React.JSX.Element {
       <ContactFormModal
         visible={formVisible}
         initial={editing ?? prefill}
+        isSubmitting={isSubmitting}
         onSubmit={handleSubmit}
         onClose={() => setFormVisible(false)}
       />
       <DeviceContactPickerModal
         visible={pickerVisible}
+        existingPhones={existingPhones}
         onPick={handleImportPick}
         onClose={() => setPickerVisible(false)}
       />
