@@ -6,6 +6,7 @@ import { Alert } from 'react-native';
 import { ROUTES } from '@/constants/routes';
 import { STORAGE_FLAG_ON, STORAGE_KEYS } from '@/constants/storage';
 import { useAuthStore } from '@/stores/auth.store';
+import { useUserStore } from '@/stores/user.store';
 import HomeScreen from '@app/(tabs)/index';
 
 const mockPush = jest.fn();
@@ -60,6 +61,41 @@ describe('HomeScreen', () => {
     expect(getByText('Live Location')).toBeTruthy();
     expect(getByText('Siren')).toBeTruthy();
     expect(getByText('Fake Call')).toBeTruthy();
+  });
+
+  it('shows how many contacts are saved as plain text, not a red notification badge', async () => {
+    useUserStore.setState({
+      emergencyContacts: [
+        {
+          id: 'c1',
+          name: 'Mom',
+          phone: '9876543210',
+          relationship: 'Mother',
+          isPredefined: false,
+          order: 0,
+        },
+        {
+          id: 'c2',
+          name: 'Dad',
+          phone: '9876543211',
+          relationship: 'Father',
+          isPredefined: false,
+          order: 1,
+        },
+      ],
+    } as never);
+
+    const { getByText, queryByText } = await render(<HomeScreen />);
+
+    expect(getByText('2 saved')).toBeTruthy();
+    expect(queryByText('2')).toBeNull();
+    useUserStore.setState({ emergencyContacts: [] } as never);
+  });
+
+  it('flags the contacts card when no contact has been added', async () => {
+    useUserStore.setState({ emergencyContacts: [] } as never);
+    const { getByText } = await render(<HomeScreen />);
+    expect(getByText('Add')).toBeTruthy();
   });
 
   it('shows the countdown after three quick taps on the SOS button', async () => {

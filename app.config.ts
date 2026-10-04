@@ -138,6 +138,8 @@ const config: ExpoConfig = {
       'android.permission.READ_PHONE_STATE',
       'android.permission.RECEIVE_BOOT_COMPLETED',
       'android.permission.VIBRATE',
+      // Proximity screen-off while a fake call is answered.
+      'android.permission.WAKE_LOCK',
       'android.permission.READ_CONTACTS',
     ],
   },

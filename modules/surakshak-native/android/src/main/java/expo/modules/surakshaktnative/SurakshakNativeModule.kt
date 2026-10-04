@@ -11,6 +11,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import android.telephony.SmsManager
 import androidx.core.content.ContextCompat
 import java.util.UUID
@@ -20,8 +21,34 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
 class SurakshakNativeModule : Module() {
+  private var proximityWakeLock: PowerManager.WakeLock? = null
+
   override fun definition() = ModuleDefinition {
     Name("SurakshakNative")
+
+    /**
+     * Turns the screen off while the phone is held to the ear, like a real
+     * call — used once a fake call is answered so the lit screen doesn't give
+     * it away. Requires `WAKE_LOCK` (declared in app.config.ts).
+     */
+    AsyncFunction("setProximityScreenOff") { enabled: Boolean ->
+      val context = appContext.reactContext ?: return@AsyncFunction
+      if (enabled) {
+        if (proximityWakeLock?.isHeld == true) return@AsyncFunction
+        val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+        if (!powerManager.isWakeLockLevelSupported(PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK)) {
+          return@AsyncFunction
+        }
+        proximityWakeLock =
+          powerManager
+            .newWakeLock(PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK, "surakshak:fake-call")
+            .apply { acquire(PROXIMITY_WAKE_LOCK_MAX_MS) }
+      } else {
+        releaseProximityWakeLock()
+      }
+    }
+
+    OnDestroy { releaseProximityWakeLock() }
 
     /**
      * Send SMS directly in the background with no compose UI and no user
@@ -203,7 +230,14 @@ class SurakshakNativeModule : Module() {
     }
   }
 
+  private fun releaseProximityWakeLock() {
+    proximityWakeLock?.let { if (it.isHeld) it.release() }
+    proximityWakeLock = null
+  }
+
   companion object {
     private const val SEND_RESULT_TIMEOUT_MS = 30_000L
+    /** Safety net so a wake lock is never held forever if JS never releases it. */
+    private const val PROXIMITY_WAKE_LOCK_MAX_MS = 60 * 60 * 1000L
   }
 }

@@ -1,5 +1,6 @@
 import { fireEvent, render } from '@testing-library/react-native';
 import React from 'react';
+import { setProximityScreenOff } from 'surakshak-native';
 
 import { IncomingCallOverlay } from '@/components/features/emergency/IncomingCallOverlay';
 
@@ -46,5 +47,26 @@ describe('IncomingCallOverlay', () => {
 
     await fireEvent.press(getByLabelText('End Call'));
     expect(onDecline).toHaveBeenCalledTimes(1);
+  });
+
+  it('darkens the screen against the ear only while an answered call is up', async () => {
+    jest.mocked(setProximityScreenOff).mockClear();
+    const { getByLabelText, rerender } = await render(
+      <IncomingCallOverlay visible callerName="Mom" onAnswer={jest.fn()} onDecline={jest.fn()} />,
+    );
+    expect(setProximityScreenOff).not.toHaveBeenCalled();
+
+    await fireEvent.press(getByLabelText('Answer'));
+    expect(setProximityScreenOff).toHaveBeenLastCalledWith(true);
+
+    await rerender(
+      <IncomingCallOverlay
+        visible={false}
+        callerName="Mom"
+        onAnswer={jest.fn()}
+        onDecline={jest.fn()}
+      />,
+    );
+    expect(setProximityScreenOff).toHaveBeenLastCalledWith(false);
   });
 });

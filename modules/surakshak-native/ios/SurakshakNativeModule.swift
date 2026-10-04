@@ -29,6 +29,14 @@ public class SurakshakNativeModule: Module {
       true
     }
 
+    // Screen off while held to the ear once a fake call is answered, like a
+    // real call. UIDevice must be touched on the main thread.
+    AsyncFunction("setProximityScreenOff") { (enabled: Bool) in
+      DispatchQueue.main.async {
+        UIDevice.current.isProximityMonitoringEnabled = enabled
+      }
+    }
+
     AsyncFunction("placeCall") { (_ phoneNumber: String) -> String in
       throw IosRestrictionError(
         "Direct call is not possible on iOS (Apple OS policy). Use Linking.openURL('tel:...') from JS instead."

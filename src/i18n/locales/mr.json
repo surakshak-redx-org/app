@@ -66,7 +66,9 @@
     "sosResultTitle": "SOS अलर्ट",
     "sosResultSent": "{{count}} संपर्कांना अलर्ट पाठवला.",
     "sosResultPartial": "{{sent}} संपर्कांना अलर्ट पाठवला. {{failed}} ला पाठवता आला नाही — कृपया त्यांना थेट कॉल करा.",
-    "sosResultNoContacts": "कोणताही अलर्ट पाठवला नाही: वैध मोबाइल नंबरसह आपत्कालीन संपर्क जोडा, किंवा 112 वर कॉल करा."
+    "sosResultNoContacts": "कोणताही अलर्ट पाठवला नाही: वैध मोबाइल नंबरसह आपत्कालीन संपर्क जोडा, किंवा 112 वर कॉल करा.",
+    "contactCount": "{{count}} जतन केले",
+    "addContactsWarning": "जोडा"
   },
   "auth": {
     "welcome": "Surakshak मध्ये आपले स्वागत आहे",

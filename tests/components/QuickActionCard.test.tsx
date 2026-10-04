@@ -14,23 +14,26 @@ describe('QuickActionCard', () => {
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 
-  it('shows the badge when provided', async () => {
+  it('shows the subtitle and the warning when provided', async () => {
     const { getByText } = await render(
       <QuickActionCard
         icon="people"
         labelKey="home.emergencyContacts"
         onPress={jest.fn()}
-        badge="3"
+        subtitle="3 contacts"
+        warning="Add"
       />,
     );
-    expect(getByText('3')).toBeTruthy();
+    expect(getByText('3 contacts')).toBeTruthy();
+    expect(getByText('Add')).toBeTruthy();
   });
 
-  it('omits the badge when not provided', async () => {
+  it('omits the subtitle and the warning when not provided', async () => {
     const { queryByText } = await render(
       <QuickActionCard icon="people" labelKey="home.emergencyContacts" onPress={jest.fn()} />,
     );
-    expect(queryByText('3')).toBeNull();
+    expect(queryByText('3 contacts')).toBeNull();
+    expect(queryByText('Add')).toBeNull();
   });
 
   it('marks a locked card disabled but still fires onPress, letting the caller decide what happens', async () => {

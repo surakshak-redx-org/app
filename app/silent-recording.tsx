@@ -22,6 +22,7 @@ import { captureException } from '@/config/sentry';
 import { COLORS } from '@/constants/colors';
 import { APP_CONFIG } from '@/constants/config';
 import { ROUTES } from '@/constants/routes';
+import { KEEP_AWAKE_TAGS } from '@/constants/ui';
 import {
   trackEvidenceRecordingStarted,
   trackEvidenceRecordingUploaded,
@@ -111,7 +112,7 @@ export default function SilentRecordingScreen(): React.JSX.Element {
       clearAutoStopTimer();
       const finishedDurationSeconds = durationSeconds;
       await recorder.stop();
-      void deactivateKeepAwake();
+      void deactivateKeepAwake(KEEP_AWAKE_TAGS.RECORDING);
       setScreenState('uploading');
       setUploadProgress(0);
 
@@ -149,7 +150,7 @@ export default function SilentRecordingScreen(): React.JSX.Element {
       }
 
       await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
-      await activateKeepAwakeAsync();
+      await activateKeepAwakeAsync(KEEP_AWAKE_TAGS.RECORDING);
       await recorder.prepareToRecordAsync();
       recorder.record();
       setScreenState('recording');
@@ -174,7 +175,7 @@ export default function SilentRecordingScreen(): React.JSX.Element {
         onPress: (): void => {
           clearAutoStopTimer();
           void recorder.stop();
-          void deactivateKeepAwake();
+          void deactivateKeepAwake(KEEP_AWAKE_TAGS.RECORDING);
           setScreenState('idle');
         },
       },
@@ -207,7 +208,7 @@ export default function SilentRecordingScreen(): React.JSX.Element {
     () => (): void => {
       clearAutoStopTimer();
       void recorder.stop().catch(() => undefined);
-      void deactivateKeepAwake();
+      void deactivateKeepAwake(KEEP_AWAKE_TAGS.RECORDING);
     },
     [clearAutoStopTimer, recorder],
   );
