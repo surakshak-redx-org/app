@@ -134,10 +134,21 @@ jest.mock('react-native-maps', () => {
   const RN = jest.requireActual<typeof import('react-native')>('react-native');
   const Passthrough = (props: { children?: React.ReactNode }): React.ReactElement =>
     ReactActual.createElement(RN.View, null, props.children);
+  // Pressable so a test can tap a pin by its testID.
+  const Marker = (props: {
+    children?: React.ReactNode;
+    onPress?: () => void;
+    testID?: string;
+  }): React.ReactElement =>
+    ReactActual.createElement(
+      RN.Pressable,
+      { onPress: props.onPress, testID: props.testID },
+      props.children,
+    );
   return {
     __esModule: true,
     default: Passthrough,
-    Marker: Passthrough,
+    Marker,
     Circle: Passthrough,
     PROVIDER_GOOGLE: 'google',
   };

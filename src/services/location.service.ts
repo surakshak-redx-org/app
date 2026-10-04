@@ -93,6 +93,26 @@ export async function getLocationWithTimeout(
   return toLocationData(lastKnown);
 }
 
+/**
+ * A position that is provably current, for reports pinned to "where I am
+ * now". Unlike `getCurrentLocation` it refuses to proceed with location
+ * services switched off and rejects a fix older than `maxAgeMs` — a report
+ * used to go through with whatever position was captured when the screen
+ * opened, even after location had been turned off (BUG-021).
+ */
+export async function getFreshLocation(
+  maxAgeMs: number = APP_CONFIG.REPORT_LOCATION_MAX_AGE_MS,
+): Promise<LocationData> {
+  if (!(await Location.hasServicesEnabledAsync())) {
+    throw new Error('errors.locationServicesOff');
+  }
+  const fix = await getCurrentLocation();
+  if (Date.now() - fix.timestamp > maxAgeMs) {
+    throw new Error('errors.locationStale');
+  }
+  return fix;
+}
+
 /** The one canonical share-link format for a coordinate. */
 export function buildLocationUrl(latitude: number, longitude: number): string {
   return getLocationUrl(latitude, longitude);

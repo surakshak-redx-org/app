@@ -22,3 +22,14 @@ export function getDistanceKm(lat1: number, lng1: number, lat2: number, lng2: nu
 
   return EARTH_RADIUS_KM * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
+
+const LOCATION_ERROR_KEYS = new Set([
+  'errors.locationServicesOff',
+  'errors.locationStale',
+  'errors.locationPermissionDenied',
+]);
+
+/** The i18n key carried by a location-service rejection, if it is one. */
+export function locationErrorKey(error: unknown): string | null {
+  return error instanceof Error && LOCATION_ERROR_KEYS.has(error.message) ? error.message : null;
+}

@@ -139,7 +139,7 @@ describe('uploadIncidentPhoto', () => {
       {},
       expect.stringMatching(/^incidents\/user-1\/\d+_\w+\.jpg$/),
     );
-    expect(putFile).toHaveBeenCalledWith({}, 'file:///photo.jpg');
+    expect(putFile).toHaveBeenCalledWith({}, 'file:///photo.jpg', { contentType: 'image/jpeg' });
     expect(url).toBe('https://example.com/file.jpg');
   });
 

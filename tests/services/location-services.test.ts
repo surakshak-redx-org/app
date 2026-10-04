@@ -5,6 +5,7 @@ import {
   buildLocationUrl,
   fetchNearbyPlaces,
   getCurrentLocation,
+  getFreshLocation,
   getLocationWithTimeout,
   getPlaceLocation,
   reverseGeocode,
@@ -114,6 +115,46 @@ describe('getLocationWithTimeout', () => {
 
     await expect(getLocationWithTimeout(1000)).rejects.toThrow('errors.locationPermissionDenied');
     expect(Location.requestForegroundPermissionsAsync).not.toHaveBeenCalled();
+  });
+});
+
+describe('getFreshLocation', () => {
+  let errorSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    jest
+      .mocked(Location.requestForegroundPermissionsAsync)
+      .mockResolvedValue({ granted: true } as never);
+    jest.mocked(Location.hasServicesEnabledAsync).mockResolvedValue(true);
+  });
+
+  afterEach(() => errorSpy.mockRestore());
+
+  it('returns a fix taken just now', async () => {
+    jest.mocked(Location.getCurrentPositionAsync).mockResolvedValueOnce({
+      coords: { latitude: 1, longitude: 2, accuracy: 5 },
+      timestamp: Date.now(),
+    } as never);
+
+    await expect(getFreshLocation()).resolves.toMatchObject({ latitude: 1, longitude: 2 });
+  });
+
+  it('rejects when location services are switched off', async () => {
+    jest.mocked(Location.hasServicesEnabledAsync).mockResolvedValueOnce(false);
+
+    await expect(getFreshLocation()).rejects.toThrow('errors.locationServicesOff');
+    expect(Location.getCurrentPositionAsync).not.toHaveBeenCalled();
+  });
+
+  it('rejects a fix older than the allowed age', async () => {
+    jest.mocked(Location.getCurrentPositionAsync).mockResolvedValueOnce({
+      coords: { latitude: 1, longitude: 2, accuracy: 5 },
+      timestamp: Date.now() - 5 * 60_000,
+    } as never);
+
+    await expect(getFreshLocation(60_000)).rejects.toThrow('errors.locationStale');
   });
 });
 

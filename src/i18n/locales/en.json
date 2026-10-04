@@ -221,13 +221,13 @@
     "approved": "Verified Unsafe",
     "votes": "{{count}} votes",
     "reportSubmitted": "Report submitted for review",
-    "tapToSetLocation": "Tap on map to set location",
     "useCurrentLocation": "Use My Location",
     "legend": "Map Legend",
     "legendPending": "Reported — pending review",
     "legendApproved": "Verified unsafe area",
     "noUnsafeAreas": "No unsafe areas reported in this region",
-    "guestCannotReport": "Sign in to report or vote on unsafe areas"
+    "guestCannotReport": "Sign in to report or vote on unsafe areas",
+    "reportUsesCurrentLocation": "The report is pinned to your current location."
   },
   "community": {
     "title": "Community",
@@ -391,12 +391,16 @@
     "viewHistory": "View History",
     "noReportsTitle": "No reports yet",
     "noReportsSubtitle": "Your submitted incident reports will appear here",
-    "photosAttached": "{{count}} photo(s) attached",
     "status": {
       "submitted": "Submitted",
       "under_review": "Under Review",
       "resolved": "Resolved"
-    }
+    },
+    "photoTooLarge": "That photo is larger than {{mb}} MB. Please choose a smaller one.",
+    "photoUploadFailedTitle": "Photo upload failed",
+    "photoUploadFailedBody": "{{failed}} of {{total}} photo(s) could not be uploaded. Check your connection and try again, or remove them to submit without.",
+    "historyLoadError": "Couldn't load your reports",
+    "viewPhoto": "View photo {{index}} of {{total}}"
   },
   "safeCheckin": {
     "active": "Check-In Active",
@@ -467,7 +471,9 @@
     "uploadFailed": "Upload failed. Please check your connection.",
     "generic": "Something went wrong. Please try again.",
     "sessionExpired": "Your session has expired. Please sign in again.",
-    "permissionRequired": "This feature requires additional permissions."
+    "permissionRequired": "This feature requires additional permissions.",
+    "locationServicesOff": "Location is turned off. Turn on location services to report from where you are.",
+    "locationStale": "Couldn't get your current location. Move to an open area and try again."
   },
   "screens": {
     "onboarding": "Get Started",

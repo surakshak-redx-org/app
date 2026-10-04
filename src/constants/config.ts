@@ -25,6 +25,8 @@ export const APP_CONFIG = {
   SOS_COUNTDOWN_SECONDS: 5,
   /** How long an SOS / alert waits for a fresh GPS fix before using the last known one. */
   ALERT_LOCATION_TIMEOUT_MS: 4000,
+  /** A report's location fix must be no older than this to count as "here, now". */
+  REPORT_LOCATION_MAX_AGE_MS: 60_000,
   SOS_TAP_COUNT: 3,
   SOS_TAP_WINDOW_MS: 1500,
   SHAKE_THRESHOLD: 2.5,

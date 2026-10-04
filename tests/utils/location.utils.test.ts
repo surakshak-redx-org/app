@@ -1,4 +1,4 @@
-import { getDistanceKm, getLocationUrl } from '@/utils/location.utils';
+import { getDistanceKm, getLocationUrl, locationErrorKey } from '@/utils/location.utils';
 
 describe('getLocationUrl', () => {
   it('builds the exact format CLAUDE.md mandates', () => {
@@ -35,5 +35,18 @@ describe('getDistanceKm', () => {
     const forward = getDistanceKm(19.076, 72.8777, 28.6139, 77.209);
     const backward = getDistanceKm(28.6139, 77.209, 19.076, 72.8777);
     expect(forward).toBeCloseTo(backward, 6);
+  });
+});
+
+describe('locationErrorKey', () => {
+  it('passes through known location error keys', () => {
+    expect(locationErrorKey(new Error('errors.locationServicesOff'))).toBe(
+      'errors.locationServicesOff',
+    );
+  });
+
+  it('returns null for anything else', () => {
+    expect(locationErrorKey(new Error('boom'))).toBeNull();
+    expect(locationErrorKey('errors.locationStale')).toBeNull();
   });
 });
