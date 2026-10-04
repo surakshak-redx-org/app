@@ -61,7 +61,12 @@
     "triggerSos": "SOS पाठवा",
     "callHelplineLabel": "{{name}} ला {{phone}} वर कॉल करा",
     "iosHintBody": "आयफोनवर: संपर्कावर टॅप करा म्हणजे डायलर उघडेल, नंतर कॉलवर टॅप करा. SMS आपोआप उघडेल — पाठवण्यासाठी Send वर टॅप करा. (सुरक्षिततेसाठी Apple किमान एक टॅप आवश्यक ठेवते.)",
-    "iosHintDismissLabel": "आयफोन टिप बंद करा"
+    "iosHintDismissLabel": "आयफोन टिप बंद करा",
+    "sosSending": "तुमच्या संपर्कांना SOS अलर्ट पाठवत आहे…",
+    "sosResultTitle": "SOS अलर्ट",
+    "sosResultSent": "{{count}} संपर्कांना अलर्ट पाठवला.",
+    "sosResultPartial": "{{sent}} संपर्कांना अलर्ट पाठवला. {{failed}} ला पाठवता आला नाही — कृपया त्यांना थेट कॉल करा.",
+    "sosResultNoContacts": "कोणताही अलर्ट पाठवला नाही: वैध मोबाइल नंबरसह आपत्कालीन संपर्क जोडा, किंवा 112 वर कॉल करा."
   },
   "auth": {
     "welcome": "Surakshak मध्ये आपले स्वागत आहे",
@@ -118,7 +123,9 @@
     "changePhoto": "फोटो बदला",
     "getStarted": "सुरू करा",
     "next": "पुढे",
-    "finish": "संपवा"
+    "finish": "संपवा",
+    "smsPermission": "SMS आणि फोन",
+    "smsReason": "मोबाइल डेटा नसतानाही तुमच्या संपर्कांना आपोआप SOS अलर्ट पाठवण्यासाठी"
   },
   "profile": {
     "title": "प्रोफाइल",

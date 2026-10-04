@@ -111,6 +111,8 @@ jest.mock('expo-location', () => ({
       timestamp: 1_700_000_000_000,
     }),
   ),
+  getLastKnownPositionAsync: jest.fn(() => Promise.resolve(null)),
+  hasServicesEnabledAsync: jest.fn(() => Promise.resolve(true)),
   watchPositionAsync: jest.fn(() => Promise.resolve({ remove: jest.fn() })),
   startLocationUpdatesAsync: jest.fn(() => Promise.resolve()),
   stopLocationUpdatesAsync: jest.fn(() => Promise.resolve()),

@@ -108,7 +108,7 @@ const config: ExpoConfig = {
   // native build built before it existed — runtimeVersion's "appVersion"
   // policy keys compatibility off this exact string. Minor bump (not patch):
   // this is a feature phase, not a fix.
-  version: '1.2.0',
+  version: '1.3.0',
   orientation: 'portrait',
   scheme: `surakshak-${APP_ENV}`,
   userInterfaceStyle: 'automatic',

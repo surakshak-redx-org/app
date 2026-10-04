@@ -61,7 +61,12 @@
     "triggerSos": "Trigger SOS",
     "callHelplineLabel": "Call {{name}} at {{phone}}",
     "iosHintBody": "On iPhone: tap a contact to open the dialer, then tap Call. SMS opens automatically — tap Send to confirm. (One tap is the minimum Apple allows for safety.)",
-    "iosHintDismissLabel": "Dismiss iPhone tip"
+    "iosHintDismissLabel": "Dismiss iPhone tip",
+    "sosSending": "Sending SOS alert to your contacts…",
+    "sosResultTitle": "SOS alert",
+    "sosResultSent": "Alert sent to {{count}} contact(s).",
+    "sosResultPartial": "Alert sent to {{sent}} contact(s). {{failed}} could not be sent — please call them directly.",
+    "sosResultNoContacts": "No alert was sent: add an emergency contact with a valid mobile number, or call 112."
   },
   "auth": {
     "welcome": "Welcome to Surakshak",
@@ -118,7 +123,9 @@
     "changePhoto": "Change Photo",
     "getStarted": "Get Started",
     "next": "Next",
-    "finish": "Finish"
+    "finish": "Finish",
+    "smsPermission": "SMS & Phone",
+    "smsReason": "To send SOS alerts to your contacts automatically, even without mobile data"
   },
   "profile": {
     "title": "Profile",

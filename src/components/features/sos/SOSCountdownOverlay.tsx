@@ -2,22 +2,41 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
 
+import { Spinner } from '@/components/ui/Spinner';
 import { Text } from '@/components/ui/Text';
+import { COLORS } from '@/constants/colors';
 
 export interface SOSCountdownOverlayProps {
   countdown: number;
+  /** The countdown has elapsed and alerts are going out — no cancel. */
+  isSending?: boolean;
   onCancel: () => void;
 }
 
 /**
  * Full-bleed overlay shown while the SOS countdown runs. Tapping anywhere on
- * the Cancel control aborts the alert before it fans out.
+ * the Cancel control aborts the alert before it fans out. Once the countdown
+ * hits zero it switches to a non-cancellable "sending" state rather than
+ * sitting frozen on 0 while the SMS goes out.
  */
 export function SOSCountdownOverlay({
   countdown,
+  isSending = false,
   onCancel,
 }: SOSCountdownOverlayProps): React.JSX.Element {
   const { t } = useTranslation();
+
+  if (isSending) {
+    return (
+      <View
+        className="absolute inset-0 items-center justify-center bg-near-black/90 px-8"
+        accessibilityLiveRegion="polite"
+      >
+        <Spinner size="lg" color={COLORS.WHITE} />
+        <Text variant="h3" tKey="home.sosSending" className="mt-6 text-center text-white" />
+      </View>
+    );
+  }
 
   return (
     <View className="absolute inset-0 items-center justify-center bg-near-black/90 px-8">

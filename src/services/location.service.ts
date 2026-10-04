@@ -38,16 +38,59 @@ export async function getCurrentLocation(): Promise<LocationData> {
       accuracy: Location.Accuracy.Balanced,
     });
 
-    return {
-      latitude: position.coords.latitude,
-      longitude: position.coords.longitude,
-      timestamp: position.timestamp,
-      ...(position.coords.accuracy != null ? { accuracy: position.coords.accuracy } : {}),
-    };
+    return toLocationData(position);
   } catch (error) {
     console.error('getCurrentLocation failed:', error);
     throw error;
   }
+}
+
+function toLocationData(position: Location.LocationObject): LocationData {
+  return {
+    latitude: position.coords.latitude,
+    longitude: position.coords.longitude,
+    timestamp: position.timestamp,
+    ...(position.coords.accuracy != null ? { accuracy: position.coords.accuracy } : {}),
+  };
+}
+
+/**
+ * Best-effort position for an alert that must not wait on GPS: races a fresh
+ * fix against `timeoutMs`, then falls back to the OS's last known position.
+ * Never prompts — a permission dialog mid-SOS would stall the send — so an
+ * ungranted permission rejects straight away and the caller sends without a
+ * location.
+ */
+export async function getLocationWithTimeout(
+  timeoutMs: number = APP_CONFIG.ALERT_LOCATION_TIMEOUT_MS,
+): Promise<LocationData> {
+  const { granted } = await Location.getForegroundPermissionsAsync();
+  if (!granted) {
+    throw new Error('errors.locationPermissionDenied');
+  }
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), timeoutMs);
+  });
+
+  try {
+    const fresh = await Promise.race([
+      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+      timeout,
+    ]);
+    if (fresh !== null) return toLocationData(fresh);
+  } catch (error) {
+    console.warn('getLocationWithTimeout: fresh fix failed:', error);
+  } finally {
+    clearTimeout(timer);
+  }
+
+  const lastKnown = await Location.getLastKnownPositionAsync();
+  if (lastKnown === null) {
+    throw new Error('errors.locationUnavailable');
+  }
+  return toLocationData(lastKnown);
 }
 
 /** The one canonical share-link format for a coordinate. */
