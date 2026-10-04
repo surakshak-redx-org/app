@@ -21,6 +21,7 @@ jest.mock('@/services/firebase/user.service', () => ({
   addEmergencyContact: jest.fn(),
   updateEmergencyContact: jest.fn(),
   deleteEmergencyContact: jest.fn(),
+  DuplicateContactError: class DuplicateContactError extends Error {},
 }));
 
 describe('EmergencyContactsScreen', () => {

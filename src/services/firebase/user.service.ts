@@ -23,6 +23,18 @@ import { cacheEmergencyContacts } from '@/utils/offline-cache.utils';
 const USERS_COLLECTION = 'users';
 const CONTACTS_SUBCOLLECTION = 'emergencyContacts';
 
+/**
+ * Thrown by `addEmergencyContact` when the phone number is already saved.
+ * Carries no contact data so it is safe to log; screens map it to
+ * `emergency.contactAlreadyExists` instead of a generic save failure.
+ */
+export class DuplicateContactError extends Error {
+  public constructor() {
+    super('emergency.contactAlreadyExists');
+    this.name = 'DuplicateContactError';
+  }
+}
+
 function userDoc(userId: string): ReturnType<typeof doc> {
   return doc(firestore, USERS_COLLECTION, userId);
 }
@@ -165,12 +177,9 @@ export async function addEmergencyContact(
       const created = await addDoc(contactsCollection(userId), contact);
       return { id: created.id, ...contact };
     }
-    // Duplicate found — log the id for debuggability and reject.
-    const existingId = duplicateSnap.docs[0]?.id ?? 'unknown';
-    throw new Error(
-      `addEmergencyContact: a contact with phone ${contact.phone} already exists (id: ${existingId})`,
-    );
+    throw new DuplicateContactError();
   } catch (error) {
+    if (error instanceof DuplicateContactError) throw error;
     console.error('addEmergencyContact failed:', error);
     throw error;
   }
