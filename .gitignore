@@ -61,18 +61,6 @@ coverage/
 google-services*.json
 GoogleService-Info*.plist
 
-# Gradle & Android build artifacts (local native modules — /android itself is
-# ignored above). Scoped to android/ so lockfiles like yarn.lock and
-# Podfile.lock are never caught.
-.gradle/
-**/android/.gradle/
-**/android/**/build/
-**/android/**/*.lock
-**/android/**/*.bin
-*.dex
-local.properties
-**/local.properties
-
 # IDEs and Editors
 .idea/
 *.iml
