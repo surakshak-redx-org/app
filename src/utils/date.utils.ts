@@ -20,7 +20,8 @@ function pad(value: number): string {
   return value.toString().padStart(2, '0');
 }
 
-function formatClockTime(date: Date): string {
+/** `Date` → `"3:30 PM"` in ASCII digits, for UI and SMS alike. */
+export function formatClockTime(date: Date): string {
   const hours24 = date.getHours();
   const suffix = hours24 < 12 ? 'AM' : 'PM';
   const hours12 = hours24 % 12 === 0 ? 12 : hours24 % 12;
@@ -70,4 +71,15 @@ export function formatDuration(minutes: number): string {
 export function formatEta(minutes: number, from: Date = new Date()): string {
   const arrival = new Date(from.getTime() + minutes * MS_PER_MINUTE);
   return `Arrives at ${formatClockTime(arrival)}`;
+}
+
+const SECONDS_PER_HOUR = 3600;
+
+/** `5400` → `"1:30:00"`, `95` → `"1:35"` — a live countdown that stays exact past an hour. */
+export function formatCountdown(seconds: number): string {
+  const safeSeconds = Math.max(0, Math.floor(seconds));
+  const hours = Math.floor(safeSeconds / SECONDS_PER_HOUR);
+  if (hours === 0) return formatSecondsAsClock(safeSeconds);
+  const rest = safeSeconds % SECONDS_PER_HOUR;
+  return `${hours}:${pad(Math.floor(rest / SECONDS_PER_MINUTE))}:${pad(rest % SECONDS_PER_MINUTE)}`;
 }

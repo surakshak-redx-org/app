@@ -24,6 +24,7 @@ import { captureException, initSentry } from '@/config/sentry';
 import { ROUTES } from '@/constants/routes';
 import { STORAGE_FLAG_ON, STORAGE_KEYS } from '@/constants/storage';
 import { registerLiveLocationTask } from '@/hooks/useLiveLocation';
+import { useSafeJourneyMonitor } from '@/hooks/useSafeJourneyMonitor';
 import { changeLanguage } from '@/i18n';
 import { identifyUser } from '@/services/analytics.service';
 import { subscribeToAuthChanges } from '@/services/firebase/auth.service';
@@ -57,6 +58,7 @@ function RootLayout(): React.JSX.Element {
 
   const user = useAuthStore((state) => state.user);
   const isGuest = useAuthStore((state) => state.isGuest);
+  useSafeJourneyMonitor(user !== null && !isGuest ? user.uid : null);
   const isGuestSigningIn = useAuthStore((state) => state.isGuestSigningIn);
   const isInitialized = useAuthStore((state) => state.isInitialized);
   const setUser = useAuthStore((state) => state.setUser);
@@ -217,6 +219,10 @@ function RootLayout(): React.JSX.Element {
 
       if (type === 'safe_checkin') {
         router.push(ROUTES.SAFE_CHECKIN);
+      }
+
+      if (type === 'safe_journey') {
+        router.push(ROUTES.SAFE_JOURNEY);
       }
     });
 

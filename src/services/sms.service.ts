@@ -10,8 +10,10 @@ import type { EmergencyContact, Language } from '@/types/user.types';
 import { formatIndianPhone, validateIndianPhone } from '@/utils/phone.utils';
 import {
   buildCheckInMissedMessage,
+  buildLiveLocationMessage,
   buildLowBatteryMessage,
   buildSafeJourneyMessage,
+  buildSafeJourneyStartMessage,
   buildSOSMessage,
 } from '@/utils/sms.utils';
 
@@ -128,6 +130,35 @@ export async function sendSafeJourneyAlert(
   return dispatch(
     resolveRecipients(contacts),
     buildSafeJourneyMessage(userName, destination, etaTime, locationUrl, language),
+  );
+}
+
+/** Lets the chosen contacts know a journey has started — not an alarm. */
+export async function sendSafeJourneyStart(
+  contacts: EmergencyContact[],
+  locationUrl: string,
+  userName: string,
+  destination: string,
+  etaTime: string,
+  language: Language,
+): Promise<SMSAlertResult> {
+  return dispatch(
+    resolveRecipients(contacts),
+    buildSafeJourneyStartMessage(userName, destination, etaTime, locationUrl, language),
+  );
+}
+
+/** Shares a live-location session with the chosen contacts. */
+export async function sendLiveLocationShare(
+  contacts: EmergencyContact[],
+  locationUrl: string,
+  userName: string,
+  untilTime: string,
+  language: Language,
+): Promise<SMSAlertResult> {
+  return dispatch(
+    resolveRecipients(contacts),
+    buildLiveLocationMessage(userName, locationUrl, untilTime, language),
   );
 }
 

@@ -60,7 +60,9 @@ export async function createSafeJourneySession(
 }
 
 /**
- * "I'm safe" — pushes the expected arrival back by another full ETA interval.
+ * "I'm safe" check-in — restarts the countdown from now by the journey's ETA
+ * interval, but never pulls the deadline earlier: after a "+30 min" extension
+ * a check-in used to *shorten* the time left (BUG-030).
  * @phase Phase 4 — Location & Maps
  */
 export async function checkInSafeJourney(sessionId: string): Promise<void> {
@@ -69,7 +71,12 @@ export async function checkInSafeJourney(sessionId: string): Promise<void> {
     const data = snapshot.data() as Omit<SafeJourneySession, 'id'> | undefined;
     if (data === undefined) throw new Error('Session not found');
 
-    const nextArrival = new Date(Date.now() + data.etaMinutes * MS_PER_MINUTE);
+    const nextArrival = new Date(
+      Math.max(
+        data.expectedArrivalAt.toDate().getTime(),
+        Date.now() + data.etaMinutes * MS_PER_MINUTE,
+      ),
+    );
     await updateDoc(sessionDoc(sessionId), {
       expectedArrivalAt: Timestamp.fromDate(nextArrival),
     });

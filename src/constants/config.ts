@@ -55,6 +55,12 @@ export const APP_CONFIG = {
   SAFE_JOURNEY_ETA_DEFAULT_MINUTES: 30,
   /** Countdown turns red once the journey has this many seconds or fewer left. */
   SAFE_JOURNEY_ALERT_WARN_SECONDS: 300,
+  /**
+   * A journey found already overdue by more than this (e.g. the app was not
+   * opened for hours) is closed quietly instead of texting contacts a stale
+   * "check on her immediately".
+   */
+  SAFE_JOURNEY_STALE_HOURS: 6,
   UNSAFE_AREA_DEFAULT_RADIUS_METERS: 200,
   NEARBY_HELP_SEARCH_RADIUS_METERS: 5000,
   NEARBY_HELP_MAX_RESULTS: 20,

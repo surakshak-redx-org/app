@@ -1,4 +1,10 @@
-import { formatDuration, formatEta, formatTimestamp } from '@/utils/date.utils';
+import {
+  formatClockTime,
+  formatCountdown,
+  formatDuration,
+  formatEta,
+  formatTimestamp,
+} from '@/utils/date.utils';
 
 describe('formatTimestamp', () => {
   const now = new Date('2026-01-12T15:00:00');
@@ -61,5 +67,26 @@ describe('formatEta', () => {
 
   it('rolls past midnight', () => {
     expect(formatEta(90, new Date('2026-01-12T23:00:00'))).toBe('Arrives at 12:30 AM');
+  });
+});
+
+describe('formatCountdown', () => {
+  it('uses m:ss under an hour', () => {
+    expect(formatCountdown(95)).toBe('1:35');
+  });
+
+  it('switches to h:mm:ss at an hour or more', () => {
+    expect(formatCountdown(5400)).toBe('1:30:00');
+    expect(formatCountdown(3661)).toBe('1:01:01');
+  });
+
+  it('never goes negative', () => {
+    expect(formatCountdown(-5)).toBe('0:00');
+  });
+});
+
+describe('formatClockTime', () => {
+  it('formats a 12-hour clock time', () => {
+    expect(formatClockTime(new Date(2026, 0, 1, 18, 5))).toBe('6:05 PM');
   });
 });

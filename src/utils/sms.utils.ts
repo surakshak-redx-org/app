@@ -29,6 +29,19 @@ interface SafeJourneyTemplateInput {
   locationUrl: string;
 }
 
+interface SafeJourneyStartTemplateInput {
+  name: string;
+  destination: string;
+  etaTime: string;
+  locationUrl: string;
+}
+
+interface LiveLocationTemplateInput {
+  name: string;
+  locationUrl: string;
+  untilTime: string;
+}
+
 interface CheckInMissedTemplateInput {
   name: string;
   locationUrl: string;
@@ -91,6 +104,45 @@ const SAFE_JOURNEY_TEMPLATES: Record<Language, (input: SafeJourneyTemplateInput)
     `— सुरक्षक`,
 };
 
+// Informational, not an alarm: sent when a journey starts so contacts know
+// to expect the overdue warning only if she doesn't arrive (BUG-028).
+const SAFE_JOURNEY_START_TEMPLATES: Record<
+  Language,
+  (input: SafeJourneyStartTemplateInput) => string
+> = {
+  en: ({ name, destination, etaTime, locationUrl }) =>
+    `${name} has started a journey to ${destination} and expects to arrive by ${etaTime}.\n` +
+    `You will be alerted if she does not check in.\n` +
+    `Starting point: ${locationUrl}\n` +
+    `— Surakshak`,
+  hi: ({ name, destination, etaTime, locationUrl }) =>
+    `${name} ने ${destination} की यात्रा शुरू की है और ${etaTime} तक पहुँचने की उम्मीद है।\n` +
+    `अगर वे चेक-इन नहीं करतीं, तो आपको सूचित किया जाएगा।\n` +
+    `शुरुआती स्थान: ${locationUrl}\n` +
+    `— सुरक्षक`,
+  mr: ({ name, destination, etaTime, locationUrl }) =>
+    `${name} ने ${destination} चा प्रवास सुरू केला आहे आणि ${etaTime} पर्यंत पोहोचण्याची अपेक्षा आहे.\n` +
+    `त्यांनी चेक-इन न केल्यास तुम्हाला कळवले जाईल.\n` +
+    `सुरुवातीचे स्थान: ${locationUrl}\n` +
+    `— सुरक्षक`,
+};
+
+// Routine sharing, not an emergency (BUG-026).
+const LIVE_LOCATION_TEMPLATES: Record<Language, (input: LiveLocationTemplateInput) => string> = {
+  en: ({ name, locationUrl, untilTime }) =>
+    `${name} is sharing her location with you until ${untilTime}.\n` +
+    `Location: ${locationUrl}\n` +
+    `— Surakshak`,
+  hi: ({ name, locationUrl, untilTime }) =>
+    `${name} ${untilTime} तक आपके साथ अपना स्थान साझा कर रही हैं।\n` +
+    `स्थान: ${locationUrl}\n` +
+    `— सुरक्षक`,
+  mr: ({ name, locationUrl, untilTime }) =>
+    `${name} ${untilTime} पर्यंत तुमच्यासोबत त्यांचे स्थान शेअर करत आहेत.\n` +
+    `स्थान: ${locationUrl}\n` +
+    `— सुरक्षक`,
+};
+
 const CHECKIN_MISSED_TEMPLATES: Record<Language, (input: CheckInMissedTemplateInput) => string> = {
   en: ({ name, locationUrl }) =>
     `${name} has missed her Safe Check-In and could not be reached.\n` +
@@ -136,6 +188,25 @@ export function buildSafeJourneyMessage(
   language: Language,
 ): string {
   return SAFE_JOURNEY_TEMPLATES[language]({ name, destination, etaTime, locationUrl });
+}
+
+export function buildSafeJourneyStartMessage(
+  name: string,
+  destination: string,
+  etaTime: string,
+  locationUrl: string,
+  language: Language,
+): string {
+  return SAFE_JOURNEY_START_TEMPLATES[language]({ name, destination, etaTime, locationUrl });
+}
+
+export function buildLiveLocationMessage(
+  name: string,
+  locationUrl: string,
+  untilTime: string,
+  language: Language,
+): string {
+  return LIVE_LOCATION_TEMPLATES[language]({ name, locationUrl, untilTime });
 }
 
 export function buildCheckInMissedMessage(

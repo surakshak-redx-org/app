@@ -302,7 +302,7 @@
     "destinationPlaceholder": "Where are you going?",
     "etaMinutes": "ETA (minutes)",
     "startJourney": "Start Journey",
-    "imSafe": "I'm Safe ✓",
+    "imSafe": "Check in: I'm safe (reset timer)",
     "iArrived": "I've Arrived",
     "extendEta": "Extend ETA",
     "journeyStarted": "Journey started. Contacts will be alerted if you don't check in.",
@@ -329,7 +329,17 @@
     "plus15Min": "+15 min",
     "plus30Min": "+30 min",
     "nearbyHelpError": "Could not load nearby places. Check your connection and try again.",
-    "noPlacesFound": "No places found nearby"
+    "noPlacesFound": "No places found nearby",
+    "imSafeHint": "Restarts your countdown. Your contacts are alerted only if the timer runs out.",
+    "timeLeftCaption": "Time left to check in",
+    "destinationNotPicked": "Not picked from the suggestions: your current location will be saved as the destination.",
+    "etaInvalid": "Enter a time between {{min}} and {{max}} minutes",
+    "journeyStartSmsFailedTitle": "Some contacts were not notified",
+    "journeyStartSmsFailedBody": "{{count}} contact(s) did not receive the journey message. Your journey is still being monitored.",
+    "journeyWarningTitle": "Safe Journey: 5 minutes left",
+    "journeyWarningBody": "Check in or extend your time, or your contacts will be alerted.",
+    "journeyDueTitle": "Safe Journey: are you safe?",
+    "journeyDueBody": "Your expected arrival time has passed, so your contacts are being alerted. Open Surakshak if you need to update them."
   },
   "silentRecording": {
     "title": "Silent Evidence Recording",
