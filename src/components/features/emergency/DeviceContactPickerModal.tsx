@@ -3,7 +3,7 @@
 // non-deprecated main module via `permissions.utils`.
 import { MaterialIcons } from '@expo/vector-icons';
 import { Fields, getContactsAsync } from 'expo-contacts/legacy';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, FlatList, Linking, Modal, Pressable, TextInput, View } from 'react-native';
 
@@ -41,27 +41,6 @@ export function DeviceContactPickerModal({
   const [searchQuery, setSearchQuery] = useState('');
   const [rows, setRows] = useState<DeviceContactRow[]>([]);
 
-  // Parents usually pass `onClose` as an inline arrow. Reading it through a ref
-  // keeps the load effect keyed on `visible` alone, so a parent re-render while
-  // the picker is open doesn't refetch contacts and wipe the search text.
-  const onCloseRef = useRef(onClose);
-  useEffect(() => {
-    onCloseRef.current = onClose;
-  }, [onClose]);
-
-  const handleClose = useCallback((): void => {
-    setSearchQuery('');
-    onClose();
-  }, [onClose]);
-
-  const handlePick = useCallback(
-    (values: EmergencyContactFormValues): void => {
-      setSearchQuery('');
-      onPick(values);
-    },
-    [onPick],
-  );
-
   useEffect(() => {
     if (!visible) return;
 
@@ -83,7 +62,7 @@ export function DeviceContactPickerModal({
               },
             },
           ]);
-          onCloseRef.current();
+          onClose();
           return;
         }
 
@@ -104,7 +83,7 @@ export function DeviceContactPickerModal({
       } catch (error) {
         console.error('DeviceContactPickerModal load failed:', error);
         Alert.alert(t('errors.deviceContactsFailed'));
-        onCloseRef.current();
+        onClose();
       } finally {
         if (active) setLoading(false);
       }
@@ -114,23 +93,7 @@ export function DeviceContactPickerModal({
     return (): void => {
       active = false;
     };
-  }, [visible, t]);
-
-  const filteredRows = useMemo(() => {
-    const trimmed = searchQuery.trim().toLowerCase();
-    if (trimmed.length === 0) return rows;
-
-    const digitsQuery = trimmed.replace(/\D/g, '');
-
-    return rows.filter((row) => {
-      const matchesName = row.name.toLowerCase().includes(trimmed);
-      const matchesRawPhone = row.phone.toLowerCase().includes(trimmed);
-      const matchesDigits =
-        digitsQuery.length > 0 && row.phone.replace(/\D/g, '').includes(digitsQuery);
-
-      return matchesName || matchesRawPhone || matchesDigits;
-    });
-  }, [rows, searchQuery]);
+  }, [visible, t, onClose]);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>

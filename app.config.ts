@@ -210,7 +210,7 @@ const config: ExpoConfig = {
     // non-modular pods (GoogleUtilities, the *Interop pods) and can't be built
     // as static libraries at all. react-native-maps + Google Maps needs
     // use_frameworks! on iOS too.
-    ['expo-build-properties', { ios: { useFrameworks: 'static' } }],
+    ['expo-build-properties', { ios: { useFrameworks: 'static' }, android: { ndkVersion: '27.1.12297006' } }],
     // With use_frameworks! active, opt Firebase out of SPM (its SPM products
     // collide under static linkage) so it resolves via CocoaPods podspecs...
     ['@react-native-firebase/app', { ios: { disableSPM: true } }],

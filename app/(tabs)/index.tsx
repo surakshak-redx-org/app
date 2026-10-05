@@ -31,7 +31,6 @@ import { useSuspiciousFollow } from '@/hooks/useSuspiciousFollow';
 import { trackEmergencyCallPlaced } from '@/services/analytics.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { useLocationStore } from '@/stores/location.store';
-import { useSOSStore } from '@/stores/sos.store';
 import { useUserStore } from '@/stores/user.store';
 import { formatEta } from '@/utils/date.utils';
 import { placeCall } from '@/utils/phone.utils';
@@ -49,7 +48,6 @@ export default function HomeScreen(): React.JSX.Element {
   const fakeCall = useFakeCall();
   useBatteryAlert();
 
-  const contactCount = useUserStore((state) => state.emergencyContacts.length);
   const isLiveLocationActive = useLocationStore((state) => state.isLiveLocationActive);
   const isSafeJourneyActive = useLocationStore((state) => state.isSafeJourneyActive);
   const isGuest = useAuthStore((state) => state.isGuest);
@@ -171,6 +169,9 @@ export default function HomeScreen(): React.JSX.Element {
           <QuickActionCard
             icon="people"
             labelKey="home.emergencyContacts"
+            subtitle={
+              contactCount > 0 ? t('home.contactCount', { count: contactCount }) : undefined
+            }
             warning={!isGuest && contactCount === 0 ? t('home.addContactsWarning') : undefined}
             locked={isGuest}
             onPress={() => openFeatureForGuest(() => router.push(ROUTES.EMERGENCY_CONTACTS))}

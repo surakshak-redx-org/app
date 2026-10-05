@@ -59,17 +59,37 @@ export default function EmergencyContactsScreen(): React.JSX.Element {
   );
 
   const refresh = useCallback(async (): Promise<void> => {
-    if (userId === null) return;
+    if (userId === null) {
+      setEmergencyContacts([]);
+      return;
+    }
+
     const loaded = await getEmergencyContacts(userId);
     setEmergencyContacts(loaded);
   }, [userId, setEmergencyContacts]);
 
   useEffect(() => {
-    refresh().catch((error: unknown) => {
-      captureException(error);
-      Alert.alert(t('errors.contactsLoadFailed'));
-    });
-  }, [refresh, t]);
+    if (userId === null) {
+      setEmergencyContacts([]);
+      return;
+    }
+
+    let isActive = true;
+
+    refresh()
+      .then(() => {
+        if (!isActive) return;
+      })
+      .catch((error: unknown) => {
+        if (!isActive) return;
+        captureException(error);
+        Alert.alert(t('errors.contactsLoadFailed'));
+      });
+
+    return (): void => {
+      isActive = false;
+    };
+  }, [refresh, setEmergencyContacts, t, userId]);
 
   function call(name: string, phone: string, kind: 'predefined' | 'custom'): void {
     Alert.alert(t('emergency.callConfirm', { name, number: phone }), undefined, [

@@ -2,7 +2,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { InteractionManager, Pressable, TextInput, View } from 'react-native';
+import { Pressable, TextInput, View } from 'react-native';
 
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { SafeScreen } from '@/components/ui/SafeScreen';
@@ -35,14 +35,14 @@ export default function OtpScreen(): React.JSX.Element {
   const [countdown, setCountdown] = useState(OTP_RESEND_SECONDS);
 
   // Autofocus the first box so the keyboard is already open when this screen
-  // lands — `autoFocus` alone is dropped fairly often here because it fires
-  // mid-way through expo-router's push transition; focusing once the
-  // transition's interactions are done is reliable.
+  // lands. `InteractionManager.runAfterInteractions` has been deprecated in the
+  // RN runtime, so use a short microtask instead of waiting on a deprecated API.
   useEffect(() => {
-    const task = InteractionManager.runAfterInteractions(() => {
+    const timeoutId = setTimeout(() => {
       inputRefs.current[0]?.focus();
-    });
-    return (): void => task.cancel();
+    }, 0);
+
+    return (): void => clearTimeout(timeoutId);
   }, []);
 
   useEffect(() => {
