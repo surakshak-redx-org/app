@@ -63,17 +63,17 @@ export function QuickActionCard({
             size={ICON_SIZE.PERMISSION}
             color={COLORS.SHAKTI_PURPLE}
           />
-          <Text variant="label" tKey={labelKey} className="mt-2 text-center text-ink" />
+          <Text variant="label" tKey={labelKey} className="mt-2 text-center" />
           {subtitle !== undefined && (
-            <Text variant="caption" className="mt-0.5 text-center text-stone">
+            <Text variant="caption" className="mt-0.5 text-center">
               {subtitle}
             </Text>
           )}
         </View>
         {warning !== undefined && (
           <View className="absolute right-0 top-0 flex-row items-center gap-0.5 rounded-full bg-saffron px-2 py-0.5">
-            <Ionicons name="alert-circle" size={ICON_SIZE.BADGE} color={COLORS.WHITE} />
-            <Text variant="caption" className="text-xs text-white">
+            <Ionicons name="alert-circle" size={ICON_SIZE.BADGE} color={COLORS.NEAR_BLACK} />
+            <Text variant="caption" className="text-xs font-semibold text-near-black">
               {warning}
             </Text>
           </View>
