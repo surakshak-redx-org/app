@@ -109,6 +109,12 @@ jobs:
           if echo "$CHANGED" | grep -q "^eas\.json$"; then
             NEEDS_BUILD=true; REASON="eas.json changed"
           fi
+          if echo "$CHANGED" | grep -q "^modules/"; then
+            NEEDS_BUILD=true; REASON="modules/ changed"
+          fi
+          if echo "$CHANGED" | grep -q "^plugins/"; then
+            NEEDS_BUILD=true; REASON="plugins/ changed"
+          fi
 
           # Checked last, deliberately: each `if` above overwrites REASON when
           # it matches, so whichever check runs last wins the summary. A first
