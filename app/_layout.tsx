@@ -42,6 +42,10 @@ const AUTH_SEGMENT = '(auth)';
 const ONBOARDING_SEGMENT = 'onboarding';
 const DISGUISE_SEGMENT = '(disguise)';
 
+// The background location task must be defined before the first tick so the
+// OS can hand a relaunch back to it — see `useLiveLocation`.
+registerLiveLocationTask();
+
 function RootLayout(): React.JSX.Element {
   const router = useRouter();
   const segments = useSegments();
@@ -80,12 +84,6 @@ function RootLayout(): React.JSX.Element {
   // Reports otherwise-unhandled JS errors (thrown outside any try/catch this
   // app owns) to Sentry before falling through to RN's own default handler.
   useEffect(() => installGlobalErrorHandler(captureException), []);
-
-  // The background location task must be defined before the first tick so the
-  // OS can hand a relaunch back to it — see `useLiveLocation`.
-  useEffect(() => {
-    registerLiveLocationTask();
-  }, []);
 
   // Firebase auth is reached through the service layer — absolute rule 13
   // forbids a screen (this file included) from touching Firebase directly.
