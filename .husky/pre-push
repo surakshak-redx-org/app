@@ -1,3 +1,3 @@
-echo "Running TypeScript check before push..."
-yarn typecheck
-echo "✅ TypeScript check passed"
+echo "🛡️  Running Surakshak pre-push checks (yarn check)..."
+yarn check
+echo "✅ All pre-push checks passed! Proceeding with push."

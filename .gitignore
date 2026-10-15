@@ -61,6 +61,7 @@ coverage/
 .env.dev
 .env.staging
 .env.production
+.env.download
 google-services*.json
 GoogleService-Info*.plist
 

@@ -1,10 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, renderHook } from '@testing-library/react-native';
 
-import { STORAGE_KEYS } from '@/constants/storage';
+import { SENSITIVE_STORAGE_KEYS } from '@/constants/storage';
 import { useAuth } from '@/hooks/useAuth';
 import { signOutUser } from '@/services/firebase/auth.service';
 import { useAuthStore } from '@/stores/auth.store';
+import { useLocationStore } from '@/stores/location.store';
+import { useSOSStore } from '@/stores/sos.store';
 import { useUserStore } from '@/stores/user.store';
 
 jest.mock('@/services/firebase/auth.service', () => ({
@@ -16,6 +18,8 @@ describe('useAuth', () => {
   beforeEach(() => {
     useAuthStore.getState().reset();
     useUserStore.getState().reset();
+    useLocationStore.getState().reset();
+    useSOSStore.getState().reset();
     jest.mocked(signOutUser).mockClear();
     jest.mocked(signOutUser).mockResolvedValue(undefined);
   });
@@ -55,11 +59,13 @@ describe('useAuth', () => {
     expect(result.current.isAuthenticated).toBe(true);
   });
 
-  it('clears both stores on sign out', async () => {
+  it('clears all stores and sensitive offline caches on sign out', async () => {
     const { result } = await renderHook(() => useAuth());
 
     await act(() => {
       useAuthStore.getState().setGuest(true);
+      useLocationStore.getState().setLiveLocationActive(true, 'sess-123');
+      useSOSStore.getState().setActive(true, 'button');
     });
     await act(async () => {
       await result.current.signOut();
@@ -67,7 +73,9 @@ describe('useAuth', () => {
 
     expect(signOutUser).toHaveBeenCalled();
     expect(useAuthStore.getState().isGuest).toBe(false);
-    expect(AsyncStorage.removeItem).toHaveBeenCalledWith(STORAGE_KEYS.ONBOARDING_COMPLETE);
+    expect(useLocationStore.getState().isLiveLocationActive).toBe(false);
+    expect(useSOSStore.getState().isActive).toBe(false);
+    expect(AsyncStorage.multiRemove).toHaveBeenCalledWith([...SENSITIVE_STORAGE_KEYS]);
   });
 
   it('still clears local state when the network sign-out fails', async () => {
