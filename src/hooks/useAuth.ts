@@ -4,10 +4,12 @@ import { useCallback } from 'react';
 
 import { clearExternalUserId } from '@/config/onesignal';
 import { captureException } from '@/config/sentry';
-import { STORAGE_KEYS } from '@/constants/storage';
+import { SENSITIVE_STORAGE_KEYS } from '@/constants/storage';
 import { resetUser as resetAnalytics } from '@/services/analytics.service';
 import { signOutUser } from '@/services/firebase/auth.service';
 import { useAuthStore } from '@/stores/auth.store';
+import { useLocationStore } from '@/stores/location.store';
+import { useSOSStore } from '@/stores/sos.store';
 import { useUserStore } from '@/stores/user.store';
 import type { User } from '@/types/user.types';
 
@@ -30,24 +32,28 @@ export function useAuth(): UseAuthResult {
   const isInitialized = useAuthStore((state) => state.isInitialized);
   const resetAuth = useAuthStore((state) => state.reset);
   const resetUserStore = useUserStore((state) => state.reset);
+  const resetLocationStore = useLocationStore((state) => state.reset);
+  const resetSOSStore = useSOSStore((state) => state.reset);
 
   const signOut = useCallback(async (): Promise<void> => {
     try {
       await signOutUser();
     } finally {
       // Clear local state even if the network call failed — leaving a stale
-      // profile on screen after a sign-out attempt is worse than a retry.
+      // profile or safety session state on screen after a sign-out attempt is
+      // worse than a retry.
       resetAuth();
       resetUserStore();
+      resetLocationStore();
+      resetSOSStore();
       resetAnalytics();
       clearExternalUserId();
-      // The onboarding gate keys off this flag; a different account signing in
-      // next must not inherit "onboarding already done".
-      await AsyncStorage.removeItem(STORAGE_KEYS.ONBOARDING_COMPLETE).catch((error: unknown) => {
+      // Purge all user-sensitive offline caches and transient safety session state.
+      await AsyncStorage.multiRemove([...SENSITIVE_STORAGE_KEYS]).catch((error: unknown) => {
         captureException(error);
       });
     }
-  }, [resetAuth, resetUserStore]);
+  }, [resetAuth, resetLocationStore, resetSOSStore, resetUserStore]);
 
   return {
     user,

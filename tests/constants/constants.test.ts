@@ -2,6 +2,7 @@ import { COLORS } from '@/constants/colors';
 import { APP_CONFIG } from '@/constants/config';
 import { ROUTES } from '@/constants/routes';
 import { MIN_TOUCH_TARGET, SPACING } from '@/constants/spacing';
+import { SENSITIVE_STORAGE_KEYS, STORAGE_KEYS } from '@/constants/storage';
 import { FONT_SIZES, FONT_WEIGHTS, LINE_HEIGHTS } from '@/constants/typography';
 
 describe('COLORS', () => {
@@ -78,5 +79,26 @@ describe('APP_CONFIG', () => {
     for (const value of Object.values(APP_CONFIG)) {
       expect(typeof value).toBe('number');
     }
+  });
+});
+
+describe('STORAGE_KEYS & SENSITIVE_STORAGE_KEYS', () => {
+  it('prefixes all storage keys with surakshak_', () => {
+    for (const value of Object.values(STORAGE_KEYS)) {
+      expect(value).toMatch(/^surakshak_[a-z_]+$/);
+    }
+  });
+
+  it('contains no duplicate storage keys', () => {
+    const values = Object.values(STORAGE_KEYS);
+    expect(new Set(values).size).toBe(values.length);
+  });
+
+  it('ensures every sensitive key exists in STORAGE_KEYS and has no duplicates', () => {
+    const allKeys = new Set(Object.values(STORAGE_KEYS));
+    for (const key of SENSITIVE_STORAGE_KEYS) {
+      expect(allKeys.has(key)).toBe(true);
+    }
+    expect(new Set(SENSITIVE_STORAGE_KEYS).size).toBe(SENSITIVE_STORAGE_KEYS.length);
   });
 });

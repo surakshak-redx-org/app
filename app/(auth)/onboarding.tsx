@@ -3,12 +3,14 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Alert, Platform, Pressable, View } from 'react-native';
 import { z } from 'zod';
 
+import { ContactFormModal } from '@/components/features/emergency/ContactFormModal';
+import { DeviceContactPickerModal } from '@/components/features/emergency/DeviceContactPickerModal';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -34,12 +36,25 @@ import { ROUTES } from '@/constants/routes';
 import { STORAGE_FLAG_ON, STORAGE_KEYS } from '@/constants/storage';
 import { ICON_SIZE } from '@/constants/ui';
 import { changeLanguage, detectDeviceLanguage } from '@/i18n';
-import { ANALYTICS_EVENTS, identifyUser, trackEvent } from '@/services/analytics.service';
+import {
+  ANALYTICS_EVENTS,
+  identifyUser,
+  trackEmergencyContactChange,
+  trackEvent,
+} from '@/services/analytics.service';
 import { getCurrentUser } from '@/services/firebase/auth.service';
-import { createUserProfile, uploadProfilePhoto } from '@/services/firebase/user.service';
+import {
+  addEmergencyContact,
+  createUserProfile,
+  deleteEmergencyContact,
+  DuplicateContactError,
+  uploadProfilePhoto,
+} from '@/services/firebase/user.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { useUserStore } from '@/stores/user.store';
-import type { Language } from '@/types/user.types';
+import type { EmergencyContactFormValues } from '@/types/emergency.types';
+import type { EmergencyContact, Language } from '@/types/user.types';
+import { cacheEmergencyContacts } from '@/utils/offline-cache.utils';
 import {
   requestCameraPermission,
   requestContactsPermission,
@@ -48,6 +63,7 @@ import {
   requestSmsPermission,
   type PermissionKey,
 } from '@/utils/permissions.utils';
+import { formatIndianPhone } from '@/utils/phone.utils';
 
 type IconName = keyof typeof MaterialIcons.glyphMap;
 
@@ -124,12 +140,15 @@ type ProfileForm = z.infer<typeof profileSchema>;
 const LANGUAGE_STEP = 1;
 const PERMISSIONS_STEP = 2;
 const PROFILE_STEP = 3;
+const CONTACTS_STEP = 4;
 
 export default function OnboardingScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const router = useRouter();
   const setSurakshakUser = useAuthStore((state) => state.setSurakshakUser);
   const setProfileMirror = useUserStore((state) => state.setProfile);
+  const storedContacts = useUserStore((state) => state.emergencyContacts);
+  const setEmergencyContactsInStore = useUserStore((state) => state.setEmergencyContacts);
 
   const [step, setStep] = useState<number>(LANGUAGE_STEP);
   const [selectedLanguage, setSelectedLanguage] = useState<Language>(detectDeviceLanguage);
@@ -137,6 +156,15 @@ export default function OnboardingScreen(): React.JSX.Element {
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
   const [isPhotoUploading, setIsPhotoUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [contacts, setContacts] = useState<EmergencyContact[]>(() => storedContacts);
+  const [formVisible, setFormVisible] = useState(false);
+  const [pickerVisible, setPickerVisible] = useState(false);
+  const [isAddingContact, setIsAddingContact] = useState(false);
+
+  const existingPhones = useMemo(
+    () => new Set(contacts.map((c) => formatIndianPhone(c.phone))),
+    [contacts],
+  );
 
   const {
     control,
@@ -199,7 +227,7 @@ export default function OnboardingScreen(): React.JSX.Element {
     }
   }
 
-  async function handleComplete({ name, city }: ProfileForm): Promise<void> {
+  async function handleContinueFromProfile({ name, city }: ProfileForm): Promise<void> {
     const user = getCurrentUser();
     if (user === null) {
       // Auth state was lost between OTP and here — restart the sign-in flow.
@@ -217,13 +245,95 @@ export default function OnboardingScreen(): React.JSX.Element {
         phone: user.phoneNumber ?? '',
         profilePhotoUrl: profilePhotoUrl ?? '',
       });
-      await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_COMPLETE, STORAGE_FLAG_ON);
       setSurakshakUser(profile);
       setProfileMirror(profile);
       identifyUser(user.uid);
+      setStep(CONTACTS_STEP);
+    } catch (saveError) {
+      captureException(saveError);
+      Alert.alert(t('errors.generic'));
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleAddContact(values: EmergencyContactFormValues): Promise<void> {
+    const user = getCurrentUser();
+    if (user === null) {
+      Alert.alert(t('errors.sessionExpired'));
+      return;
+    }
+
+    const normalizedPhone = formatIndianPhone(values.phone);
+    const isDuplicate = contacts.some((c) => formatIndianPhone(c.phone) === normalizedPhone);
+    if (isDuplicate) {
+      Alert.alert(t('emergency.contactAlreadyExists'));
+      return;
+    }
+
+    setIsAddingContact(true);
+    try {
+      const saved = await addEmergencyContact(user.uid, {
+        ...values,
+        phone: normalizedPhone,
+        isPredefined: false,
+        order: contacts.length,
+      });
+      trackEmergencyContactChange('added');
+      const updated = [...contacts, saved];
+      setContacts(updated);
+      setEmergencyContactsInStore(updated);
+      await cacheEmergencyContacts(updated);
+      setFormVisible(false);
+      setPickerVisible(false);
+    } catch (error) {
+      captureException(error);
+      if (error instanceof DuplicateContactError) {
+        Alert.alert(t('emergency.contactAlreadyExists'));
+      } else {
+        Alert.alert(t('errors.contactSaveFailed'));
+      }
+    } finally {
+      setIsAddingContact(false);
+    }
+  }
+
+  async function handleDeleteContact(contactId: string): Promise<void> {
+    const user = getCurrentUser();
+    if (user === null) return;
+    try {
+      await deleteEmergencyContact(user.uid, contactId);
+      trackEmergencyContactChange('deleted');
+      const updated = contacts.filter((c) => c.id !== contactId);
+      setContacts(updated);
+      setEmergencyContactsInStore(updated);
+      await cacheEmergencyContacts(updated);
+    } catch (error) {
+      captureException(error);
+      Alert.alert(t('errors.generic'));
+    }
+  }
+
+  async function handleFinishOnboarding(): Promise<void> {
+    if (contacts.length === 0) {
+      Alert.alert(t('onboarding.atLeastOneContactRequired'));
+      return;
+    }
+
+    const user = getCurrentUser();
+    if (user === null) {
+      Alert.alert(t('errors.sessionExpired'));
+      router.replace(ROUTES.PHONE);
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_COMPLETE, STORAGE_FLAG_ON);
       trackEvent(ANALYTICS_EVENTS.ONBOARDING_COMPLETED, {
         language: selectedLanguage,
         permissions_granted: grantedPermissions,
+        contacts_count: contacts.length,
       });
       router.replace(ROUTES.HOME);
     } catch (saveError) {
@@ -410,12 +520,104 @@ export default function OnboardingScreen(): React.JSX.Element {
               size="lg"
               fullWidth
               className="mt-4"
-              label={t('onboarding.getStarted')}
+              label={t('onboarding.next')}
               loading={isSaving}
               disabled={!isValid || isSaving}
               onPress={() => {
-                void handleSubmit(handleComplete)();
+                void handleSubmit(handleContinueFromProfile)();
               }}
+            />
+          </View>
+        ) : null}
+
+        {step === CONTACTS_STEP ? (
+          <View>
+            <Text variant="h2" tKey="onboarding.step4Title" />
+            <Text
+              variant="caption"
+              tKey="onboarding.step4Subtitle"
+              className="mb-6 mt-1 text-stone"
+            />
+
+            {contacts.length === 0 ? (
+              <Card padding="md" className="mb-4 items-center">
+                <MaterialIcons name="contacts" size={48} color={COLORS.STONE} />
+                <Text variant="label" tKey="emergency.noContactsYet" className="mt-2 text-center" />
+                <Text
+                  variant="caption"
+                  tKey="emergency.addFirstContact"
+                  className="mt-1 text-center text-stone"
+                />
+              </Card>
+            ) : (
+              contacts.map((contact) => (
+                <Card
+                  key={contact.id}
+                  padding="md"
+                  className="mb-3 flex-row items-center justify-between"
+                >
+                  <View className="flex-1">
+                    <Text variant="label">{contact.name}</Text>
+                    <Text variant="caption" className="text-stone">
+                      {contact.phone} • {contact.relationship}
+                    </Text>
+                  </View>
+                  <Pressable
+                    onPress={() => void handleDeleteContact(contact.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('common.delete')}
+                    hitSlop={ICON_SIZE.ROW}
+                  >
+                    <MaterialIcons
+                      name="delete-outline"
+                      size={ICON_SIZE.ROW}
+                      color={COLORS.ERROR_RED}
+                    />
+                  </Pressable>
+                </Card>
+              ))
+            )}
+
+            <View className="gap-2">
+              <Button
+                variant="outline"
+                size="md"
+                fullWidth
+                label={t('emergency.importFromContacts')}
+                onPress={() => setPickerVisible(true)}
+              />
+              <Button
+                variant="outline"
+                size="md"
+                fullWidth
+                label={t('emergency.addContact')}
+                onPress={() => setFormVisible(true)}
+              />
+            </View>
+
+            <Button
+              variant="primary"
+              size="lg"
+              fullWidth
+              className="mt-6"
+              label={t('onboarding.getStarted')}
+              loading={isSaving}
+              disabled={contacts.length === 0 || isSaving}
+              onPress={() => void handleFinishOnboarding()}
+            />
+
+            <ContactFormModal
+              visible={formVisible}
+              isSubmitting={isAddingContact}
+              onSubmit={(values) => void handleAddContact(values)}
+              onClose={() => setFormVisible(false)}
+            />
+
+            <DeviceContactPickerModal
+              visible={pickerVisible}
+              existingPhones={existingPhones}
+              onPick={(values) => void handleAddContact(values)}
+              onClose={() => setPickerVisible(false)}
             />
           </View>
         ) : null}

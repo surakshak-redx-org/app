@@ -18,8 +18,8 @@ export const FALLBACK_APP_VERSION = '1.0.0';
 /** Seconds the user must wait before "Resend OTP" becomes available. */
 export const OTP_RESEND_SECONDS = 60;
 
-/** Steps in the onboarding wizard: language → permissions → profile. */
-export const ONBOARDING_STEP_COUNT = 3;
+/** Steps in the onboarding wizard: language → permissions → profile → contacts. */
+export const ONBOARDING_STEP_COUNT = 4;
 
 /** An Indian mobile number, without the +91 country code. */
 export const PHONE_DIGITS = 10;
