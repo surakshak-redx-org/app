@@ -380,6 +380,17 @@ if (fs.existsSync(devJsonPath)) {
   );
 }
 
+// 10. Git Hooks Check (Husky)
+const hooksPath = runCmd('git config core.hooksPath');
+if (hooksPath && hooksPath.includes('.husky')) {
+  pass('Git Hooks (Husky)', `core.hooksPath set to ${hooksPath}`);
+} else {
+  warn(
+    'Git hooks are not configured',
+    'Run `yarn husky` to activate pre-commit and pre-push validation hooks.',
+  );
+}
+
 console.log('\n\x1b[1m--------------------------------------------------\x1b[0m');
 if (failures === 0 && warnings === 0) {
   console.log(
