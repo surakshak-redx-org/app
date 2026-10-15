@@ -72,3 +72,4 @@ GoogleService-Info*.plist
 # Temporary / maintenance scripts
 scripts/dedup-emergency-contacts.mjs
 
+SESSION_SUMMARY.md
