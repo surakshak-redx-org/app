@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Text } from '@/components/ui/Text';
 import { captureException } from '@/config/sentry';
 import { COLORS } from '@/constants/colors';
+import i18n from '@/i18n';
 
 export interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -48,7 +49,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     }
 
     return (
-      <SafeAreaView className="flex-1 bg-off-white">
+      <SafeAreaView className="flex-1 bg-off-white dark:bg-near-black">
         <View className="flex-1 items-center justify-center px-8">
           <Ionicons name="alert-circle-outline" size={64} color={COLORS.ERROR_RED} />
 
@@ -59,10 +60,10 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
           <Button
             variant="primary"
             size="md"
-            label="Try again"
+            label={i18n.t('common.retry')}
             onPress={this.handleRetry}
             className="mt-6"
-            accessibilityLabel="Try again"
+            accessibilityLabel={i18n.t('common.retry')}
           />
         </View>
       </SafeAreaView>

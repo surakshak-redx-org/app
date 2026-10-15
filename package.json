@@ -110,6 +110,7 @@
     "no-eslint-disable": "bash scripts/check-no-eslint-disable.sh",
     "validate:translations": "jest tests/utils/i18n.test.ts",
     "check": "yarn typecheck && yarn lint && yarn format:check && yarn no-eslint-disable && yarn validate:translations && yarn test --ci",
+    "postinstall": "husky",
     "prepare": "husky"
   },
   "private": true,

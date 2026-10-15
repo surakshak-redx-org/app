@@ -26,6 +26,7 @@ import { STORAGE_KEYS } from '@/constants/storage';
 import { useDisguiseGate } from '@/hooks/useDisguiseGate';
 import { registerLiveLocationTask } from '@/hooks/useLiveLocation';
 import { useSafeJourneyMonitor } from '@/hooks/useSafeJourneyMonitor';
+import { useTheme } from '@/hooks/useTheme';
 import { changeLanguage } from '@/i18n';
 import { identifyUser } from '@/services/analytics.service';
 import { subscribeToAuthChanges } from '@/services/firebase/auth.service';
@@ -42,10 +43,15 @@ const AUTH_SEGMENT = '(auth)';
 const ONBOARDING_SEGMENT = 'onboarding';
 const DISGUISE_SEGMENT = '(disguise)';
 
+// The background location task must be defined before the first tick so the
+// OS can hand a relaunch back to it — see `useLiveLocation`.
+registerLiveLocationTask();
+
 function RootLayout(): React.JSX.Element {
   const router = useRouter();
   const segments = useSegments();
   const { t } = useTranslation();
+  const { isDark } = useTheme();
 
   // Android has no guaranteed system Devanagari face on every OEM/OS build —
   // load Noto Sans Devanagari so hi/mr text never renders as boxes/tofu.
@@ -80,12 +86,6 @@ function RootLayout(): React.JSX.Element {
   // Reports otherwise-unhandled JS errors (thrown outside any try/catch this
   // app owns) to Sentry before falling through to RN's own default handler.
   useEffect(() => installGlobalErrorHandler(captureException), []);
-
-  // The background location task must be defined before the first tick so the
-  // OS can hand a relaunch back to it — see `useLiveLocation`.
-  useEffect(() => {
-    registerLiveLocationTask();
-  }, []);
 
   // Firebase auth is reached through the service layer — absolute rule 13
   // forbids a screen (this file included) from touching Firebase directly.
@@ -229,10 +229,10 @@ function RootLayout(): React.JSX.Element {
         {/* Expo SDK 57's edge-to-edge Android default draws content behind a
             transparent status bar; without an explicit style the bar's own
             icon color is left to the OS default, which can render invisible
-            against light screen backgrounds. `dark` matches this app's
-            off-white/white screens; a full-bleed dark screen (e.g. the
-            recording view) can override locally with its own <StatusBar/>. */}
-        <StatusBar style="dark" />
+            against light screen backgrounds. `light` matches dark mode,
+            `dark` matches this app's off-white/white screens; a full-bleed
+            dark screen can override locally with its own <StatusBar/>. */}
+        <StatusBar style={isDark ? 'light' : 'dark'} />
         {isInitialized && fontsLoaded && isDisguiseReady ? (
           // A bare <Slot/> only ever renders the current top-of-stack screen
           // — it unmounts everything underneath, including `(tabs)`. So

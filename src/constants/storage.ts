@@ -55,6 +55,27 @@ export const STORAGE_KEYS = {
 
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];
 
+/**
+ * AsyncStorage keys that hold user-sensitive profile data, contacts, or transient
+ * emergency/safety session state. Purged upon user sign-out to prevent
+ * cross-account data leakage on shared devices.
+ */
+export const SENSITIVE_STORAGE_KEYS = [
+  STORAGE_KEYS.EMERGENCY_CONTACTS_CACHE,
+  STORAGE_KEYS.USER_INFO_CACHE,
+  STORAGE_KEYS.SMS_HISTORY,
+  STORAGE_KEYS.EVIDENCE_RECORDING_HISTORY,
+  STORAGE_KEYS.LIVE_LOCATION_SESSION_ID,
+  STORAGE_KEYS.CHECKIN_ACTIVE,
+  STORAGE_KEYS.CHECKIN_INTERVAL_MINUTES,
+  STORAGE_KEYS.CHECKIN_NEXT_AT,
+  STORAGE_KEYS.CHECKIN_CONTACT_IDS,
+  STORAGE_KEYS.CHECKIN_MISSED_COUNT,
+  STORAGE_KEYS.ONBOARDING_COMPLETE,
+] as const;
+
+export type SensitiveStorageKey = (typeof SENSITIVE_STORAGE_KEYS)[number];
+
 /** Canonical truthy value written for boolean-style flags. */
 export const STORAGE_FLAG_ON = 'true';
 
