@@ -111,7 +111,9 @@ const config: ExpoConfig = {
   version: '1.3.0',
   orientation: 'portrait',
   scheme: `surakshak-${APP_ENV}`,
-  userInterfaceStyle: 'automatic',
+  // TEMPORARY: Force Light Mode across the entire app regardless of system appearance.
+  // Reversible: change back to 'automatic' to re-enable Dark Mode tracking.
+  userInterfaceStyle: 'light',
   icon: './assets/images/icon.png',
   // No `jsEngine` field exists to set here: Expo SDK 57 dropped JSC entirely,
   // so Hermes is the only engine and there's no longer a config knob for it

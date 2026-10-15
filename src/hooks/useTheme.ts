@@ -21,9 +21,13 @@ export interface Theme {
  * `dark:` class variant works, prefer that over this hook — it tracks the
  * same system `prefers-color-scheme` NativeWind's `dark:` variants use.
  */
+// TEMPORARY: Force Light Mode across the entire app regardless of system appearance.
+// To restore Dark Mode in the future, set FORCE_LIGHT_MODE to false or restore `isDark = colorScheme === 'dark'`.
+const FORCE_LIGHT_MODE = true;
+
 export function useTheme(): Theme {
   const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const isDark = !FORCE_LIGHT_MODE && colorScheme === 'dark';
 
   return {
     isDark,

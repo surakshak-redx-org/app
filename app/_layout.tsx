@@ -9,9 +9,10 @@ import * as Sentry from '@sentry/react-native';
 import * as Notifications from 'expo-notifications';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { colorScheme } from 'nativewind';
 import React, { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert } from 'react-native';
+import { Alert, Appearance } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -42,7 +43,24 @@ const AUTH_SEGMENT = '(auth)';
 const ONBOARDING_SEGMENT = 'onboarding';
 const DISGUISE_SEGMENT = '(disguise)';
 
+// TEMPORARY: Force Light Mode across the entire app regardless of system appearance.
+// Lock React Native and NativeWind to light mode immediately on bundle evaluation.
+Appearance.setColorScheme('light');
+colorScheme.set('light');
+
 function RootLayout(): React.JSX.Element {
+  // Prevent system appearance detection from activating Dark Mode.
+  useEffect(() => {
+    Appearance.setColorScheme('light');
+    colorScheme.set('light');
+    const appearanceSubscription = Appearance.addChangeListener((preferences): void => {
+      if (preferences.colorScheme !== 'light') {
+        Appearance.setColorScheme('light');
+        colorScheme.set('light');
+      }
+    });
+    return (): void => appearanceSubscription.remove();
+  }, []);
   const router = useRouter();
   const segments = useSegments();
   const { t } = useTranslation();

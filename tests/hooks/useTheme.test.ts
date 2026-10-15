@@ -18,13 +18,17 @@ describe('useTheme', () => {
     expect(result.current.colors.background).toBe(COLORS.OFF_WHITE);
   });
 
-  it('returns isDark=true and dark colors in dark mode', async () => {
+  it('returns isDark=false and light colors even when system reports dark mode (forced light mode)', async () => {
     colorSchemeSpy = jest.spyOn(ReactNative, 'useColorScheme').mockReturnValue('dark');
 
     const { result } = await renderHook(() => useTheme());
 
-    expect(result.current.isDark).toBe(true);
-    expect(result.current.colors.background).toBe(COLORS.NEAR_BLACK);
+    // When FORCE_LIGHT_MODE is active, useTheme always returns light colors.
+    // To restore when re-enabling Dark Mode:
+    // expect(result.current.isDark).toBe(true);
+    // expect(result.current.colors.background).toBe(COLORS.NEAR_BLACK);
+    expect(result.current.isDark).toBe(false);
+    expect(result.current.colors.background).toBe(COLORS.OFF_WHITE);
   });
 
   it('treats an unspecified system scheme as light', async () => {
