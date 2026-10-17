@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { InteractionManager, Pressable, Text as RNText, TextInput, View } from 'react-native';
+import { Pressable, Text as RNText, TextInput, View } from 'react-native';
 import { z } from 'zod';
 
 import { Button } from '@/components/ui/Button';
@@ -64,14 +64,15 @@ export default function PhoneScreen(): React.JSX.Element {
     defaultValues: { phone: '' },
   });
 
-  // Autofocus so the keyboard is already open when this screen lands — see
-  // the matching note on the OTP screen for why this waits on
-  // runAfterInteractions instead of a plain `autoFocus` prop.
+  // Autofocus so the keyboard is already open when this screen lands. A short
+  // timeout keeps the focus reliable without relying on the deprecated
+  // InteractionManager API.
   useEffect(() => {
-    const task = InteractionManager.runAfterInteractions(() => {
+    const timeoutId = setTimeout(() => {
       phoneInputRef.current?.focus();
-    });
-    return (): void => task.cancel();
+    }, 0);
+
+    return (): void => clearTimeout(timeoutId);
   }, []);
 
   async function handleSendOtp({ phone }: PhoneForm): Promise<void> {
