@@ -81,6 +81,14 @@ export function useCommunity(): UseCommunityResult {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   const unsubscribeRef = useRef<(() => void) | null>(null);
+  /**
+   * IDs deleted optimistically by the current user. The snapshot `onUpdate`
+   * filters these out so a Firestore server-side rollback (e.g. a security
+   * rule rejection) cannot make a post ghost-reappear in the UI.
+   * Cleared per-ID once a snapshot arrives that no longer contains that post,
+   * confirming the server delete went through.
+   */
+  const deletedIdsRef = useRef<Set<string>>(new Set());
 
   const currentKey = `${activeTab}|${city}|${nonce}`;
   const onCurrentKey = feed.key === currentKey;
@@ -108,9 +116,23 @@ export function useCommunity(): UseCommunityResult {
 
     const key = `${activeTab}|${city}|${nonce}`;
     const onUpdate = (next: CommunityPost[]): void => {
+      // Remove any tracked deleted IDs that the server has confirmed are gone
+      // (i.e. they no longer appear in the snapshot).
+      const nextIds = new Set(next.map((p) => p.id));
+      for (const id of deletedIdsRef.current) {
+        if (!nextIds.has(id)) deletedIdsRef.current.delete(id);
+      }
+
+      // Filter out any still-pending optimistic deletes so a server rollback
+      // cannot ghost-restore a post the user just deleted.
+      const filtered =
+        deletedIdsRef.current.size > 0
+          ? next.filter((p) => !deletedIdsRef.current.has(p.id))
+          : next;
+
       setFeed((prev) => ({
         key,
-        head: next,
+        head: filtered,
         tail: prev.key === key ? prev.tail : [],
         hasMore: next.length >= APP_CONFIG.COMMUNITY_PAGE_SIZE,
         loaded: true,
@@ -198,8 +220,19 @@ export function useCommunity(): UseCommunityResult {
   }, []);
 
   const deletePost = useCallback(async (post: CommunityPost): Promise<void> => {
-    await deletePostService(post);
-    // The live head drops it on the next snapshot; older loaded pages don't.
+    // Register the ID before the async delete so the snapshot onUpdate can
+    // filter it even if the snapshot fires before deletePostService resolves.
+    deletedIdsRef.current.add(post.id);
+    try {
+      await deletePostService(post);
+    } catch (err) {
+      // If the service call itself throws, un-register the ID so the post is
+      // not permanently hidden, then re-throw for the call-site handler.
+      deletedIdsRef.current.delete(post.id);
+      throw err;
+    }
+    // Eagerly filter head + tail so the post disappears even on the tail
+    // where the live snapshot never updates.
     setFeed((prev) => ({
       ...prev,
       head: prev.head.filter((item) => item.id !== post.id),
