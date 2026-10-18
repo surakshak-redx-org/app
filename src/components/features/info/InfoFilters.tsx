@@ -65,7 +65,10 @@ export function CategoryFilter({
                 : 'min-h-[44px] items-center justify-center rounded-full border border-stone/20 bg-white px-4 py-2 dark:border-dark-border dark:bg-charcoal'
             }
           >
-            <Text variant="caption" className={isSelected ? 'text-white' : 'text-stone'}>
+            <Text
+              variant="caption"
+              className={isSelected ? 'text-white' : 'text-stone dark:text-dark-text-secondary'}
+            >
               {category === ALL_CATEGORIES ? t('info.allCategories') : category}
             </Text>
           </Pressable>
