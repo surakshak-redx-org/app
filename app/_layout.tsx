@@ -11,7 +11,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert } from 'react-native';
+import { Alert, LogBox } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -46,6 +46,11 @@ const DISGUISE_SEGMENT = '(disguise)';
 // The background location task must be defined before the first tick so the
 // OS can hand a relaunch back to it — see `useLiveLocation`.
 registerLiveLocationTask();
+
+// Suppress React Native dev client LogBox notification bars from rendering at the
+// bottom of the viewport on physical devices and emulators. Real errors still route
+// to Metro terminal, console, Sentry, and screen ErrorBoundaries.
+LogBox.ignoreAllLogs(true);
 
 function RootLayout(): React.JSX.Element {
   const router = useRouter();
