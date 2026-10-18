@@ -9,9 +9,9 @@ import { SafeScreen } from '@/components/ui/SafeScreen';
 import { Spinner } from '@/components/ui/Spinner';
 import { Text } from '@/components/ui/Text';
 import { OTP_LENGTH, OTP_RESEND_SECONDS } from '@/constants/auth';
-import { COLORS } from '@/constants/colors';
 import { ROUTES } from '@/constants/routes';
 import { ICON_SIZE, TIMING } from '@/constants/ui';
+import { useTheme } from '@/hooks/useTheme';
 import { ANALYTICS_EVENTS, trackEvent } from '@/services/analytics.service';
 import { AuthError, sendOtp, verifyOtp } from '@/services/firebase/auth.service';
 import { doesUserExist } from '@/services/firebase/user.service';
@@ -26,6 +26,7 @@ function emptyDigits(): string[] {
 export default function OtpScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const router = useRouter();
+  const { colors } = useTheme();
   const { phone } = useLocalSearchParams<{ phone: string }>();
 
   const inputRefs = useRef<(TextInput | null)[]>([]);
@@ -148,7 +149,7 @@ export default function OtpScreen(): React.JSX.Element {
           accessibilityRole="button"
           accessibilityLabel={t('common.back')}
         >
-          <MaterialIcons name="arrow-back" size={ICON_SIZE.BACK} color={COLORS.DEEP_INK} />
+          <MaterialIcons name="arrow-back" size={ICON_SIZE.BACK} color={colors.textPrimary} />
         </Pressable>
 
         <Text variant="h2" tKey="auth.enterOtp" className="mb-2 mt-6" />
@@ -156,7 +157,7 @@ export default function OtpScreen(): React.JSX.Element {
           variant="caption"
           tKey="auth.otpSentTo"
           tOptions={{ phone: maskPhone(phone ?? '') }}
-          className="text-stone"
+          className="text-stone dark:text-dark-text-secondary"
         />
 
         <View className="mb-4 mt-8 flex-row justify-between">
@@ -168,8 +169,8 @@ export default function OtpScreen(): React.JSX.Element {
               }}
               // `text-[20px]`, not `text-xl` — a coupled lineHeight fights
               // iOS's single-line TextInput auto-centering (see Input.tsx).
-              className={`h-14 w-12 rounded-xl border-2 text-center text-[20px] font-semibold text-ink ${
-                digit !== '' ? 'border-shakti-purple' : 'border-stone/30'
+              className={`h-14 w-12 rounded-xl border-2 text-center text-[20px] font-semibold text-ink dark:bg-charcoal dark:text-white ${
+                digit !== '' ? 'border-shakti-purple' : 'border-stone/30 dark:border-dark-border'
               }`}
               editable={!isVerifying}
               keyboardType="number-pad"
@@ -196,7 +197,7 @@ export default function OtpScreen(): React.JSX.Element {
               variant="caption"
               tKey="auth.resendIn"
               tOptions={{ seconds: countdown }}
-              className="text-stone"
+              className="text-stone dark:text-dark-text-secondary"
             />
           ) : (
             <Pressable onPress={() => void handleResend()} accessibilityRole="button">

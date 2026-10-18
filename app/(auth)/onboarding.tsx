@@ -421,12 +421,24 @@ export default function OnboardingScreen(): React.JSX.Element {
                     color={COLORS.SHAKTI_PURPLE}
                   />
                   <View className="flex-1">
-                    <Text variant="label" tKey={item.titleKey} className="text-ink" />
-                    <Text variant="caption" tKey={item.reasonKey} className="text-stone" />
+                    <Text
+                      variant="label"
+                      tKey={item.titleKey}
+                      className="text-ink dark:text-white"
+                    />
+                    <Text
+                      variant="caption"
+                      tKey={item.reasonKey}
+                      className="text-stone dark:text-dark-text-secondary"
+                    />
                     <Text
                       variant="caption"
                       tKey={item.required ? 'onboarding.required' : 'onboarding.recommended'}
-                      className={item.required ? 'text-primary-red' : 'text-stone'}
+                      className={
+                        item.required
+                          ? 'text-primary-red'
+                          : 'text-stone dark:text-dark-text-secondary'
+                      }
                     />
                   </View>
                   {isGranted ? (
