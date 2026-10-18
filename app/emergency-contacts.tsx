@@ -114,7 +114,7 @@ export default function EmergencyContactsScreen(): React.JSX.Element {
             })
             .catch((error: unknown) => {
               captureException(error);
-              Alert.alert(t('errors.contactSaveFailed'));
+              Alert.alert(t('errors.contactDeleteFailed'));
             });
         },
       },
