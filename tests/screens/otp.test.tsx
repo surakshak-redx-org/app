@@ -78,7 +78,9 @@ describe('OtpScreen', () => {
       Promise.resolve(),
     );
 
-    expect(await findByText('Enter the 6-digit OTP')).toBeTruthy();
+    expect(
+      await findByText('Incorrect verification code. Please check and try again.'),
+    ).toBeTruthy();
   });
 
   it('bounces back to the phone screen when the confirmation was lost', async () => {

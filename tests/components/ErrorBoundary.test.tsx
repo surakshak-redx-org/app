@@ -7,6 +7,9 @@ import { Text } from '@/components/ui/Text';
 import { captureException } from '@/config/sentry';
 
 jest.mock('@/config/sentry', () => ({ captureException: jest.fn() }));
+jest.mock('expo-router', () => ({
+  router: { replace: jest.fn() },
+}));
 
 function Boom(): React.JSX.Element {
   throw new Error('render exploded');
