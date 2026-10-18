@@ -425,7 +425,7 @@ export default function SafeJourneyScreen(): React.JSX.Element {
             />
           </View>
         ) : (
-          <View className="mt-2">
+          <View className="mt-2 pb-32">
             {isGuest && <GuestBanner />}
 
             <View className="mt-4">
