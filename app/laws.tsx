@@ -138,7 +138,11 @@ export default function LawsScreen(): React.JSX.Element {
             <EmptyState
               icon="search-outline"
               title={t('info.noLawsFound')}
-              subtitle={t('info.noLawsFoundSubtitle')}
+              subtitle={
+                searchQuery.trim().length > 0 || selectedCategory !== ALL_CATEGORIES
+                  ? t('info.noLawsFoundSubtitle')
+                  : undefined
+              }
             />
           }
         />
