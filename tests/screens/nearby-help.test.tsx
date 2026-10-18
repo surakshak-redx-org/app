@@ -38,8 +38,16 @@ describe('NearbyHelpScreen', () => {
     expect(getByText('No places found nearby')).toBeTruthy();
   });
 
-  it('shows the error state with a retry when loading fails', async () => {
+  it('shows the location permission error state when location is denied', async () => {
     mockGetCurrentLocation.mockRejectedValueOnce(new Error('errors.locationPermissionDenied'));
+    const { getByText } = await render(<NearbyHelpScreen />);
+    await waitFor(() => expect(getByText('Location unavailable')).toBeTruthy());
+    expect(getByText('Location permission required. Please enable in Settings.')).toBeTruthy();
+    await fireEvent.press(getByText('Try again'));
+  });
+
+  it('shows the network error state with a retry when places fetch fails', async () => {
+    mockFetchNearbyPlaces.mockRejectedValueOnce(new Error('network error'));
     const { getByText } = await render(<NearbyHelpScreen />);
     await waitFor(() =>
       expect(
