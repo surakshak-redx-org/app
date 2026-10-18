@@ -120,6 +120,7 @@ export default function SafeJourneyScreen(): React.JSX.Element {
 
   const etaMinutes = useWatch({ control, name: 'etaMinutes' });
   const destination = useWatch({ control, name: 'destination' });
+  const [etaText, setEtaText] = useState(String(APP_CONFIG.SAFE_JOURNEY_ETA_DEFAULT_MINUTES));
 
   const toggleContact = useCallback((id: string): void => {
     setSelectedContactIds((current) =>
@@ -466,7 +467,10 @@ export default function SafeJourneyScreen(): React.JSX.Element {
                     variant={selected ? 'secondary' : 'outline'}
                     size="sm"
                     label={t('location.minutesShort', { count: minutes })}
-                    onPress={() => setValue('etaMinutes', minutes, { shouldValidate: true })}
+                    onPress={() => {
+                      setEtaText(String(minutes));
+                      setValue('etaMinutes', minutes, { shouldValidate: true });
+                    }}
                   />
                 );
               })}
@@ -474,10 +478,24 @@ export default function SafeJourneyScreen(): React.JSX.Element {
 
             <Input
               keyboardType="number-pad"
-              value={String(etaMinutes)}
-              onChangeText={(text) =>
-                setValue('etaMinutes', Number.parseInt(text, 10) || 0, { shouldValidate: true })
-              }
+              value={etaText}
+              onChangeText={(text) => {
+                const digits = text.replace(/\D/g, '');
+                setEtaText(digits);
+                if (digits.length > 0) {
+                  setValue('etaMinutes', Number.parseInt(digits, 10), { shouldValidate: true });
+                } else {
+                  setValue('etaMinutes', 0, { shouldValidate: true });
+                }
+              }}
+              onBlur={() => {
+                if (etaText.length === 0) {
+                  setEtaText(String(APP_CONFIG.SAFE_JOURNEY_ETA_DEFAULT_MINUTES));
+                  setValue('etaMinutes', APP_CONFIG.SAFE_JOURNEY_ETA_DEFAULT_MINUTES, {
+                    shouldValidate: true,
+                  });
+                }
+              }}
               className="mt-3"
             />
             {errors.etaMinutes !== undefined && (
