@@ -268,7 +268,8 @@ export default function HomeScreen(): React.JSX.Element {
                 name: contact.name,
                 phone: contact.phone,
               })}
-              className="mr-3 flex-row items-center rounded-full border border-stone/20 bg-white px-4 py-2 dark:border-dark-border dark:bg-charcoal"
+              hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+              className="mr-3 min-h-[44px] flex-row items-center rounded-full border border-stone/20 bg-white px-4 py-2 dark:border-dark-border dark:bg-charcoal"
             >
               <Text variant="caption" className="text-ink dark:text-white">
                 {contact.name} · {contact.phone}
