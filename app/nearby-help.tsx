@@ -44,7 +44,7 @@ export default function NearbyHelpScreen(): React.JSX.Element {
   const [places, setPlaces] = useState<PlacesByCategory>(EMPTY_PLACES);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setRefreshing] = useState(false);
-  const [hasError, setHasError] = useState(false);
+  const [errorType, setErrorType] = useState<'location' | 'network' | null>(null);
 
   const fetchAllCategories = useCallback(async (): Promise<PlacesByCategory> => {
     const fix = await getCurrentLocation();
@@ -57,15 +57,24 @@ export default function NearbyHelpScreen(): React.JSX.Element {
     return { police, hospital, fire_station: fire, pharmacy };
   }, []);
 
+  const resolveErrorType = (error: unknown): 'location' | 'network' => {
+    const isLoc =
+      error instanceof Error &&
+      (error.message.includes('location') ||
+        error.message.includes('permission') ||
+        error.message.includes('Permission'));
+    return isLoc ? 'location' : 'network';
+  };
+
   useEffect(() => {
     void fetchAllCategories()
       .then((next) => {
         setPlaces(next);
-        setHasError(false);
+        setErrorType(null);
       })
       .catch((error: unknown) => {
         captureException(error);
-        setHasError(true);
+        setErrorType(resolveErrorType(error));
       })
       .finally(() => setIsLoading(false));
   }, [fetchAllCategories]);
@@ -75,11 +84,11 @@ export default function NearbyHelpScreen(): React.JSX.Element {
     void fetchAllCategories()
       .then((next) => {
         setPlaces(next);
-        setHasError(false);
+        setErrorType(null);
       })
       .catch((error: unknown) => {
         captureException(error);
-        setHasError(true);
+        setErrorType(resolveErrorType(error));
       })
       .finally(() => setRefreshing(false));
   }, [fetchAllCategories]);
@@ -150,7 +159,15 @@ export default function NearbyHelpScreen(): React.JSX.Element {
 
         {isLoading ? (
           <Spinner size="lg" className="flex-1 items-center justify-center" />
-        ) : hasError ? (
+        ) : errorType === 'location' ? (
+          <EmptyState
+            icon="location-outline"
+            title={t('incidentReport.locationUnavailable')}
+            subtitle={t('errors.locationPermissionDenied')}
+            actionLabel={t('common.retry')}
+            onAction={onRefresh}
+          />
+        ) : errorType === 'network' ? (
           <EmptyState
             icon="warning"
             title={t('location.nearbyHelpError')}
