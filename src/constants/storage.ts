@@ -26,6 +26,8 @@ export const STORAGE_KEYS = {
    * Firestore document to push coordinates into.
    */
   LIVE_LOCATION_SESSION_ID: 'surakshak_live_session_id',
+  /** Epoch ms when the live-location session ends; enforced by the background task. */
+  LIVE_LOCATION_EXPIRES_AT: 'surakshak_live_expires_at',
   /** `'false'` disables the suspicious-follow alert; absent means enabled. */
   FOLLOW_DETECTION_ENABLED: 'surakshak_follow_detection_enabled',
   /** `'true'` while a Safe Check-In session is running. */

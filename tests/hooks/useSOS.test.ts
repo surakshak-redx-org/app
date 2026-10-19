@@ -20,10 +20,12 @@ jest.mock('@/services/location.service', () => ({
     Promise.resolve({ latitude: 1, longitude: 2, timestamp: 0 }),
   ),
   buildLocationUrl: jest.fn(() => 'https://maps/here'),
+  watchLocation: jest.fn(() => Promise.resolve(() => undefined)),
 }));
 
 jest.mock('@/utils/permissions.utils', () => ({
   requestSmsPermission: jest.fn(() => Promise.resolve(true)),
+  requestLocationPermission: jest.fn(() => Promise.resolve(true)),
 }));
 
 jest.mock('@/services/analytics.service', () => ({
