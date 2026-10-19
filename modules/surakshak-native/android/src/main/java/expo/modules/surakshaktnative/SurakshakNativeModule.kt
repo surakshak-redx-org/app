@@ -14,6 +14,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
 import android.telephony.SmsManager
+import android.view.WindowManager
 import androidx.core.content.ContextCompat
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
@@ -50,6 +51,22 @@ class SurakshakNativeModule : Module() {
     }
 
     OnDestroy { releaseProximityWakeLock() }
+
+    /**
+     * Sets or clears `FLAG_SECURE` on the app window. With it set, Android
+     * blanks the app's preview in Recents/Overview and blocks screenshots —
+     * used while Disguise Mode is on so the task switcher never shows content.
+     */
+    AsyncFunction("setSecureScreen") { enabled: Boolean ->
+      val activity = appContext.currentActivity ?: return@AsyncFunction
+      activity.runOnUiThread {
+        if (enabled) {
+          activity.window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        } else {
+          activity.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
+      }
+    }
 
     /**
      * Send SMS directly in the background with no compose UI and no user

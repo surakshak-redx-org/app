@@ -1,6 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Platform, Pressable, ScrollView, View } from 'react-native';
@@ -73,15 +73,19 @@ export default function HomeScreen(): React.JSX.Element {
     [t],
   );
 
-  useEffect(() => {
-    AsyncStorage.multiGet([STORAGE_KEYS.SHAKE_ENABLED, STORAGE_KEYS.FOLLOW_DETECTION_ENABLED])
-      .then((entries) => {
-        const stored = new Map(entries);
-        setShakeEnabled(stored.get(STORAGE_KEYS.SHAKE_ENABLED) !== STORAGE_FLAG_OFF);
-        setFollowEnabled(stored.get(STORAGE_KEYS.FOLLOW_DETECTION_ENABLED) !== STORAGE_FLAG_OFF);
-      })
-      .catch((error: unknown) => captureException(error));
-  }, []);
+  // Re-read on every focus: the tab stays mounted while Settings is open, so a
+  // mount-only read would ignore toggles changed there.
+  useFocusEffect(
+    useCallback(() => {
+      AsyncStorage.multiGet([STORAGE_KEYS.SHAKE_ENABLED, STORAGE_KEYS.FOLLOW_DETECTION_ENABLED])
+        .then((entries) => {
+          const stored = new Map(entries);
+          setShakeEnabled(stored.get(STORAGE_KEYS.SHAKE_ENABLED) !== STORAGE_FLAG_OFF);
+          setFollowEnabled(stored.get(STORAGE_KEYS.FOLLOW_DETECTION_ENABLED) !== STORAGE_FLAG_OFF);
+        })
+        .catch((error: unknown) => captureException(error));
+    }, []),
+  );
 
   useEffect(() => {
     if (Platform.OS !== 'ios') return;

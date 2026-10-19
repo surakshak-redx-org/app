@@ -48,6 +48,7 @@ jest.mock('@react-native-firebase/firestore', () => ({
 jest.mock('expo-file-system', () => {
   class MockFile {
     exists = false;
+    size = 1024;
     text = jest.fn(() => Promise.resolve('{}'));
     write = jest.fn();
     create = jest.fn();
@@ -57,7 +58,11 @@ jest.mock('expo-file-system', () => {
     exists = true;
     create = jest.fn();
   }
-  return { File: MockFile, Directory: MockDirectory, Paths: { cache: {} } };
+  return {
+    File: MockFile,
+    Directory: MockDirectory,
+    Paths: { cache: {}, availableDiskSpace: 500 * 1024 * 1024 },
+  };
 });
 
 jest.mock('@react-native-firebase/storage', () => ({

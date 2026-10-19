@@ -8,6 +8,7 @@ interface SurakshakNativeModuleInterface {
   placeCall: (phoneNumber: string) => Promise<string>;
   setProximityScreenOff: (enabled: boolean) => Promise<void>;
   setAppIcon: (name: string | null) => Promise<void>;
+  setSecureScreen: (enabled: boolean) => Promise<void>;
 }
 
 const NativeModule = requireNativeModule<SurakshakNativeModuleInterface>('SurakshakNative');
@@ -74,6 +75,14 @@ export async function setProximityScreenOff(enabled: boolean): Promise<void> {
  */
 export async function setAppIcon(name: string | null): Promise<void> {
   await NativeModule.setAppIcon(name);
+}
+
+/**
+ * Android only: sets `FLAG_SECURE` so the Recents/Overview preview is blanked
+ * and screenshots are blocked. Callers must not invoke it on iOS.
+ */
+export async function setSecureScreen(enabled: boolean): Promise<void> {
+  await NativeModule.setSecureScreen(enabled);
 }
 
 export type { CallResult, SendSmsResult } from './SurakshakNative.types';

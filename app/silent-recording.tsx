@@ -1,16 +1,18 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import {
+  getRecordingPermissionsAsync,
   RecordingPresets,
   setAudioModeAsync,
   useAudioRecorder,
   useAudioRecorderState,
 } from 'expo-audio';
 import * as Clipboard from 'expo-clipboard';
+import { File, Paths } from 'expo-file-system';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Pressable, View } from 'react-native';
+import { Alert, AppState, Platform, Pressable, View } from 'react-native';
 
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -38,6 +40,27 @@ import { requestMicrophonePermission } from '@/utils/permissions.utils';
 type RecordingScreenState = 'idle' | 'recording' | 'uploading' | 'uploaded';
 
 const MS_PER_SECOND = 1000;
+/** How often to retry resuming after an interruption, and how many tries before giving up and saving. */
+const RESUME_RETRY_MS = 2000;
+const RESUME_MAX_ATTEMPTS = 30;
+
+const BYTES_PER_MB = 1024 * 1024;
+/** Refuse to start below this much free space. */
+const MIN_FREE_MB_TO_START = 15;
+/** Stop and save what exists once free space falls to this, before writes start failing. */
+const MIN_FREE_MB_WHILE_RECORDING = 5;
+const STORAGE_CHECK_INTERVAL_MS = 5000;
+
+/** Unknown free space is treated as enough — never block a recording on a failed probe. */
+function hasFreeSpace(minMb: number): boolean {
+  try {
+    const space = Paths.availableDiskSpace;
+    if (typeof space !== 'number' || Number.isNaN(space)) return true;
+    return space >= minMb * BYTES_PER_MB;
+  } catch {
+    return true;
+  }
+}
 
 /**
  * NativeWind classes are extracted from literal source text, so an upload
@@ -119,6 +142,15 @@ export default function SilentRecordingScreen(): React.JSX.Element {
       const uri = recorder.uri;
       if (uri === null) throw new Error('No recording URI');
 
+      // When storage runs out the native encoder can leave an empty file; never
+      // upload that. Keep the file in cache and tell the user why.
+      if (new File(uri).size === 0) {
+        setError(t('errors.storageInsufficient'));
+        setUploadProgress(null);
+        setScreenState('idle');
+        return;
+      }
+
       const url = await uploadEvidenceRecording(userId, uri, setUploadProgress);
       setUploadedUrl(url);
       setUploadProgress(null);
@@ -134,7 +166,7 @@ export default function SilentRecordingScreen(): React.JSX.Element {
       );
     } catch (uploadError) {
       captureException(uploadError);
-      setError(t('errors.uploadFailed'));
+      setError(hasFreeSpace(1) ? t('errors.uploadFailed') : t('errors.storageInsufficient'));
       setUploadProgress(null);
       setScreenState('idle');
     }
@@ -146,6 +178,10 @@ export default function SilentRecordingScreen(): React.JSX.Element {
       const granted = await requestMicrophonePermission();
       if (!granted) {
         Alert.alert(t('errors.microphonePermissionDenied'));
+        return;
+      }
+      if (!hasFreeSpace(MIN_FREE_MB_TO_START)) {
+        Alert.alert(t('errors.storageInsufficient'));
         return;
       }
 
@@ -162,7 +198,11 @@ export default function SilentRecordingScreen(): React.JSX.Element {
       }, maxDurationSeconds * MS_PER_SECOND);
     } catch (startError) {
       captureException(startError);
-      Alert.alert(t('errors.microphonePermissionDenied'));
+      Alert.alert(
+        hasFreeSpace(MIN_FREE_MB_TO_START)
+          ? t('errors.microphonePermissionDenied')
+          : t('errors.storageInsufficient'),
+      );
     }
   }, [clearAutoStopTimer, handleStopAndUpload, maxDurationSeconds, recorder, t]);
 
@@ -203,6 +243,85 @@ export default function SilentRecordingScreen(): React.JSX.Element {
     setUploadProgress(null);
     setError(null);
   }, []);
+
+  // iOS pauses the recorder when a call (or other audio session) interrupts it and
+  // expo-audio does not resume it. While the screen believes it is recording but
+  // the recorder is not, retry resuming; if it cannot resume (or the media
+  // services were reset, which invalidates the recorder), stop and upload what
+  // was captured instead of leaving a stalled recording that looks active.
+  const stopAndUploadRef = useRef(handleStopAndUpload);
+  useEffect(() => {
+    stopAndUploadRef.current = handleStopAndUpload;
+  }, [handleStopAndUpload]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'ios' || screenState !== 'recording' || recorderState.isRecording) return;
+
+    if (recorderState.mediaServicesDidReset) {
+      void stopAndUploadRef.current();
+      return;
+    }
+
+    let attempts = 0;
+    let inFlight = false;
+    const tryResume = async (): Promise<void> => {
+      if (inFlight) return;
+      inFlight = true;
+      attempts += 1;
+      try {
+        await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+        recorder.record();
+      } catch (resumeError) {
+        captureException(resumeError);
+      } finally {
+        // `record()` reports failure by not recording rather than by throwing.
+        if (attempts >= RESUME_MAX_ATTEMPTS && !recorder.getStatus().isRecording) {
+          clearInterval(timer);
+          void stopAndUploadRef.current();
+        }
+        inFlight = false;
+      }
+    };
+
+    const timer = setInterval(() => void tryResume(), RESUME_RETRY_MS);
+    const appStateSubscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void tryResume();
+    });
+    return (): void => {
+      clearInterval(timer);
+      appStateSubscription.remove();
+    };
+  }, [recorder, recorderState.isRecording, recorderState.mediaServicesDidReset, screenState]);
+
+  // Stop early and save what exists before the disk fills and writes start failing.
+  useEffect(() => {
+    if (screenState !== 'recording') return;
+    const timer = setInterval(() => {
+      if (hasFreeSpace(MIN_FREE_MB_WHILE_RECORDING)) return;
+      clearInterval(timer);
+      Alert.alert(t('errors.storageInsufficient'));
+      void stopAndUploadRef.current();
+    }, STORAGE_CHECK_INTERVAL_MS);
+    return (): void => clearInterval(timer);
+  }, [screenState, t]);
+
+  // Revoking the microphone in system settings mid-recording: on return, stop
+  // cleanly and upload what was captured (the file is written progressively),
+  // then tell the user why, instead of leaving a dead recorder running.
+  useEffect(() => {
+    if (screenState !== 'recording') return;
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') return;
+      getRecordingPermissionsAsync()
+        .then(({ granted }) => {
+          if (granted) return;
+          Alert.alert(t('errors.microphonePermissionRevoked'));
+          return handleStopAndUpload();
+        })
+        .catch((permissionError: unknown) => captureException(permissionError));
+    });
+    return (): void => subscription.remove();
+  }, [handleStopAndUpload, screenState, t]);
 
   useEffect(
     () => (): void => {

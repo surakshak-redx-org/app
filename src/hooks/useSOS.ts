@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useRef } from 'react';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import { checkSmsPermission } from 'surakshak-native';
 
 import { captureException } from '@/config/sentry';
@@ -38,13 +38,29 @@ export interface UseSOSResult {
 let activeInterval: ReturnType<typeof setInterval> | null = null;
 let activeMethod: SOSTriggerMethod | null = null;
 let activePermissionPromise: Promise<void> | null = null;
+let activeDeadline: number | null = null;
+let wasInterrupted = false;
 
 function clearActiveTimer(): void {
   if (activeInterval !== null) {
     clearInterval(activeInterval);
     activeInterval = null;
   }
+  activeDeadline = null;
+  wasInterrupted = false;
 }
+
+function startDeadline(): void {
+  activeDeadline = Date.now() + useSOSStore.getState().countdown * TIMING.SECOND_MS;
+}
+
+// Single place that notices an interruption (incoming call, app switch) during a
+// countdown, so `tick` can grant the cancel grace period whichever of the
+// interval or the resume event happens to observe the expired deadline first.
+AppState.addEventListener('change', (state) => {
+  if (activeInterval === null) return;
+  if (state !== 'active') wasInterrupted = true;
+});
 
 // Automatically clear the running timer if the store transitions to inactive from any caller.
 useSOSStore.subscribe((state) => {
@@ -157,8 +173,26 @@ export function useSOS(): UseSOSResult {
   }, [reset, setLastOutcome]);
 
   const tick = useCallback((): void => {
-    const next = useSOSStore.getState().countdown - 1;
-    if (next <= 0) {
+    // Already dispatching — a late/duplicate tick must not send a second alert.
+    if (useSOSStore.getState().isSending) return;
+    // Cancelled (store idle) — a leftover tick must never send or restart SOS.
+    if (!useSOSStore.getState().isActive) {
+      clearActiveTimer();
+      return;
+    }
+    // Derive the count from a wall-clock deadline: JS timers are paused or
+    // throttled while an incoming call takes the screen (BUG-101), so counting
+    // ticks would let the countdown lag or stall.
+    const next =
+      activeDeadline === null
+        ? useSOSStore.getState().countdown - 1
+        : Math.ceil((activeDeadline - Date.now()) / TIMING.SECOND_MS);
+    if (next <= 0 && wasInterrupted) {
+      // Expired during an interruption — give a visible cancel window first.
+      wasInterrupted = false;
+      setCountdown(APP_CONFIG.SOS_RESUME_GRACE_SECONDS);
+      startDeadline();
+    } else if (next <= 0) {
       clearActiveTimer();
       setCountdown(0);
       setSending(true);
@@ -176,6 +210,7 @@ export function useSOS(): UseSOSResult {
       trackSosTriggered(method);
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       clearActiveTimer();
+      startDeadline();
       activeInterval = setInterval(tick, TIMING.SECOND_MS);
       ensureSmsPermission();
     },
@@ -183,13 +218,18 @@ export function useSOS(): UseSOSResult {
   );
 
   const cancel = useCallback((): void => {
+    const { isActive: active, isSending: sending } = useSOSStore.getState();
+    // Idempotent: a repeat tap after cancel (store already idle) is a no-op.
     // Once the fan-out has started the alerts are already on their way.
-    if (useSOSStore.getState().isSending) return;
+    if (!active || sending) return;
+    const method = activeMethod;
+    // Stop the timer and drop to idle synchronously, before anything else, so no
+    // pending tick/effect can observe a live countdown and restart or send it.
     clearActiveTimer();
-    trackSosCancelled(activeMethod);
     activeMethod = null;
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     reset();
+    trackSosCancelled(method);
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }, [reset]);
 
   const handleTap = useCallback((): void => {
@@ -210,14 +250,25 @@ export function useSOS(): UseSOSResult {
   // already set `activeInterval` synchronously for its own callers, so
   // this only ever fills in for an external activation.
   useEffect(() => {
-    if (isActive && activeInterval === null) {
+    // Re-check the live store: `isActive` here is from the render that scheduled
+    // this effect and can be stale if the user cancelled in the meantime.
+    if (isActive && activeInterval === null && useSOSStore.getState().isActive) {
       activeMethod = triggerMethod;
       trackSosTriggered(triggerMethod ?? 'button');
       if (triggerMethod === 'suspicious_follow') trackSuspiciousFollowSosTriggered();
+      startDeadline();
       activeInterval = setInterval(tick, TIMING.SECOND_MS);
       ensureSmsPermission();
     }
   }, [isActive, triggerMethod, tick, ensureSmsPermission]);
+
+  // Catch up immediately when the app regains focus after a call/interruption.
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && activeInterval !== null) tick();
+    });
+    return (): void => subscription.remove();
+  }, [tick]);
 
   useEffect(() => {
     return (): void => {
