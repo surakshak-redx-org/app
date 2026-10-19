@@ -14,6 +14,7 @@ jest.mock('expo-router', () => ({
 
 jest.mock('expo-location', () => ({
   requestForegroundPermissionsAsync: jest.fn(() => Promise.resolve({ granted: true })),
+  getForegroundPermissionsAsync: jest.fn(() => Promise.resolve({ granted: true })),
   hasServicesEnabledAsync: jest.fn(() => Promise.resolve(true)),
   getCurrentPositionAsync: jest.fn(() =>
     Promise.resolve({
@@ -21,7 +22,8 @@ jest.mock('expo-location', () => ({
       timestamp: Date.now(),
     }),
   ),
-  Accuracy: { Balanced: 3 },
+  getLastKnownPositionAsync: jest.fn(() => Promise.resolve(null)),
+  Accuracy: { Lowest: 1, Low: 2, Balanced: 3, High: 4, Highest: 5, BestForNavigation: 6 },
 }));
 
 jest.mock('@/services/firebase/incident.service', () => ({

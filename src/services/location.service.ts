@@ -39,9 +39,12 @@ export async function getCurrentLocation(timeoutMs: number = 6000): Promise<Loca
       timer = setTimeout(() => resolve(null), timeoutMs);
     });
 
-    const permission = await Location.getForegroundPermissionsAsync().catch(() => null);
+    const permission =
+      typeof Location.getForegroundPermissionsAsync === 'function'
+        ? await Location.getForegroundPermissionsAsync().catch(() => null)
+        : null;
     const isCoarse = permission?.android?.accuracy === 'coarse';
-    const accuracy = isCoarse ? Location.Accuracy.Low : Location.Accuracy.Balanced;
+    const accuracy = isCoarse ? (Location.Accuracy?.Low ?? 2) : (Location.Accuracy?.Balanced ?? 3);
 
     try {
       const position = await Promise.race([

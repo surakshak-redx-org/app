@@ -29,11 +29,14 @@ export function useLocation(): UseLocationResult {
 
   const startWatch = useCallback(async (): Promise<void> => {
     if (unsubscribeRef.current !== null) return;
-    const permission = await Location.getForegroundPermissionsAsync().catch(() => null);
+    const permission =
+      typeof Location.getForegroundPermissionsAsync === 'function'
+        ? await Location.getForegroundPermissionsAsync().catch(() => null)
+        : null;
     const isCoarse = permission?.android?.accuracy === 'coarse';
     unsubscribeRef.current = watchLocation(
       (location) => setCurrentLocation(location),
-      isCoarse ? { accuracy: Location.Accuracy.Low, distanceInterval: 100 } : undefined,
+      isCoarse ? { accuracy: Location.Accuracy?.Low ?? 2, distanceInterval: 100 } : undefined,
     );
   }, [setCurrentLocation]);
 
