@@ -81,6 +81,19 @@ describe('getCurrentLocation', () => {
     await expect(getCurrentLocation(20)).rejects.toThrow('errors.locationUnavailable');
     expect(errorSpy).toHaveBeenCalled();
   });
+
+  it('requests Location.Accuracy.Low when Android coarse permission is granted', async () => {
+    jest.mocked(Location.getForegroundPermissionsAsync).mockResolvedValueOnce({
+      granted: true,
+      android: { accuracy: 'coarse' },
+    } as never);
+
+    await getCurrentLocation();
+
+    expect(Location.getCurrentPositionAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ accuracy: Location.Accuracy.Low }),
+    );
+  });
 });
 
 describe('getLocationWithTimeout', () => {
@@ -222,6 +235,14 @@ describe('watchLocation', () => {
       timestamp: 9,
       accuracy: 3,
     });
+  });
+
+  it('passes custom accuracy and distanceInterval options to watchPositionAsync', () => {
+    watchLocation(jest.fn(), { accuracy: Location.Accuracy.Low, distanceInterval: 100 });
+    expect(Location.watchPositionAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ accuracy: Location.Accuracy.Low, distanceInterval: 100 }),
+      expect.any(Function),
+    );
   });
 });
 

@@ -1,3 +1,4 @@
+import * as Location from 'expo-location';
 import { useCallback, useEffect, useRef } from 'react';
 
 import { watchLocation } from '@/services/location.service';
@@ -26,16 +27,21 @@ export function useLocation(): UseLocationResult {
 
   const unsubscribeRef = useRef<(() => void) | null>(null);
 
-  const startWatch = useCallback((): void => {
+  const startWatch = useCallback(async (): Promise<void> => {
     if (unsubscribeRef.current !== null) return;
-    unsubscribeRef.current = watchLocation((location) => setCurrentLocation(location));
+    const permission = await Location.getForegroundPermissionsAsync().catch(() => null);
+    const isCoarse = permission?.android?.accuracy === 'coarse';
+    unsubscribeRef.current = watchLocation(
+      (location) => setCurrentLocation(location),
+      isCoarse ? { accuracy: Location.Accuracy.Low, distanceInterval: 100 } : undefined,
+    );
   }, [setCurrentLocation]);
 
   const requestPermission = useCallback(async (): Promise<boolean> => {
     try {
       const granted = await requestLocationPermission();
       setLocationPermission(granted);
-      if (granted) startWatch();
+      if (granted) void startWatch();
       return granted;
     } catch (error) {
       console.warn('useLocation: requestPermission failed:', error);
