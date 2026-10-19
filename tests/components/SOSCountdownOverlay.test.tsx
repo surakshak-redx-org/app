@@ -29,4 +29,19 @@ describe('SOSCountdownOverlay', () => {
     expect(queryByText('0')).toBeNull();
     expect(queryByLabelText('Cancel')).toBeNull();
   });
+
+  it('announces descending seconds to screen readers on each tick', async () => {
+    const { AccessibilityInfo } = jest.requireActual<typeof import('react-native')>('react-native');
+    const announceSpy = jest
+      .spyOn(AccessibilityInfo, 'announceForAccessibility')
+      .mockImplementation(() => undefined);
+
+    const { rerender } = await render(<SOSCountdownOverlay countdown={3} onCancel={jest.fn()} />);
+    expect(announceSpy).toHaveBeenCalledWith('Sending SOS in 3s...');
+
+    await rerender(<SOSCountdownOverlay countdown={2} onCancel={jest.fn()} />);
+    expect(announceSpy).toHaveBeenCalledWith('Sending SOS in 2s...');
+
+    announceSpy.mockRestore();
+  });
 });
