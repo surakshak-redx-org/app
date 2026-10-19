@@ -38,6 +38,11 @@ import { useUserStore } from '@/stores/user.store';
 import type { PlaceLocation, SafeJourneySession } from '@/types/location.types';
 import { formatClockTime, formatCountdown } from '@/utils/date.utils';
 import { getLocationUrl } from '@/utils/location.utils';
+import { metroLogger } from '@/utils/logger.utils';
+import {
+  clearSafeJourneyArrivedOffline,
+  markSafeJourneyArrivedOffline,
+} from '@/utils/offline-cache.utils';
 
 interface JourneyFormValues {
   destination: string;
@@ -278,22 +283,30 @@ export default function SafeJourneyScreen(): React.JSX.Element {
 
   const handleArrived = useCallback((): void => {
     if (activeSession === null) return;
+    const sessionId = activeSession.id;
     Alert.alert(t('location.iArrivedConfirm'), undefined, [
       { text: t('common.cancel'), style: 'cancel' },
       {
         text: t('location.iArrived'),
         onPress: (): void => {
-          markSafeJourneyArrived(activeSession.id)
-            .then(() => {
-              setSafeJourneyActive(false);
-              setActiveSession(null);
-              bumpSafeJourneyRevision();
-              trackSafeJourneyArrived();
-              router.back();
-            })
+          // Immediately mark arrived locally and deactivate so the watchdog cannot fire a false overdue alert
+          void markSafeJourneyArrivedOffline(sessionId);
+          setSafeJourneyActive(false);
+          setActiveSession(null);
+          bumpSafeJourneyRevision();
+          trackSafeJourneyArrived();
+          router.back();
+
+          markSafeJourneyArrived(sessionId)
+            .then(() => clearSafeJourneyArrivedOffline(sessionId))
             .catch((error: unknown) => {
+              metroLogger.warn('Arrival recorded offline; sync pending', {
+                domain: 'LOCATION',
+                operation: 'markArrived',
+                context: { sessionId },
+                error,
+              });
               captureException(error);
-              Alert.alert(t('errors.generic'));
             });
         },
       },
@@ -316,26 +329,31 @@ export default function SafeJourneyScreen(): React.JSX.Element {
 
   const handleCancel = useCallback((): void => {
     if (activeSession === null) return;
+    const sessionId = activeSession.id;
     Alert.alert(t('location.cancelJourneyConfirm'), undefined, [
       { text: t('common.cancel'), style: 'cancel' },
       {
         text: t('location.cancelJourney'),
         style: 'destructive',
         onPress: (): void => {
-          cancelSafeJourney(activeSession.id)
-            .then(() => {
-              setSafeJourneyActive(false);
-              setActiveSession(null);
-              bumpSafeJourneyRevision();
-            })
-            .catch((error: unknown) => {
-              captureException(error);
-              Alert.alert(t('errors.generic'));
+          setSafeJourneyActive(false);
+          setActiveSession(null);
+          bumpSafeJourneyRevision();
+          router.back();
+
+          cancelSafeJourney(sessionId).catch((error: unknown) => {
+            metroLogger.warn('Cancellation recorded offline; sync pending', {
+              domain: 'LOCATION',
+              operation: 'cancelJourney',
+              context: { sessionId },
+              error,
             });
+            captureException(error);
+          });
         },
       },
     ]);
-  }, [activeSession, setSafeJourneyActive, bumpSafeJourneyRevision, t]);
+  }, [activeSession, setSafeJourneyActive, bumpSafeJourneyRevision, router, t]);
 
   const isFreeTextDestination =
     destinationCoords === null && destination.trim().length >= DESTINATION_MIN;

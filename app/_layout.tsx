@@ -17,6 +17,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import '@/global.css';
 
+import { GlobalSOSOverlay } from '@/components/features/sos/GlobalSOSOverlay';
 import { Spinner } from '@/components/ui/Spinner';
 import { initMixPanel } from '@/config/mixpanel';
 import { initOneSignal } from '@/config/onesignal';
@@ -247,7 +248,10 @@ function RootLayout(): React.JSX.Element {
           // on its first screen (Home) instead of the tab the user left. A
           // real Stack keeps `(tabs)` mounted underneath, preserving which
           // tab was selected across the push/pop.
-          <Stack screenOptions={{ headerShown: false }} />
+          <>
+            <Stack screenOptions={{ headerShown: false }} />
+            <GlobalSOSOverlay />
+          </>
         ) : (
           <Spinner size="lg" className="flex-1 items-center justify-center" />
         )}
