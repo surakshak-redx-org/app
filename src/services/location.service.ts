@@ -39,10 +39,17 @@ export async function getCurrentLocation(timeoutMs: number = 6000): Promise<Loca
       timer = setTimeout(() => resolve(null), timeoutMs);
     });
 
+    const permission =
+      typeof Location.getForegroundPermissionsAsync === 'function'
+        ? await Location.getForegroundPermissionsAsync().catch(() => null)
+        : null;
+    const isCoarse = permission?.android?.accuracy === 'coarse';
+    const accuracy = isCoarse ? (Location.Accuracy?.Low ?? 2) : (Location.Accuracy?.Balanced ?? 3);
+
     try {
       const position = await Promise.race([
         Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
+          accuracy,
         }),
         timeout,
       ]);
@@ -143,12 +150,16 @@ export function buildLocationUrl(latitude: number, longitude: number): string {
  * underlying subscription is torn down once it resolves.
  * @phase Phase 4 — Location & Maps
  */
-export function watchLocation(onChange: (location: LocationData) => void): () => void {
+export function watchLocation(
+  onChange: (location: LocationData) => void,
+  options?: { accuracy?: Location.Accuracy; distanceInterval?: number },
+): () => void {
   const subscriptionPromise = Location.watchPositionAsync(
     {
-      accuracy: Location.Accuracy.Balanced,
+      accuracy: options?.accuracy ?? Location.Accuracy.Balanced,
       timeInterval: APP_CONFIG.LIVE_LOCATION_UPDATE_INTERVAL_SECONDS * 1000,
-      distanceInterval: APP_CONFIG.LIVE_LOCATION_DISTANCE_INTERVAL_METERS,
+      distanceInterval:
+        options?.distanceInterval ?? APP_CONFIG.LIVE_LOCATION_DISTANCE_INTERVAL_METERS,
     },
     (position) => {
       onChange({
