@@ -1,13 +1,12 @@
 import { type AudioPlayer, createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useCallback, useEffect, useRef } from 'react';
+import { startSiren, stopSiren } from 'surakshak-native';
 
 import { KEEP_AWAKE_TAGS } from '@/constants/ui';
 import { trackSirenToggled } from '@/services/analytics.service';
 import { useSOSStore } from '@/stores/sos.store';
 import SIREN_SOURCE from '@assets/sounds/siren.wav';
-
-import { startSiren, stopSiren } from '../../modules/surakshak-native/src';
 export interface UseSirenResult {
   isActive: boolean;
   toggle: () => void;

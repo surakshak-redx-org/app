@@ -11,7 +11,7 @@
  * silently passing. `jest.mock` calls are hoisted above it by babel-jest, so
  * the mocks below still apply.
  */
-import type * as React from 'react';
+import * as mockReact from 'react';
 
 import '@/i18n';
 
@@ -271,6 +271,9 @@ jest.mock('surakshak-native', () => ({
   placeCallDirectly: jest.fn((phone: string) =>
     Promise.resolve({ success: true, phone, method: 'direct' as const }),
   ),
+  startSiren: jest.fn(() => Promise.resolve()),
+  stopSiren: jest.fn(() => Promise.resolve()),
+  setSecureScreen: jest.fn(() => Promise.resolve()),
 }));
 
 jest.mock('@expo-google-fonts/noto-sans-devanagari', () => ({
@@ -284,4 +287,9 @@ jest.mock('expo-router', () => ({
   useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
   useSegments: () => [],
   router: { push: jest.fn(), replace: jest.fn(), back: jest.fn() },
+  useFocusEffect: (cb: () => void | (() => void)): void => {
+    mockReact.useEffect(() => {
+      return cb();
+    }, [cb]);
+  },
 }));
