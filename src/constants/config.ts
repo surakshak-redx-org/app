@@ -23,6 +23,8 @@ export const APP_CONFIG = {
   LIVE_LOCATION_MAX_HOURS: 8,
   LIVE_LOCATION_UPDATE_INTERVAL_SECONDS: 30,
   SOS_COUNTDOWN_SECONDS: 5,
+  /** Cancel window shown when the app resumes after the SOS deadline already passed. */
+  SOS_RESUME_GRACE_SECONDS: 3,
   /** How long an SOS / alert waits for a fresh GPS fix before using the last known one. */
   ALERT_LOCATION_TIMEOUT_MS: 4000,
   /** A report's location fix must be no older than this to count as "here, now". */
@@ -32,7 +34,7 @@ export const APP_CONFIG = {
   SHAKE_THRESHOLD: 2.5,
   SHAKE_COUNT_REQUIRED: 3,
   SHAKE_WINDOW_MS: 2000,
-  SHAKE_SAMPLE_INTERVAL_MS: 100,
+  SHAKE_SAMPLE_INTERVAL_MS: 50,
   LOW_BATTERY_THRESHOLD_PERCENT: 20,
   FAKE_CALL_DEFAULT_DELAY_SECONDS: 15,
   FAKE_CALL_RING_SECONDS: 30,

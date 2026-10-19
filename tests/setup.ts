@@ -11,7 +11,7 @@
  * silently passing. `jest.mock` calls are hoisted above it by babel-jest, so
  * the mocks below still apply.
  */
-import type * as React from 'react';
+import * as mockReact from 'react';
 
 import '@/i18n';
 
@@ -48,6 +48,7 @@ jest.mock('@react-native-firebase/firestore', () => ({
 jest.mock('expo-file-system', () => {
   class MockFile {
     exists = false;
+    size = 1024;
     text = jest.fn(() => Promise.resolve('{}'));
     write = jest.fn();
     create = jest.fn();
@@ -57,7 +58,11 @@ jest.mock('expo-file-system', () => {
     exists = true;
     create = jest.fn();
   }
-  return { File: MockFile, Directory: MockDirectory, Paths: { cache: {} } };
+  return {
+    File: MockFile,
+    Directory: MockDirectory,
+    Paths: { cache: {}, availableDiskSpace: 500 * 1024 * 1024 },
+  };
 });
 
 jest.mock('@react-native-firebase/storage', () => ({
@@ -266,6 +271,9 @@ jest.mock('surakshak-native', () => ({
   placeCallDirectly: jest.fn((phone: string) =>
     Promise.resolve({ success: true, phone, method: 'direct' as const }),
   ),
+  startSiren: jest.fn(() => Promise.resolve()),
+  stopSiren: jest.fn(() => Promise.resolve()),
+  setSecureScreen: jest.fn(() => Promise.resolve()),
 }));
 
 jest.mock('@expo-google-fonts/noto-sans-devanagari', () => ({
@@ -279,4 +287,9 @@ jest.mock('expo-router', () => ({
   useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
   useSegments: () => [],
   router: { push: jest.fn(), replace: jest.fn(), back: jest.fn() },
+  useFocusEffect: (cb: () => void | (() => void)): void => {
+    mockReact.useEffect(() => {
+      return cb();
+    }, [cb]);
+  },
 }));

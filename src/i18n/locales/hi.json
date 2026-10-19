@@ -210,7 +210,13 @@
     "alertTypeLiveLocation": "लाइव लोकेशन",
     "alertTypeCheckinMissed": "छूटा हुआ चेक-इन",
     "foregroundServiceTitle": "🛡️ सुरक्षक सक्रिय है",
-    "foregroundServiceBody": "शेक डिटेक्शन चालू है। आप सुरक्षित हैं।"
+    "foregroundServiceBody": "शेक डिटेक्शन चालू है। आप सुरक्षित हैं।",
+    "disguiseNotificationTitle": "कैलकुलेटर सक्रिय",
+    "disguiseNotificationBody": "चल रहा है",
+    "disguiseChannelName": "कैलकुलेटर",
+    "shakeUnavailable": "इस डिवाइस पर शेक डिटेक्शन उपलब्ध नहीं है (एक्सेलेरोमीटर एक्सेस नहीं)।",
+    "shakeBatteryTitle": "शेक-टू-SOS चालू रखें",
+    "shakeBatteryBody": "बैटरी सेवर या बैटरी ऑप्टिमाइज़ेशन फ़ोन लॉक होने पर शेक डिटेक्शन रोक सकता है। भरोसेमंद SOS के लिए सुरक्षक को \"बिना प्रतिबंध\" बैटरी उपयोग पर सेट करें।"
   },
   "map": {
     "title": "सुरक्षा मैप",
@@ -483,6 +489,8 @@
     "networkError": "इंटरनेट नहीं है। कृपया फिर कोशिश करें।",
     "locationPermissionDenied": "लोकेशन की अनुमति जरूरी है। सेटिंग्स में जाकर चालू करें।",
     "microphonePermissionDenied": "माइक्रोफोन की अनुमति नहीं है। सेटिंग्स में जाकर चालू करें।",
+    "microphonePermissionRevoked": "माइक्रोफोन की अनुमति बंद हो गई, इसलिए रिकॉर्डिंग रुक गई। अब तक की रिकॉर्डिंग सहेजी जा रही है।",
+    "storageInsufficient": "रिकॉर्ड करने के लिए पर्याप्त स्टोरेज नहीं है। जगह खाली करके दोबारा कोशिश करें। अब तक की रिकॉर्डिंग यथासंभव सुरक्षित रखी जाती है।",
     "cameraPermissionDenied": "कैमरा की अनुमति नहीं है। सेटिंग्स में जाकर चालू करें।",
     "contactsPermissionDenied": "संपर्क की अनुमति नहीं है। सेटिंग्स में जाकर चालू करें।",
     "smsFailed": "SMS अलर्ट भेजने में विफल। कृपया फिर कोशिश करें।",

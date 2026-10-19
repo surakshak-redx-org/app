@@ -210,7 +210,13 @@
     "alertTypeLiveLocation": "Live Location",
     "alertTypeCheckinMissed": "Missed Check-In",
     "foregroundServiceTitle": "🛡️ Surakshak Active",
-    "foregroundServiceBody": "Shake detection is on. You are protected."
+    "foregroundServiceBody": "Shake detection is on. You are protected.",
+    "disguiseNotificationTitle": "Calculator active",
+    "disguiseNotificationBody": "Running",
+    "disguiseChannelName": "Calculator",
+    "shakeUnavailable": "Shake detection is unavailable on this device (no accelerometer access).",
+    "shakeBatteryTitle": "Keep shake-to-SOS working",
+    "shakeBatteryBody": "Battery Saver or battery optimisation can stop shake detection when your phone is locked. Set Surakshak to Unrestricted battery use for reliable SOS."
   },
   "map": {
     "title": "Safety Map",
@@ -483,6 +489,8 @@
     "networkError": "No internet connection. Please try again.",
     "locationPermissionDenied": "Location permission required. Please enable in Settings.",
     "microphonePermissionDenied": "Microphone permission denied. Please enable in Settings.",
+    "microphonePermissionRevoked": "Microphone access was turned off, so recording stopped. Your recording so far is being saved.",
+    "storageInsufficient": "Not enough storage space to record. Free up space and try again. Audio recorded so far is kept when possible.",
     "cameraPermissionDenied": "Camera permission denied. Please enable in Settings.",
     "contactsPermissionDenied": "Contacts permission denied. Please enable in Settings.",
     "smsFailed": "Failed to send SMS alert. Please try again.",

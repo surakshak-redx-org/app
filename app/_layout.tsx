@@ -30,6 +30,7 @@ import { useSafeJourneyMonitor } from '@/hooks/useSafeJourneyMonitor';
 import { useTheme } from '@/hooks/useTheme';
 import { changeLanguage } from '@/i18n';
 import { identifyUser } from '@/services/analytics.service';
+import { setDisguiseSecureScreen } from '@/services/disguise.service';
 import { subscribeToAuthChanges } from '@/services/firebase/auth.service';
 import { getEmergencyContacts, getUserProfile } from '@/services/firebase/user.service';
 import { registerForPushNotifications } from '@/services/notification.service';
@@ -201,6 +202,11 @@ function RootLayout(): React.JSX.Element {
   const isDisguiseReady = useDisguiseGate();
   const isDisguiseEnabled = useDisguiseStore((state) => state.isEnabled);
   const isDisguiseUnlocked = useDisguiseStore((state) => state.isUnlockedThisSession);
+  // FLAG_SECURE for as long as Disguise Mode is on, so Recents shows no preview.
+  useEffect(() => {
+    if (isDisguiseEnabled === null) return;
+    void setDisguiseSecureScreen(isDisguiseEnabled);
+  }, [isDisguiseEnabled]);
   useEffect(() => {
     if (!isInitialized || isDisguiseEnabled !== true || isDisguiseUnlocked) return;
     if (segments[0] === DISGUISE_SEGMENT) return;

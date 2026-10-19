@@ -84,6 +84,7 @@ export interface UseLiveLocationResult {
   isActive: boolean;
   sessionId: string | null;
   expiresAt: Date | null;
+  sharedWithCount: number;
   currentLocationUrl: string | null;
   startSharing: (sharedWithUserIds: string[], durationHours: number) => Promise<void>;
   stopSharing: () => Promise<void>;
@@ -102,6 +103,7 @@ export function useLiveLocation(): UseLiveLocationResult {
   const userId = surakshakUser?.userId ?? rawUser?.uid ?? null;
 
   const [expiresAt, setExpiresAt] = useState<Date | null>(null);
+  const [sharedWithCount, setSharedWithCount] = useState(0);
 
   const stopSharing = useCallback(async (): Promise<void> => {
     const activeSessionId = useLocationStore.getState().liveLocationSessionId;
@@ -114,6 +116,7 @@ export function useLiveLocation(): UseLiveLocationResult {
     ]);
     setLiveLocationActive(false);
     setExpiresAt(null);
+    setSharedWithCount(0);
 
     try {
       const started = await Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
@@ -137,6 +140,7 @@ export function useLiveLocation(): UseLiveLocationResult {
         if (expiry > new Date()) {
           setLiveLocationActive(true, session.id);
           setExpiresAt(expiry);
+          setSharedWithCount(session.sharedWithUserIds.length);
           void AsyncStorage.multiSet([
             [STORAGE_KEYS.LIVE_LOCATION_SESSION_ID, session.id],
             [STORAGE_KEYS.LIVE_LOCATION_EXPIRES_AT, String(expiry.getTime())],
@@ -185,6 +189,7 @@ export function useLiveLocation(): UseLiveLocationResult {
       ]);
       setLiveLocationActive(true, newSessionId);
       setExpiresAt(expiryDate);
+      setSharedWithCount(sharedWithUserIds.length);
 
       const backgroundGranted = await requestBackgroundLocationPermission();
       if (backgroundGranted) {
@@ -253,6 +258,7 @@ export function useLiveLocation(): UseLiveLocationResult {
     isActive,
     sessionId,
     expiresAt,
+    sharedWithCount,
     currentLocationUrl,
     startSharing,
     stopSharing,

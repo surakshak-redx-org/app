@@ -43,6 +43,8 @@ export const STORAGE_KEYS = {
   CHECKIN_CONTACT_IDS: 'surakshak_checkin_contacts',
   /** `'true'` once the iOS one-tap-limitation hint on Home has been dismissed. */
   IOS_HINT_DISMISSED: 'surakshak_ios_hint_dismissed',
+  /** `'true'` once the Android battery-optimisation guidance for shake detection has been shown. */
+  SHAKE_BATTERY_HINT_SHOWN: 'surakshak_shake_battery_hint_shown',
   /** Consecutive missed check-ins since the last successful one. */
   CHECKIN_MISSED_COUNT: 'surakshak_checkin_missed',
   /** `'true'` once Disguise Mode is turned on. */
