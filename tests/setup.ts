@@ -106,6 +106,18 @@ jest.mock('expo-contacts', () => ({
   getPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false })),
 }));
 
+jest.mock('expo-battery', () => ({
+  getBatteryLevelAsync: jest.fn(() => Promise.resolve(1)),
+  getBatteryStateAsync: jest.fn(() => Promise.resolve(1)),
+  addBatteryLevelListener: jest.fn(() => ({ remove: jest.fn() })),
+  BatteryState: {
+    UNKNOWN: 0,
+    UNPLUGGED: 1,
+    CHARGING: 2,
+    FULL: 3,
+  },
+}));
+
 jest.mock('expo-location', () => ({
   requestForegroundPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false })),
   requestBackgroundPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false })),
@@ -140,6 +152,21 @@ jest.mock('react-native-maps', () => {
   const RN = jest.requireActual<typeof import('react-native')>('react-native');
   const Passthrough = (props: { children?: React.ReactNode }): React.ReactElement =>
     ReactActual.createElement(RN.View, null, props.children);
+  const MapView = ReactActual.forwardRef(
+    (
+      props: { children?: React.ReactNode; onPanDrag?: () => void },
+      ref: React.ForwardedRef<{
+        animateToRegion: jest.Mock;
+        animateCamera: jest.Mock;
+      }>,
+    ): React.ReactElement => {
+      ReactActual.useImperativeHandle(ref, () => ({
+        animateToRegion: jest.fn(),
+        animateCamera: jest.fn(),
+      }));
+      return ReactActual.createElement(RN.View, { onTouchMove: props.onPanDrag }, props.children);
+    },
+  );
   // Pressable so a test can tap a pin by its testID.
   const Marker = (props: {
     children?: React.ReactNode;
@@ -153,7 +180,7 @@ jest.mock('react-native-maps', () => {
     );
   return {
     __esModule: true,
-    default: Passthrough,
+    default: MapView,
     Marker,
     Circle: Passthrough,
     PROVIDER_GOOGLE: 'google',
