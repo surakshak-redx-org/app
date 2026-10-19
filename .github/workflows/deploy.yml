@@ -101,7 +101,21 @@ jobs:
           REASON="JS/TS only changes"
 
           if echo "$CHANGED" | grep -q "^package\.json$"; then
-            NEEDS_BUILD=true; REASON="package.json changed"
+            DEPS_CHANGED=$(node -e '
+              const { execSync } = require("child_process");
+              try {
+                const oldPkg = JSON.parse(execSync("git show HEAD~1:package.json", { encoding: "utf8" }));
+                const newPkg = JSON.parse(execSync("git show HEAD:package.json", { encoding: "utf8" }));
+                const oldDeps = JSON.stringify(oldPkg.dependencies || {});
+                const newDeps = JSON.stringify(newPkg.dependencies || {});
+                console.log(oldDeps !== newDeps ? "true" : "false");
+              } catch {
+                console.log("true");
+              }
+            ')
+            if [ "$DEPS_CHANGED" = "true" ]; then
+              NEEDS_BUILD=true; REASON="package.json dependencies changed"
+            fi
           fi
           if echo "$CHANGED" | grep -q "^app\.config\.ts$"; then
             NEEDS_BUILD=true; REASON="app.config.ts changed"
