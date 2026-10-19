@@ -18,11 +18,13 @@ import { formatIndianPhone, validateIndianPhone } from '@/utils/phone.utils';
  */
 export class AuthError extends Error {
   public readonly i18nKey: string;
+  public readonly code: string | undefined;
 
-  public constructor(i18nKey: string) {
+  public constructor(i18nKey: string, code?: string) {
     super(i18nKey);
     this.name = 'AuthError';
     this.i18nKey = i18nKey;
+    this.code = code;
   }
 }
 
@@ -47,7 +49,7 @@ function firebaseErrorCode(error: unknown): string {
 
 /** Turns a Firebase auth error code into an {@link AuthError} carrying an i18n key. */
 export function mapFirebaseAuthError(code: string): AuthError {
-  return new AuthError(FIREBASE_ERROR_TO_I18N[code] ?? 'errors.generic');
+  return new AuthError(FIREBASE_ERROR_TO_I18N[code] ?? 'errors.generic', code);
 }
 
 /**

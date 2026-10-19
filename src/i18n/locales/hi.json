@@ -25,7 +25,8 @@
     "viewAll": "सब देखें",
     "seeMore": "और देखें",
     "noResultsFound": "कोई परिणाम नहीं मिला",
-    "comingSoon": "जल्द आ रहा है"
+    "comingSoon": "जल्द आ रहा है",
+    "openSettings": "सेटिंग्स खोलें"
   },
   "nav": {
     "home": "होम",
@@ -118,6 +119,7 @@
     "required": "जरूरी",
     "recommended": "अनुशंसित",
     "cannotSkipRequired": "Surakshak को आपकी रक्षा के लिए यह अनुमति जरूरी है",
+    "openSettingsPrompt": "जारी रखने के लिए कृपया अपनी डिवाइस सेटिंग्स में आवश्यक अनुमतियां सक्षम करें।",
     "nameLabel": "पूरा नाम",
     "namePlaceholder": "आपका नाम",
     "nameInvalid": "अपना नाम डालें (2–50 अक्षर)",

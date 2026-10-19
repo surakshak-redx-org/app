@@ -25,7 +25,8 @@
     "viewAll": "सर्व पहा",
     "seeMore": "अधिक पहा",
     "noResultsFound": "काहीही सापडले नाही",
-    "comingSoon": "लवकरच येत आहे"
+    "comingSoon": "लवकरच येत आहे",
+    "openSettings": "सेटिंग्ज उघडा"
   },
   "nav": {
     "home": "होम",
@@ -118,6 +119,7 @@
     "required": "आवश्यक",
     "recommended": "शिफारस केलेले",
     "cannotSkipRequired": "Surakshak ला तुमच्या संरक्षणासाठी ही परवानगी आवश्यक आहे",
+    "openSettingsPrompt": "पुढे जाण्यासाठी कृपया आपल्या डिव्हाइस सेटिंग्जमध्ये आवश्यक परवानग्या सक्षम करा.",
     "nameLabel": "पूर्ण नाव",
     "namePlaceholder": "तुमचे नाव",
     "nameInvalid": "तुमचे नाव टाका (२–५० अक्षरे)",

@@ -25,7 +25,8 @@
     "viewAll": "View All",
     "seeMore": "See More",
     "noResultsFound": "No results found",
-    "comingSoon": "Coming Soon"
+    "comingSoon": "Coming Soon",
+    "openSettings": "Open Settings"
   },
   "nav": {
     "home": "Home",
@@ -118,6 +119,7 @@
     "required": "Required",
     "recommended": "Recommended",
     "cannotSkipRequired": "This permission is required for Surakshak to protect you",
+    "openSettingsPrompt": "Please enable the required permissions in your device settings to continue.",
     "nameLabel": "Full Name",
     "namePlaceholder": "Your name",
     "nameInvalid": "Enter your name (2–50 characters)",
