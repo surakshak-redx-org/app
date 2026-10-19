@@ -1,7 +1,14 @@
 import { Linking, Platform } from 'react-native';
 import { placeCallDirectly } from 'surakshak-native';
 
-import { formatIndianPhone, maskPhone, placeCall, validateIndianPhone } from '@/utils/phone.utils';
+import {
+  formatIndianPhone,
+  isEmergencyShortcode,
+  maskPhone,
+  placeCall,
+  sanitizePhoneInput,
+  validateIndianPhone,
+} from '@/utils/phone.utils';
 
 const mockedPlaceCallDirectly = jest.mocked(placeCallDirectly);
 
@@ -23,8 +30,30 @@ describe('formatIndianPhone', () => {
   });
 });
 
+describe('sanitizePhoneInput', () => {
+  it('strips non-numeric characters from clipboard paste', () => {
+    expect(sanitizePhoneInput('9876543210abc')).toBe('9876543210');
+    expect(sanitizePhoneInput('9876543210🔥')).toBe('9876543210');
+    expect(sanitizePhoneInput('+91 (987) 654-3210')).toBe('+919876543210');
+  });
+
+  it('preserves leading plus for international inputs', () => {
+    expect(sanitizePhoneInput('+919876543210')).toBe('+919876543210');
+  });
+});
+
+describe('isEmergencyShortcode', () => {
+  it.each(['112', '100', '108', '1091', '1098'])('identifies %s as a shortcode', (code) => {
+    expect(isEmergencyShortcode(code)).toBe(true);
+  });
+
+  it.each(['9876543210', '12', '123456'])('rejects non-shortcode %s', (phone) => {
+    expect(isEmergencyShortcode(phone)).toBe(false);
+  });
+});
+
 describe('validateIndianPhone', () => {
-  it.each(['6000000000', '7123456789', '8123456789', '9876543210'])(
+  it.each(['6000000001', '7123456789', '8123456789', '9876543210'])(
     'accepts %s (valid leading digit)',
     (phone) => {
       expect(validateIndianPhone(phone)).toBe(true);
@@ -33,6 +62,20 @@ describe('validateIndianPhone', () => {
 
   it.each(['5876543210', '1234567890', '0876543210'])(
     'rejects %s (invalid leading digit)',
+    (phone) => {
+      expect(validateIndianPhone(phone)).toBe(false);
+    },
+  );
+
+  it.each(['9999999999', '8888888888', '7777777777', '6666666666'])(
+    'rejects %s (repeated single-digit dummy numbers)',
+    (phone) => {
+      expect(validateIndianPhone(phone)).toBe(false);
+    },
+  );
+
+  it.each(['9876543210abc', '9876543210🔥', 'phone:9876543210'])(
+    'rejects %s (contains alphabetic or emoji characters)',
     (phone) => {
       expect(validateIndianPhone(phone)).toBe(false);
     },
@@ -113,6 +156,14 @@ describe('placeCall', () => {
     expect(openURLSpy).toHaveBeenCalledWith('tel:+919876543210');
     expect(warnSpy).toHaveBeenCalled();
     warnSpy.mockRestore();
+  });
+
+  it('dials helpline shortcodes directly via dialer intent on Android without ACTION_CALL', async () => {
+    Platform.OS = 'android';
+    await placeCall('112');
+
+    expect(mockedPlaceCallDirectly).not.toHaveBeenCalled();
+    expect(openURLSpy).toHaveBeenCalledWith('tel:112');
   });
 });
 
