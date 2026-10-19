@@ -159,6 +159,16 @@ OnDestroy {
         return@AsyncFunction
       }
 
+      val pm = context.packageManager
+      if (!pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+        promise.reject(
+          "NO_TELEPHONY",
+          "Device does not support telephony features (no cellular radio)",
+          null,
+        )
+        return@AsyncFunction
+      }
+
       if (ContextCompat.checkSelfPermission(context, Manifest.permission.CALL_PHONE)
           != PackageManager.PERMISSION_GRANTED
       ) {

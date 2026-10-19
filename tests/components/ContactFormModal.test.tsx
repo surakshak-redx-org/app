@@ -53,15 +53,18 @@ describe('ContactFormModal', () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
-  it('submits trimmed values when the form is valid', async () => {
+  it('sanitizes non-numeric characters from pasted phone numbers', async () => {
     const onSubmit = jest.fn();
-    const { getByLabelText, getByText } = await render(
+    const { getByLabelText, getByText, getByDisplayValue } = await render(
       <ContactFormModal visible onSubmit={onSubmit} onClose={jest.fn()} />,
     );
 
-    await fireEvent.changeText(getByLabelText('Name'), '  Ma  ');
-    await fireEvent.changeText(getByLabelText('Phone Number'), '9876543210');
+    await fireEvent.changeText(getByLabelText('Name'), 'Ma');
+    await fireEvent.changeText(getByLabelText('Phone Number'), '9876543210abc🔥');
     await fireEvent.changeText(getByLabelText('Relationship'), 'Mother');
+
+    expect(getByDisplayValue('9876543210')).toBeTruthy();
+
     await fireEvent.press(getByText('Save'));
 
     await waitFor(() => {
@@ -71,5 +74,20 @@ describe('ContactFormModal', () => {
         relationship: 'Mother',
       });
     });
+  });
+
+  it('blocks submit and shows error for repeated dummy phone numbers', async () => {
+    const onSubmit = jest.fn();
+    const { getByLabelText, getByText, findByText } = await render(
+      <ContactFormModal visible onSubmit={onSubmit} onClose={jest.fn()} />,
+    );
+
+    await fireEvent.changeText(getByLabelText('Name'), 'Ma');
+    await fireEvent.changeText(getByLabelText('Phone Number'), '9999999999');
+    await fireEvent.changeText(getByLabelText('Relationship'), 'Mother');
+    await fireEvent.press(getByText('Save'));
+
+    expect(await findByText('Enter a valid 10-digit mobile number')).toBeTruthy();
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 });

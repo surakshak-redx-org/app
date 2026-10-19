@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/Input';
 import { Text } from '@/components/ui/Text';
 import type { EmergencyContactFormValues } from '@/types/emergency.types';
 import type { EmergencyContact } from '@/types/user.types';
-import { validateIndianPhone } from '@/utils/phone.utils';
+import { sanitizePhoneInput, validateIndianPhone } from '@/utils/phone.utils';
 
 export interface ContactFormModalProps {
   visible: boolean;
@@ -112,7 +112,7 @@ export function ContactFormModal({
             keyboardType="phone-pad"
             value={field.value}
             onBlur={field.onBlur}
-            onChangeText={field.onChange}
+            onChangeText={(text) => field.onChange(sanitizePhoneInput(text))}
             error={errors.phone?.message}
           />
         )}
