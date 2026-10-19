@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { InteractionManager, Pressable, TextInput, View } from 'react-native';
 
+import { Button } from '@/components/ui/Button';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { SafeScreen } from '@/components/ui/SafeScreen';
 import { Spinner } from '@/components/ui/Spinner';
@@ -32,6 +33,7 @@ export default function OtpScreen(): React.JSX.Element {
   const inputRefs = useRef<(TextInput | null)[]>([]);
   const [digits, setDigits] = useState<string[]>(emptyDigits);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [isResending, setIsResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(OTP_RESEND_SECONDS);
 
@@ -76,9 +78,20 @@ export default function OtpScreen(): React.JSX.Element {
       setStoredConfirmation(null);
       router.replace(isNewUser ? ROUTES.ONBOARDING : ROUTES.HOME);
     } catch (verifyError) {
-      setError(verifyError instanceof AuthError ? verifyError.i18nKey : 'errors.generic');
-      setDigits(emptyDigits());
-      inputRefs.current[0]?.focus();
+      const isAuthError = verifyError instanceof AuthError;
+      const i18nKey = isAuthError ? verifyError.i18nKey : 'errors.generic';
+      setError(i18nKey);
+
+      const isCodeInvalid =
+        isAuthError &&
+        (verifyError.code === 'auth/invalid-verification-code' ||
+          verifyError.code === 'auth/code-expired' ||
+          verifyError.i18nKey === 'auth.otpInvalid' ||
+          verifyError.i18nKey === 'auth.otpExpired');
+      if (isCodeInvalid) {
+        setDigits(emptyDigits());
+        inputRefs.current[0]?.focus();
+      }
     } finally {
       setIsVerifying(false);
     }
@@ -122,7 +135,8 @@ export default function OtpScreen(): React.JSX.Element {
   }
 
   async function handleResend(): Promise<void> {
-    if (phone === undefined) return;
+    if (phone === undefined || isResending) return;
+    setIsResending(true);
     try {
       const confirmation = await sendOtp(phone);
       setStoredConfirmation(confirmation);
@@ -132,6 +146,8 @@ export default function OtpScreen(): React.JSX.Element {
       inputRefs.current[0]?.focus();
     } catch (resendError) {
       setError(resendError instanceof AuthError ? resendError.i18nKey : 'errors.generic');
+    } finally {
+      setIsResending(false);
     }
   }
 
@@ -191,6 +207,18 @@ export default function OtpScreen(): React.JSX.Element {
           </Text>
         ) : null}
 
+        {error !== null && digits.every((digit) => digit !== '') && !isVerifying ? (
+          <View className="mt-4">
+            <Button
+              variant="secondary"
+              size="md"
+              label={t('common.retry')}
+              onPress={() => void handleVerify(digits.join(''))}
+              fullWidth
+            />
+          </View>
+        ) : null}
+
         <View className="mt-6 items-center">
           {countdown > 0 ? (
             <Text
@@ -200,8 +228,16 @@ export default function OtpScreen(): React.JSX.Element {
               className="text-stone dark:text-dark-text-secondary"
             />
           ) : (
-            <Pressable onPress={() => void handleResend()} accessibilityRole="button">
-              <Text variant="label" tKey="auth.resendOtp" className="text-shakti-purple" />
+            <Pressable
+              onPress={() => void handleResend()}
+              accessibilityRole="button"
+              disabled={isResending}
+            >
+              <Text
+                variant="label"
+                tKey="auth.resendOtp"
+                className={isResending ? 'text-stone' : 'text-shakti-purple'}
+              />
             </Pressable>
           )}
         </View>

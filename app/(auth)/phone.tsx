@@ -52,12 +52,12 @@ export default function PhoneScreen(): React.JSX.Element {
   const router = useRouter();
   const { colors } = useTheme();
   const [isLoading, setIsLoading] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const phoneInputRef = useRef<TextInput | null>(null);
 
   const {
     control,
     handleSubmit,
-    setError,
     formState: { errors, isValid },
   } = useForm<PhoneForm>({
     resolver: zodResolver(schema),
@@ -77,6 +77,7 @@ export default function PhoneScreen(): React.JSX.Element {
 
   async function handleSendOtp({ phone }: PhoneForm): Promise<void> {
     setIsLoading(true);
+    setSubmitError(null);
     try {
       const confirmation = await sendOtp(phone);
       setStoredConfirmation(confirmation);
@@ -86,9 +87,7 @@ export default function PhoneScreen(): React.JSX.Element {
         params: { phone: `${PHONE_E164_PREFIX}${phone}` },
       });
     } catch (error) {
-      setError('phone', {
-        message: error instanceof AuthError ? error.i18nKey : 'errors.generic',
-      });
+      setSubmitError(error instanceof AuthError ? error.i18nKey : 'errors.generic');
     } finally {
       setIsLoading(false);
     }
@@ -137,7 +136,10 @@ export default function PhoneScreen(): React.JSX.Element {
                 placeholderTextColor={colors.textSecondary}
                 value={field.value}
                 onBlur={field.onBlur}
-                onChangeText={(text) => field.onChange(text.replace(/\D/g, ''))}
+                onChangeText={(text) => {
+                  if (submitError !== null) setSubmitError(null);
+                  field.onChange(text.replace(/\D/g, ''));
+                }}
                 accessibilityLabel={t('auth.phoneLabel')}
               />
             )}
@@ -147,6 +149,10 @@ export default function PhoneScreen(): React.JSX.Element {
         {phoneError !== undefined ? (
           <Text variant="caption" className="mt-1 text-error-red">
             {t(phoneError)}
+          </Text>
+        ) : submitError !== null ? (
+          <Text variant="caption" className="mt-1 text-error-red">
+            {t(submitError)}
           </Text>
         ) : null}
 

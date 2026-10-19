@@ -1,7 +1,15 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Linking, Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import {
+  Alert,
+  AppState,
+  Linking,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  View,
+} from 'react-native';
 
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -93,6 +101,15 @@ export default function NearbyHelpScreen(): React.JSX.Element {
       .finally(() => setRefreshing(false));
   }, [fetchAllCategories]);
 
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active' && errorType === 'location') {
+        onRefresh();
+      }
+    });
+    return (): void => subscription.remove();
+  }, [errorType, onRefresh]);
+
   const selectCategory = useCallback((category: HelpCategory): void => {
     setActiveCategory(category);
     trackNearbyHelpViewed(category);
@@ -164,8 +181,8 @@ export default function NearbyHelpScreen(): React.JSX.Element {
             icon="location-outline"
             title={t('incidentReport.locationUnavailable')}
             subtitle={t('errors.locationPermissionDenied')}
-            actionLabel={t('common.retry')}
-            onAction={onRefresh}
+            actionLabel={t('common.openSettings')}
+            onAction={() => void Linking.openSettings()}
           />
         ) : errorType === 'network' ? (
           <EmptyState
