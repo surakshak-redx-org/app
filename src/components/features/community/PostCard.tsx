@@ -24,7 +24,7 @@ export interface PostCardProps {
   onOpenImage: (imageUrl: string) => void;
 }
 
-export function PostCard({
+export const PostCard = React.memo(function PostCard({
   post,
   isGuest,
   isOwn = false,
@@ -110,9 +110,15 @@ export function PostCard({
           onPress={() => onOpenImage(imageUrl)}
           className="mt-2"
         >
-          <Image source={{ uri: imageUrl }} className="h-48 w-full rounded-xl" contentFit="cover" />
+          <Image
+            source={{ uri: imageUrl }}
+            recyclingKey={imageUrl}
+            cachePolicy="memory-disk"
+            className="h-48 w-full rounded-xl"
+            contentFit="cover"
+          />
         </Pressable>
       )}
     </Card>
   );
-}
+});

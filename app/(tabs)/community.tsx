@@ -238,6 +238,7 @@ export default function CommunityScreen(): React.JSX.Element {
 
     return (
       <FlatList
+        testID="community-feed-list"
         data={posts}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
@@ -254,6 +255,11 @@ export default function CommunityScreen(): React.JSX.Element {
           void loadMore();
         }}
         onEndReachedThreshold={0.5}
+        initialNumToRender={6}
+        maxToRenderPerBatch={5}
+        windowSize={5}
+        removeClippedSubviews
+        updateCellsBatchingPeriod={50}
         contentContainerClassName="pb-24 pt-3"
         ListEmptyComponent={
           <EmptyState
