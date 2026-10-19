@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Modal, Pressable, View } from 'react-native';
+import { AccessibilityInfo, Modal, Pressable, View } from 'react-native';
 
 import { Spinner } from '@/components/ui/Spinner';
 import { Text } from '@/components/ui/Text';
@@ -26,6 +26,12 @@ export function SOSCountdownOverlay({
 }: SOSCountdownOverlayProps): React.JSX.Element {
   const { t } = useTranslation();
 
+  useEffect(() => {
+    if (!isSending && countdown > 0) {
+      AccessibilityInfo.announceForAccessibility(t('home.sosCountdown', { count: countdown }));
+    }
+  }, [countdown, isSending, t]);
+
   return (
     <Modal
       visible
@@ -43,7 +49,12 @@ export function SOSCountdownOverlay({
           <Text variant="h3" tKey="home.sosSending" className="mt-6 text-center text-white" />
         </View>
       ) : (
-        <View className="flex-1 items-center justify-center bg-near-black/90 px-8">
+        <View
+          className="flex-1 items-center justify-center bg-near-black/90 px-8"
+          accessibilityLiveRegion="assertive"
+          accessibilityRole="timer"
+          accessibilityLabel={t('home.sosCountdown', { count: countdown })}
+        >
           <Text variant="h1" className="text-6xl text-white">
             {String(countdown)}
           </Text>
