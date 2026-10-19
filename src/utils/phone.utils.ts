@@ -56,12 +56,15 @@ export function maskPhone(phone: string): string {
  * such as `112` / `1091` are dialled as-is; 10-digit numbers are normalised
  * to E.164.
  */
-export async function placeCall(phone: string): Promise<void> {
+export async function placeCall(
+  phone: string,
+  options: { allowDirect?: boolean } = {},
+): Promise<void> {
   try {
     const digits = phone.replace(/\D/g, '');
     const target = SHORT_CODE_PATTERN.test(digits) ? digits : formatIndianPhone(phone);
 
-    if (Platform.OS === 'android') {
+    if (Platform.OS === 'android' && options.allowDirect !== false) {
       try {
         await placeCallDirectly(target);
         return;

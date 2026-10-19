@@ -14,13 +14,15 @@ import {
 } from '@/services/analytics.service';
 import { buildLocationUrl, getLocationWithTimeout } from '@/services/location.service';
 import { recordSMSAlert, sendSOSAlert } from '@/services/sms.service';
+import { beginSosSession, endSosSession, placeEmergencyCall } from '@/services/sos-session.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { useSOSStore } from '@/stores/sos.store';
 import { useUserStore } from '@/stores/user.store';
 import type { SOSTriggerMethod } from '@/types/emergency.types';
+import type { EmergencyContact } from '@/types/user.types';
 import { metroLogger } from '@/utils/logger.utils';
 import { getCachedEmergencyContacts, getCachedUserInfo } from '@/utils/offline-cache.utils';
-import { requestSmsPermission } from '@/utils/permissions.utils';
+import { requestLocationPermission, requestSmsPermission } from '@/utils/permissions.utils';
 
 export interface UseSOSResult {
   isActive: boolean;
@@ -33,11 +35,16 @@ export interface UseSOSResult {
   /** Starts the countdown immediately (used by shake-to-SOS and tests). */
   trigger: (method: SOSTriggerMethod) => void;
   cancel: () => void;
+  /** Siren / live tracking are running after dispatch. */
+  isSessionActive: boolean;
+  /** Ends the running SOS session. Safe to call repeatedly. */
+  endSession: () => Promise<void>;
 }
 
 let activeInterval: ReturnType<typeof setInterval> | null = null;
 let activeMethod: SOSTriggerMethod | null = null;
 let activePermissionPromise: Promise<void> | null = null;
+let activeLocationPermissionPromise: Promise<void> | null = null;
 
 function clearActiveTimer(): void {
   if (activeInterval !== null) {
@@ -55,13 +62,15 @@ useSOSStore.subscribe((state) => {
 
 /**
  * Owns the SOS lifecycle: triple-tap detection, the countdown timer, and the
- * SMS fan-out that runs once the countdown elapses. State lives in
- * `useSOSStore` so the dashboard and any overlay stay in sync.
+ * fan-out (SMS, call, siren, live tracking) that runs once the countdown
+ * elapses. State lives in `useSOSStore` so the dashboard and any overlay stay
+ * in sync.
  */
 export function useSOS(): UseSOSResult {
   const isActive = useSOSStore((state) => state.isActive);
   const countdown = useSOSStore((state) => state.countdown);
   const isSending = useSOSStore((state) => state.isSending);
+  const isSessionActive = useSOSStore((state) => state.isSessionActive);
   const triggerMethod = useSOSStore((state) => state.triggerMethod);
   const setActive = useSOSStore((state) => state.setActive);
   const setCountdown = useSOSStore((state) => state.setCountdown);
@@ -87,71 +96,99 @@ export function useSOS(): UseSOSResult {
     })();
   }, []);
 
+  /** Asks for location during the countdown, after any SMS dialog has closed. */
+  const ensureLocationPermission = useCallback((): void => {
+    const afterSms = activePermissionPromise ?? Promise.resolve();
+    activeLocationPermissionPromise = (async (): Promise<void> => {
+      try {
+        await afterSms;
+        await requestLocationPermission();
+      } catch (error) {
+        captureException(error);
+      }
+    })();
+  }, []);
+
   const fanOut = useCallback(async (): Promise<void> => {
     try {
       const { emergencyContacts, profile } = useUserStore.getState();
       const surakshakUser = useAuthStore.getState().surakshakUser;
 
       // Store empty (e.g. app relaunched offline before it rehydrates) —
-      // fall back to the AsyncStorage cache rather than sending nobody an
-      // alert. The cache always includes the predefined helplines (never
-      // dispatchable — see `resolveRecipients` in sms.service.ts), so only
-      // its custom contacts count toward "do we have anyone to alert".
-      const contacts =
-        emergencyContacts.length > 0
-          ? emergencyContacts
-          : (await getCachedEmergencyContacts()).filter((contact) => !contact.isPredefined);
+      // fall back to the AsyncStorage cache. The cache includes predefined
+      // helplines (never dispatchable), so they are filtered out.
+      let contacts: EmergencyContact[] = emergencyContacts;
+      try {
+        if (contacts.length === 0) {
+          contacts = (await getCachedEmergencyContacts()).filter((c) => !c.isPredefined);
+        }
+      } catch (error) {
+        captureException(error);
+      }
 
-      const cachedUser =
-        surakshakUser === null && profile === null ? await getCachedUserInfo() : null;
-      const name = surakshakUser?.name ?? profile?.name ?? cachedUser?.name ?? 'User';
-      const language = surakshakUser?.language ?? profile?.language ?? cachedUser?.language ?? 'en';
+      const bounded = (pending: Promise<void> | null): Promise<void> =>
+        Promise.race([
+          pending ?? Promise.resolve(),
+          new Promise<void>((resolve) => setTimeout(resolve, APP_CONFIG.ALERT_LOCATION_TIMEOUT_MS)),
+        ]);
 
-      // Bounded wait: a cold GPS, indoors or with no mobile data, used to
-      // hold the SMS back indefinitely (BUG-007 / BUG-011).
-      let locationUrl = LOCATION_UNAVAILABLE;
-      const locate = getLocationWithTimeout()
-        .then((fix) => {
-          locationUrl = buildLocationUrl(fix.latitude, fix.longitude);
-        })
-        .catch((locationError: unknown) => {
-          console.warn('SOS: location unavailable:', locationError);
+      // Siren and live tracking start now. On Android the call starts now
+      // too; on iOS it waits until the SMS compose sheet closes.
+      const locationReady = bounded(activeLocationPermissionPromise);
+      beginSosSession(contacts, locationReady);
+      const androidCall = Platform.OS === 'android' ? placeEmergencyCall() : null;
+
+      try {
+        const cachedUser =
+          surakshakUser === null && profile === null ? await getCachedUserInfo() : null;
+        const name = surakshakUser?.name ?? profile?.name ?? cachedUser?.name ?? 'User';
+        const language =
+          surakshakUser?.language ?? profile?.language ?? cachedUser?.language ?? 'en';
+
+        // Bounded wait: a cold GPS must not hold the SMS back (BUG-007 / BUG-011).
+        let locationUrl = LOCATION_UNAVAILABLE;
+        const locate = locationReady
+          .then(() => getLocationWithTimeout())
+          .then((fix) => {
+            locationUrl = buildLocationUrl(fix.latitude, fix.longitude);
+          })
+          .catch((locationError: unknown) => {
+            console.warn('SOS: location unavailable:', locationError);
+          });
+        await Promise.all([locate, bounded(activePermissionPromise)]);
+
+        const result = await sendSOSAlert(contacts, locationUrl, name, language);
+        await recordSMSAlert({
+          type: 'sos',
+          locationUrl,
+          contactsSent: result.sent,
+          contactsFailed: result.failed,
         });
-      // Give a still-open SMS permission dialog the same bounded window as
-      // the location fix; an unanswered dialog falls back to the compose sheet.
-      const permission = Promise.race([
-        activePermissionPromise ?? Promise.resolve(),
-        new Promise<void>((resolve) => setTimeout(resolve, APP_CONFIG.ALERT_LOCATION_TIMEOUT_MS)),
-      ]);
-      await Promise.all([locate, permission]);
+        trackSmsAlertSent('sos', result.sent.length, result.failed.length);
+        const isFailed = result.sent.length === 0 && result.failed.length > 0;
+        const isNoContacts = result.sent.length === 0 && result.failed.length === 0;
+        setLastOutcome({
+          sent: result.sent.length,
+          failed: result.failed.length,
+          error: isFailed ? 'failed' : isNoContacts ? 'no_contacts' : null,
+        });
+      } catch (error) {
+        metroLogger.error('SOS alert dispatch failed', {
+          domain: 'SOS',
+          operation: 'fanOut',
+          error,
+        });
+        captureException(error);
+        setLastOutcome({ sent: 0, failed: 0, error: 'failed' });
+      }
 
-      const result = await sendSOSAlert(contacts, locationUrl, name, language);
-      await recordSMSAlert({
-        type: 'sos',
-        locationUrl,
-        contactsSent: result.sent,
-        contactsFailed: result.failed,
-      });
-      trackSmsAlertSent('sos', result.sent.length, result.failed.length);
-      const isFailed = result.sent.length === 0 && result.failed.length > 0;
-      const isNoContacts = result.sent.length === 0 && result.failed.length === 0;
-      setLastOutcome({
-        sent: result.sent.length,
-        failed: result.failed.length,
-        error: isFailed ? 'failed' : isNoContacts ? 'no_contacts' : null,
-      });
-    } catch (error) {
-      metroLogger.error('SOS alert dispatch failed', {
-        domain: 'SOS',
-        operation: 'fanOut',
-        error,
-      });
-      captureException(error);
-      setLastOutcome({ sent: 0, failed: 0, error: 'failed' });
+      await (androidCall ?? placeEmergencyCall());
     } finally {
       activeMethod = null;
       activePermissionPromise = null;
+      activeLocationPermissionPromise = null;
       clearActiveTimer();
+      // Ends the countdown/dispatch phase only; the session survives (store change).
       reset();
     }
   }, [reset, setLastOutcome]);
@@ -160,6 +197,7 @@ export function useSOS(): UseSOSResult {
     const next = useSOSStore.getState().countdown - 1;
     if (next <= 0) {
       clearActiveTimer();
+      if (useSOSStore.getState().isSending) return; // never dispatch twice
       setCountdown(0);
       setSending(true);
       void fanOut();
@@ -178,8 +216,9 @@ export function useSOS(): UseSOSResult {
       clearActiveTimer();
       activeInterval = setInterval(tick, TIMING.SECOND_MS);
       ensureSmsPermission();
+      ensureLocationPermission();
     },
-    [ensureSmsPermission, setActive, tick],
+    [ensureLocationPermission, ensureSmsPermission, setActive, tick],
   );
 
   const cancel = useCallback((): void => {
@@ -206,9 +245,7 @@ export function useSOS(): UseSOSResult {
 
   // Starts the countdown even when `isActive` flipped true from outside this
   // hook instance's own `trigger` call — e.g. the suspicious-follow alert in
-  // `app/_layout.tsx` activates SOS directly on the shared store. `trigger`
-  // already set `activeInterval` synchronously for its own callers, so
-  // this only ever fills in for an external activation.
+  // `app/_layout.tsx` activates SOS directly on the shared store.
   useEffect(() => {
     if (isActive && activeInterval === null) {
       activeMethod = triggerMethod;
@@ -216,8 +253,9 @@ export function useSOS(): UseSOSResult {
       if (triggerMethod === 'suspicious_follow') trackSuspiciousFollowSosTriggered();
       activeInterval = setInterval(tick, TIMING.SECOND_MS);
       ensureSmsPermission();
+      ensureLocationPermission();
     }
-  }, [isActive, triggerMethod, tick, ensureSmsPermission]);
+  }, [isActive, triggerMethod, tick, ensureSmsPermission, ensureLocationPermission]);
 
   useEffect(() => {
     return (): void => {
@@ -227,5 +265,15 @@ export function useSOS(): UseSOSResult {
     };
   }, []);
 
-  return { isActive, countdown, isSending, triggerMethod, handleTap, trigger, cancel };
+  return {
+    isActive,
+    countdown,
+    isSending,
+    triggerMethod,
+    handleTap,
+    trigger,
+    cancel,
+    isSessionActive,
+    endSession: endSosSession,
+  };
 }

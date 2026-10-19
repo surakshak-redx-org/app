@@ -1,13 +1,15 @@
 import { renderHook } from '@testing-library/react-native';
-import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 
 import { useSuspiciousFollow } from '@/hooks/useSuspiciousFollow';
+import { getLocationWithTimeout } from '@/services/location.service';
+
+jest.mock('@/services/location.service', () => ({
+  getLocationWithTimeout: jest.fn(),
+}));
 
 jest.mock('expo-location', () => ({
-  getForegroundPermissionsAsync: jest.fn(() => Promise.resolve({ granted: true })),
-  getCurrentPositionAsync: jest.fn(),
-  Accuracy: { Balanced: 3 },
+  Accuracy: { Balanced: 3, High: 4 },
 }));
 
 jest.mock('expo-notifications', () => ({
@@ -16,94 +18,152 @@ jest.mock('expo-notifications', () => ({
 }));
 
 const CHECK_INTERVAL_MS = 60_000;
-// Mumbai — the "shadowed" cluster the user stays in for the back half of the test.
-const CLOSE_LAT = 19.076;
+const START_LAT = 19.076;
 const LNG = 72.8777;
-// ~5.5km north — well past FOLLOW_MIN_MOVEMENT_METERS from CLOSE_LAT, and only
-// ever sampled once, so it ages out of "recent" without leaving the 20-minute
-// window (see the walkthrough in the "fires" test below).
-const FAR_LAT = 19.126;
+const WALK_STEP_DEGREES = 0.001; // ~111 m per minute, normal walking pace
 
-function positionAt(latitude: number): void {
-  jest.mocked(Location.getCurrentPositionAsync).mockResolvedValueOnce({
-    coords: { latitude, longitude: LNG, accuracy: 5 },
-    timestamp: Date.now(),
-  } as never);
+const mockedFix = jest.mocked(getLocationWithTimeout);
+let walkStep = 0;
+
+function queueFix(latitude: number, options: { accuracy?: number; ageMs?: number } = {}): void {
+  mockedFix.mockImplementationOnce(() =>
+    Promise.resolve({
+      latitude,
+      longitude: LNG,
+      accuracy: options.accuracy ?? 5,
+      timestamp: Date.now() - (options.ageMs ?? 0),
+    }),
+  );
+}
+
+async function tick(): Promise<void> {
+  await jest.advanceTimersByTimeAsync(CHECK_INTERVAL_MS);
+}
+
+async function walkTicks(count: number): Promise<void> {
+  for (let i = 0; i < count; i += 1) {
+    queueFix(START_LAT + walkStep * WALK_STEP_DEGREES);
+    walkStep += 1;
+    await tick();
+  }
+}
+
+async function standStillTicks(count: number): Promise<void> {
+  for (let i = 0; i < count; i += 1) {
+    queueFix(START_LAT + (walkStep - 1) * WALK_STEP_DEGREES);
+    await tick();
+  }
+}
+
+function alertCount(): number {
+  return jest.mocked(Notifications.scheduleNotificationAsync).mock.calls.length;
 }
 
 describe('useSuspiciousFollow', () => {
+  let warnSpy: jest.SpyInstance;
+
   beforeEach(() => {
     jest.clearAllMocks();
-    jest
-      .mocked(Location.getForegroundPermissionsAsync)
-      .mockResolvedValue({ granted: true } as never);
+    mockedFix.mockReset();
+    walkStep = 0;
+    warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
     jest.useFakeTimers();
   });
 
   afterEach(() => {
+    warnSpy.mockRestore();
     jest.useRealTimers();
   });
 
-  it('does not alert with fewer than 3 location snapshots', async () => {
-    positionAt(CLOSE_LAT);
+  it('never alerts a stationary user', async () => {
     await renderHook(() => useSuspiciousFollow(true));
-
-    await jest.advanceTimersByTimeAsync(CHECK_INTERVAL_MS);
-
-    expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+    for (let i = 0; i < 15; i += 1) {
+      queueFix(START_LAT);
+      await tick();
+    }
+    expect(alertCount()).toBe(0);
   });
 
-  it('does not alert when the user has not moved far enough', async () => {
+  it('does not alert for GPS jitter around one spot', async () => {
     await renderHook(() => useSuspiciousFollow(true));
-
-    for (let i = 0; i < 12; i += 1) {
-      positionAt(CLOSE_LAT);
-
-      await jest.advanceTimersByTimeAsync(CHECK_INTERVAL_MS);
+    for (let i = 0; i < 15; i += 1) {
+      queueFix(START_LAT + (i % 2 === 0 ? 0 : 0.00005)); // ~5 m wobble
+      await tick();
     }
-
-    expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+    expect(alertCount()).toBe(0);
   });
 
-  it('fires the alert once movement is followed by staying in the same radius', async () => {
+  it('alerts once after 10 minutes of continuous movement, then not again', async () => {
     await renderHook(() => useSuspiciousFollow(true));
-
-    // Tick 1: a single far-away fix — this becomes the "oldest" sample the
-    // 20-minute window still remembers once the loop below starts.
-    positionAt(FAR_LAT);
-    await jest.advanceTimersByTimeAsync(CHECK_INTERVAL_MS);
-
-    // Ticks 2–11: ten fixes clustered at the same nearby spot — "moved, then
-    // stayed put" is exactly the shape a follower produces. The alert should
-    // fire once the far tick ages out of the "recent" (last 10 minutes)
-    // window while staying inside the wider 20-minute history — i.e. on the
-    // 11th tick (10 minutes after the far one).
-    for (let i = 0; i < 10; i += 1) {
-      positionAt(CLOSE_LAT);
-
-      await jest.advanceTimersByTimeAsync(CHECK_INTERVAL_MS);
-    }
-
-    expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledTimes(1);
+    await walkTicks(10);
+    expect(alertCount()).toBe(0);
+    await walkTicks(1);
+    expect(alertCount()).toBe(1);
     expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.objectContaining({ data: { type: 'suspicious_follow' } }),
       }),
     );
-
-    // Further ticks must not fire it again this session.
-    positionAt(CLOSE_LAT);
-    await jest.advanceTimersByTimeAsync(CHECK_INTERVAL_MS);
-    expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledTimes(1);
+    await walkTicks(5);
+    expect(alertCount()).toBe(1);
   });
 
-  it('cleans up its interval on unmount', async () => {
+  it('does not alert when the user walks then stops', async () => {
+    await renderHook(() => useSuspiciousFollow(true));
+    await walkTicks(6);
+    await standStillTicks(5);
+    expect(alertCount()).toBe(0);
+  });
+
+  it('ignores inaccurate fixes', async () => {
+    await renderHook(() => useSuspiciousFollow(true));
+    for (let i = 0; i < 15; i += 1) {
+      queueFix(START_LAT + i * WALK_STEP_DEGREES, { accuracy: 200 });
+      await tick();
+    }
+    expect(alertCount()).toBe(0);
+  });
+
+  it('ignores stale fixes', async () => {
+    await renderHook(() => useSuspiciousFollow(true));
+    for (let i = 0; i < 15; i += 1) {
+      queueFix(START_LAT + i * WALK_STEP_DEGREES, { ageMs: 120_000 });
+      await tick();
+    }
+    expect(alertCount()).toBe(0);
+  });
+
+  it('survives GPS failures without throwing, and restarts the window after an outage', async () => {
+    await renderHook(() => useSuspiciousFollow(true));
+    await walkTicks(3);
+    for (let i = 0; i < 5; i += 1) {
+      mockedFix.mockRejectedValueOnce(new Error('errors.locationServicesOff'));
+      await tick();
+    }
+    await walkTicks(10);
+    expect(alertCount()).toBe(0); // window restarted: only 10 fresh samples
+    await walkTicks(1);
+    expect(alertCount()).toBe(1); // 11 fresh samples = a full 10-minute window
+  });
+
+  it('does not stack checks while a GPS fix is still pending', async () => {
+    mockedFix.mockImplementationOnce(() => new Promise(() => undefined));
+    await renderHook(() => useSuspiciousFollow(true));
+    await jest.advanceTimersByTimeAsync(CHECK_INTERVAL_MS * 5);
+    expect(mockedFix).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not sample while disabled', async () => {
+    await renderHook(() => useSuspiciousFollow(false));
+    await jest.advanceTimersByTimeAsync(CHECK_INTERVAL_MS * 3);
+    expect(mockedFix).not.toHaveBeenCalled();
+  });
+
+  it('stops sampling on unmount', async () => {
     const view = await renderHook(() => useSuspiciousFollow(true));
     await view.unmount();
-
-    positionAt(FAR_LAT);
+    queueFix(START_LAT);
     await jest.advanceTimersByTimeAsync(CHECK_INTERVAL_MS * 2);
-
-    expect(Location.getCurrentPositionAsync).not.toHaveBeenCalled();
+    expect(mockedFix).not.toHaveBeenCalled();
   });
 });

@@ -29,7 +29,7 @@ import { formatClockTime } from '@/utils/date.utils';
 import { getLocationUrl } from '@/utils/location.utils';
 import { requestBackgroundLocationPermission } from '@/utils/permissions.utils';
 
-const BACKGROUND_LOCATION_TASK = 'surakshak-live-location';
+export const BACKGROUND_LOCATION_TASK = 'surakshak-live-location';
 const MS_PER_HOUR = 60 * 60 * 1000;
 
 interface LocationTaskData {
@@ -37,8 +37,56 @@ interface LocationTaskData {
 }
 
 /**
+ * Saves the session id together with its absolute end time so the background
+ * task can enforce the expiry even when the JS expiry timer is suspended or the
+ * app has been killed (BUG-043).
+ */
+export async function persistLiveSession(sessionId: string, expiresAt: Date): Promise<void> {
+  await AsyncStorage.multiSet([
+    [STORAGE_KEYS.LIVE_LOCATION_SESSION_ID, sessionId],
+    [STORAGE_KEYS.LIVE_LOCATION_EXPIRES_AT, String(expiresAt.getTime())],
+  ]);
+}
+
+/** Updates only the persisted end time (after an extension). Never throws. */
+async function persistExpiry(expiresAt: Date): Promise<void> {
+  try {
+    await AsyncStorage.setItem(STORAGE_KEYS.LIVE_LOCATION_EXPIRES_AT, String(expiresAt.getTime()));
+  } catch (error) {
+    captureException(error);
+  }
+}
+
+/**
+ * Forgets the persisted session and stops native background tracking. Safe to
+ * call more than once; never throws.
+ */
+export async function endBackgroundTracking(): Promise<void> {
+  try {
+    await AsyncStorage.multiRemove([
+      STORAGE_KEYS.LIVE_LOCATION_SESSION_ID,
+      STORAGE_KEYS.LIVE_LOCATION_EXPIRES_AT,
+    ]);
+  } catch (error) {
+    captureException(error);
+  }
+  try {
+    const started = await Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
+    if (started) await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
+  } catch (error) {
+    console.warn('endBackgroundTracking: background task was not running:', error);
+  }
+}
+
+function parseExpiry(raw: string | null): number | null {
+  if (raw === null) return null;
+  const ms = Number(raw);
+  return Number.isFinite(ms) && ms > 0 ? ms : null;
+}
+
+/**
  * Defines the background location task. Must be called once at module load in
- * the root layout — `defineTask` has to run before the JS engine finishes the
+ * the root layout - `defineTask` has to run before the JS engine finishes the
  * first tick or the OS cannot hand a relaunch back to it.
  */
 export function registerLiveLocationTask(): void {
@@ -49,12 +97,37 @@ export function registerLiveLocationTask(): void {
       captureException(error);
       return;
     }
-    const fix = data?.locations?.[0];
+    const fix = data?.locations?.[data.locations.length - 1];
     if (fix === undefined) return;
 
     try {
-      const sessionId = await AsyncStorage.getItem(STORAGE_KEYS.LIVE_LOCATION_SESSION_ID);
-      if (sessionId === null) return;
+      const stored = new Map(
+        await AsyncStorage.multiGet([
+          STORAGE_KEYS.LIVE_LOCATION_SESSION_ID,
+          STORAGE_KEYS.LIVE_LOCATION_EXPIRES_AT,
+        ]),
+      );
+      const sessionId = stored.get(STORAGE_KEYS.LIVE_LOCATION_SESSION_ID) ?? null;
+      if (sessionId === null) {
+        // Orphaned task: there is no session to share to, so stop polling.
+        await endBackgroundTracking();
+        return;
+      }
+
+      let expiresAtMs = parseExpiry(stored.get(STORAGE_KEYS.LIVE_LOCATION_EXPIRES_AT) ?? null);
+      if (expiresAtMs === null) {
+        // Session predates expiry tracking, or the value is corrupt: bound it
+        // instead of polling forever.
+        expiresAtMs = Date.now() + APP_CONFIG.LIVE_LOCATION_MAX_HOURS * MS_PER_HOUR;
+        await AsyncStorage.setItem(STORAGE_KEYS.LIVE_LOCATION_EXPIRES_AT, String(expiresAtMs));
+      }
+
+      if (Date.now() >= expiresAtMs) {
+        await endBackgroundTracking();
+        await stopLiveLocationSession(sessionId);
+        return;
+      }
+
       await updateLiveLocation(sessionId, fix.coords.latitude, fix.coords.longitude);
     } catch (taskError) {
       captureException(taskError);
@@ -89,16 +162,16 @@ export function useLiveLocation(): UseLiveLocationResult {
     const activeSessionId = useLocationStore.getState().liveLocationSessionId;
     if (activeSessionId === null) return;
 
-    await stopLiveLocationSession(activeSessionId);
-    await AsyncStorage.removeItem(STORAGE_KEYS.LIVE_LOCATION_SESSION_ID);
+    // Local state and native tracking first: a failing Firestore call must
+    // never leave the background task polling GPS.
     setLiveLocationActive(false);
     setExpiresAt(null);
+    await endBackgroundTracking();
 
     try {
-      const started = await Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
-      if (started) await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
+      await stopLiveLocationSession(activeSessionId);
     } catch (error) {
-      console.warn('stopSharing: background task was not running:', error);
+      captureException(error);
     }
 
     trackLiveLocationStopped();
@@ -110,15 +183,20 @@ export function useLiveLocation(): UseLiveLocationResult {
     let cancelled = false;
 
     void getActiveLiveSession(userId)
-      .then((session) => {
+      .then(async (session) => {
         if (cancelled || session === null || !session.isActive) return;
         const expiry = session.expiresAt.toDate();
         if (expiry > new Date()) {
           setLiveLocationActive(true, session.id);
           setExpiresAt(expiry);
-          void AsyncStorage.setItem(STORAGE_KEYS.LIVE_LOCATION_SESSION_ID, session.id);
+          await persistLiveSession(session.id, expiry);
         } else {
-          void stopLiveLocationSession(session.id);
+          // Only stop native tracking if it belongs to this expired session.
+          const persistedId = await AsyncStorage.getItem(STORAGE_KEYS.LIVE_LOCATION_SESSION_ID);
+          if (persistedId === null || persistedId === session.id) {
+            await endBackgroundTracking();
+          }
+          await stopLiveLocationSession(session.id);
         }
       })
       .catch((error: unknown) => captureException(error));
@@ -150,9 +228,10 @@ export function useLiveLocation(): UseLiveLocationResult {
         fix.longitude,
       );
 
-      await AsyncStorage.setItem(STORAGE_KEYS.LIVE_LOCATION_SESSION_ID, newSessionId);
+      const sessionExpiry = new Date(Date.now() + durationHours * MS_PER_HOUR);
+      await persistLiveSession(newSessionId, sessionExpiry);
       setLiveLocationActive(true, newSessionId);
-      setExpiresAt(new Date(Date.now() + durationHours * MS_PER_HOUR));
+      setExpiresAt(sessionExpiry);
 
       const backgroundGranted = await requestBackgroundLocationPermission();
       if (backgroundGranted) {
@@ -198,7 +277,11 @@ export function useLiveLocation(): UseLiveLocationResult {
 
       await extendLiveLocationSession(activeSessionId, hours);
       const refreshed = await getActiveLiveSession(userId);
-      if (refreshed !== null) setExpiresAt(refreshed.expiresAt.toDate());
+      if (refreshed !== null) {
+        const refreshedExpiry = refreshed.expiresAt.toDate();
+        setExpiresAt(refreshedExpiry);
+        await persistExpiry(refreshedExpiry);
+      }
 
       trackLiveLocationExtended(hours);
     },

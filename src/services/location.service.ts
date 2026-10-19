@@ -63,6 +63,7 @@ function toLocationData(position: Location.LocationObject): LocationData {
  */
 export async function getLocationWithTimeout(
   timeoutMs: number = APP_CONFIG.ALERT_LOCATION_TIMEOUT_MS,
+  accuracy: Location.Accuracy = Location.Accuracy.Balanced,
 ): Promise<LocationData> {
   const { granted } = await Location.getForegroundPermissionsAsync();
   if (!granted) {
@@ -75,10 +76,7 @@ export async function getLocationWithTimeout(
   });
 
   try {
-    const fresh = await Promise.race([
-      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
-      timeout,
-    ]);
+    const fresh = await Promise.race([Location.getCurrentPositionAsync({ accuracy }), timeout]);
     if (fresh !== null) return toLocationData(fresh);
   } catch (error) {
     console.warn('getLocationWithTimeout: fresh fix failed:', error);
