@@ -69,11 +69,37 @@ export function useBatteryAlert(): void {
     let subscription: { remove: () => void } | undefined;
     let listening = true;
 
-    function maybeFire(batteryFraction: number): void {
-      if (alertedThisSession) return;
-      if (batteryFraction * PERCENT > APP_CONFIG.LOW_BATTERY_THRESHOLD_PERCENT) return;
-      alertedThisSession = true;
-      void sendAlert(batteryFraction);
+    let checkingBatteryState = false;
+
+    async function maybeFire(batteryFraction: number): Promise<void> {
+      if (alertedThisSession || checkingBatteryState) return;
+
+      if (
+        batteryFraction * PERCENT >
+        APP_CONFIG.LOW_BATTERY_THRESHOLD_PERCENT
+      ) {
+        return;
+      }
+
+      checkingBatteryState = true;
+
+      try {
+        const state = await Battery.getBatteryStateAsync();
+
+        // Never send a low-battery alert while charging or fully charged.
+        if (
+          state !== Battery.BatteryState.UNPLUGGED
+        ) {
+          return;
+        }
+
+        alertedThisSession = true;
+        await sendAlert(batteryFraction);
+      } catch (error) {
+        captureException(error);
+      } finally {
+        checkingBatteryState = false;
+      }
     }
 
     async function start(): Promise<void> {
