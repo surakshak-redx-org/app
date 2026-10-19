@@ -141,4 +141,15 @@ describe('CommunityScreen', () => {
     await fireEvent.press(getByText('All India'));
     expect(mockAll).toHaveBeenCalled();
   });
+
+  it('configures FlatList with virtualization props to prevent memory ballooning', async () => {
+    feed = [makePost('p1'), makePost('p2')];
+    const { getByTestId } = await render(<CommunityScreen />);
+    const flatList = getByTestId('community-feed-list');
+
+    expect(flatList.props.windowSize).toBe(5);
+    expect(flatList.props.removeClippedSubviews).toBe(true);
+    expect(flatList.props.maxToRenderPerBatch).toBe(5);
+    expect(flatList.props.initialNumToRender).toBe(6);
+  });
 });

@@ -91,6 +91,27 @@ describe('PostCard', () => {
     expect(onOpenImage).toHaveBeenCalledWith('https://img/x');
   });
 
+  it('renders image with recyclingKey and memory-disk cachePolicy to prevent OOM', async () => {
+    const { getByLabelText } = await render(
+      <PostCard
+        post={makePost({ type: 'image', imageUrl: 'https://img/x' })}
+        isGuest={false}
+        onReport={jest.fn()}
+        onOpenImage={jest.fn()}
+      />,
+    );
+
+    const pressable = getByLabelText('View image');
+    const imageChild = pressable.children[0];
+    expect(imageChild).toBeTruthy();
+    expect(imageChild).toMatchObject({
+      props: expect.objectContaining({
+        recyclingKey: 'https://img/x',
+        cachePolicy: 'memory-disk',
+      }),
+    });
+  });
+
   it('reports the post id for an authed user', async () => {
     const onReport = jest.fn();
     const { getByLabelText } = await render(
