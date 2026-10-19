@@ -89,6 +89,10 @@ export function maskPhone(phone: string): string {
  * restriction with no direct-call API, not fixable from here. Short codes
  * such as `112` / `1091` are dialled as-is; 10-digit numbers are normalised
  * to E.164.
+ *
+ * Throws `errors.telephonyUnavailable` on Wi-Fi-only tablets and devices
+ * where no telephony hardware or app can handle a `tel:` URI, so callers can
+ * surface a user-friendly error instead of crashing with an unhandled Promise.
  */
 export async function placeCall(phone: string): Promise<void> {
   try {
@@ -106,12 +110,12 @@ export async function placeCall(phone: string): Promise<void> {
       }
     }
 
-    const canOpen = await Linking.canOpenURL(`tel:${target}`);
-    if (!canOpen && Platform.OS === 'android') {
-      console.warn('Linking cannot open tel: URL, telephony may be missing');
+    const url = `tel:${target}`;
+    const canCall = await Linking.canOpenURL(url).catch(() => false);
+    if (!canCall) {
+      throw new Error('errors.telephonyUnavailable');
     }
-
-    await Linking.openURL(`tel:${target}`);
+    await Linking.openURL(url);
   } catch (error) {
     console.error('placeCall failed:', error);
     throw error;

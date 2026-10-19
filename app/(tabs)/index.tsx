@@ -67,7 +67,9 @@ export default function HomeScreen(): React.JSX.Element {
       trackEmergencyCallPlaced('predefined');
       placeCall(phone).catch((error: unknown) => {
         captureException(error);
-        Alert.alert(t('errors.callFailed'));
+        const isNoTelephony =
+          error instanceof Error && error.message === 'errors.telephonyUnavailable';
+        Alert.alert(t(isNoTelephony ? 'errors.telephonyUnavailable' : 'errors.callFailed'));
       });
     },
     [t],
