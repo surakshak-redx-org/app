@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, useWindowDimensions, View } from 'react-native';
 
 import { Card } from '@/components/ui/Card';
 import { Text } from '@/components/ui/Text';
@@ -44,6 +44,9 @@ export function QuickActionCard({
   locked = false,
   testID,
 }: QuickActionCardProps): React.JSX.Element {
+  const { fontScale } = useWindowDimensions();
+  const isLargeFont = fontScale >= 1.3;
+
   const cardClass = active
     ? 'border-2 border-forest-green bg-forest-green/10'
     : 'border-2 border-transparent';
@@ -54,24 +57,40 @@ export function QuickActionCard({
       accessibilityRole="button"
       accessibilityState={{ disabled: locked }}
       testID={testID}
-      className="w-1/2 p-1.5"
+      className={isLargeFont ? 'w-full p-1.5' : 'w-1/2 p-1.5'}
     >
-      <Card padding="md" className={`items-center ${cardClass} ${locked ? 'opacity-50' : ''}`}>
-        <View className="items-center">
-          <Ionicons
-            name={locked ? 'lock-closed' : icon}
-            size={ICON_SIZE.PERMISSION}
-            color={COLORS.SHAKTI_PURPLE}
+      <Card
+        padding="md"
+        className={`${isLargeFont ? 'flex-row items-center gap-3' : 'items-center'} ${cardClass} ${locked ? 'opacity-50' : ''}`}
+      >
+        <Ionicons
+          name={locked ? 'lock-closed' : icon}
+          size={ICON_SIZE.PERMISSION}
+          color={COLORS.SHAKTI_PURPLE}
+        />
+        <View className={isLargeFont ? 'flex-1' : 'items-center'}>
+          <Text
+            variant="label"
+            tKey={labelKey}
+            className={isLargeFont ? 'text-left' : 'mt-2 text-center'}
           />
-          <Text variant="label" tKey={labelKey} className="mt-2 text-center" />
           {subtitle !== undefined && (
-            <Text variant="caption" className="mt-0.5 text-center">
+            <Text
+              variant="caption"
+              className={isLargeFont ? 'mt-0.5 text-left' : 'mt-0.5 text-center'}
+            >
               {subtitle}
             </Text>
           )}
         </View>
         {warning !== undefined && (
-          <View className="absolute right-0 top-0 flex-row items-center gap-0.5 rounded-full bg-saffron px-2 py-0.5">
+          <View
+            className={
+              isLargeFont
+                ? 'flex-row items-center gap-0.5 rounded-full bg-saffron px-2 py-0.5'
+                : 'absolute right-0 top-0 flex-row items-center gap-0.5 rounded-full bg-saffron px-2 py-0.5'
+            }
+          >
             <Ionicons name="alert-circle" size={ICON_SIZE.BADGE} color={COLORS.NEAR_BLACK} />
             <Text variant="caption" className="text-xs font-semibold text-near-black">
               {warning}
