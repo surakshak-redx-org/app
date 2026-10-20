@@ -59,7 +59,15 @@ describe('live-location.service', () => {
   });
 
   it('updateLiveLocation updates latitude, longitude and locationUrl', async () => {
-    await updateLiveLocation('session-1', 1, 2);
+    jest.mocked(getDoc).mockResolvedValueOnce(
+      mockSnap({
+        userId: 'user-1',
+        isActive: true,
+      }) as never,
+    );
+
+    await updateLiveLocation('session-1', 1, 2, 'user-1');
+
     expect(updateDoc).toHaveBeenCalledWith(expect.anything(), {
       latitude: 1,
       longitude: 2,
@@ -115,7 +123,13 @@ describe('live-location.service', () => {
       'createLiveLocationSession',
       (): Promise<unknown> => createLiveLocationSession('u', [], 1, 0, 0),
     ],
-    ['updateLiveLocation', (): Promise<unknown> => updateLiveLocation('s', 0, 0)],
+    [
+      'updateLiveLocation',
+      (): Promise<unknown> => {
+        jest.mocked(getDoc).mockRejectedValueOnce(new Error('offline'));
+        return updateLiveLocation('s', 0, 0, 'u');
+      },
+    ],
     ['stopLiveLocationSession', (): Promise<unknown> => stopLiveLocationSession('s')],
     ['getActiveLiveSession', (): Promise<unknown> => getActiveLiveSession('u')],
   ])('%s logs and rethrows when Firestore fails', async (_name, call) => {

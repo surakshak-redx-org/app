@@ -72,8 +72,11 @@ export function registerLiveLocationTask(): void {
       if (fix === undefined) return;
 
       const sessionId = await AsyncStorage.getItem(STORAGE_KEYS.LIVE_LOCATION_SESSION_ID);
-      if (sessionId === null) return;
-      await updateLiveLocation(sessionId, fix.coords.latitude, fix.coords.longitude);
+      const sessionUserId = await AsyncStorage.getItem(STORAGE_KEYS.LIVE_LOCATION_USER_ID);
+
+      if (sessionId === null || sessionUserId === null) return;
+
+      await updateLiveLocation(sessionId, fix.coords.latitude, fix.coords.longitude, sessionUserId);
     } catch (taskError) {
       captureException(taskError);
     }
@@ -112,6 +115,7 @@ export function useLiveLocation(): UseLiveLocationResult {
     await stopLiveLocationSession(activeSessionId);
     await AsyncStorage.multiRemove([
       STORAGE_KEYS.LIVE_LOCATION_SESSION_ID,
+      STORAGE_KEYS.LIVE_LOCATION_USER_ID,
       STORAGE_KEYS.LIVE_LOCATION_EXPIRES_AT,
     ]);
     setLiveLocationActive(false);
