@@ -11,9 +11,39 @@ interface SurakshakNativeModuleInterface {
   setSecureScreen: (enabled: boolean) => Promise<void>;
   startSiren: (audioUri: string) => Promise<void>;
   stopSiren: () => Promise<void>;
+  scheduleFakeCall(delayMs: number, callerName: string): Promise<void>;
+  cancelScheduledFakeCall(): Promise<void>;
+  getPendingFakeCall(): Promise<{ callerName: string } | null>;
+  canUseFullScreenIntent(): Promise<boolean>;
 }
 
 const NativeModule = requireNativeModule<SurakshakNativeModuleInterface>('SurakshakNative');
+/**
+ * Schedule a fake call using Android's native alarm scheduler.
+ */
+export async function scheduleFakeCall(
+  delayMs: number,
+  callerName: string,
+): Promise<void> {
+  if (delayMs <= 0) {
+    throw new Error('Delay must be greater than zero');
+  }
+
+  await NativeModule.scheduleFakeCall(delayMs, callerName);
+}
+
+/**
+ * Cancel the pending native fake-call alarm.
+ */
+export async function cancelScheduledFakeCall(): Promise<void> {
+  await NativeModule.cancelScheduledFakeCall();
+}
+export async function getPendingFakeCall(): Promise<{ callerName: string } | null> {
+  return NativeModule.getPendingFakeCall();
+}
+export async function canUseFullScreenIntent(): Promise<boolean> {
+  return NativeModule.canUseFullScreenIntent();
+}
 
 /**
  * Sends one SMS directly, with no compose UI and no user interaction, using
