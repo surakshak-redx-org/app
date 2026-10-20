@@ -96,13 +96,16 @@ describe('validateIndianPhone', () => {
 
 describe('placeCall', () => {
   let openURLSpy: jest.SpyInstance;
+  let canOpenURLSpy: jest.SpyInstance;
   const originalOS = Platform.OS;
 
   beforeEach(() => {
     openURLSpy = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    canOpenURLSpy = jest.spyOn(Linking, 'canOpenURL').mockResolvedValue(true);
   });
   afterEach(() => {
     openURLSpy.mockRestore();
+    canOpenURLSpy.mockRestore();
     Platform.OS = originalOS;
     jest.clearAllMocks();
   });
@@ -164,6 +167,33 @@ describe('placeCall', () => {
 
     expect(mockedPlaceCallDirectly).not.toHaveBeenCalled();
     expect(openURLSpy).toHaveBeenCalledWith('tel:112');
+  });
+
+  it('throws errors.telephonyUnavailable on Wi-Fi-only tablet (canOpenURL returns false)', async () => {
+    Platform.OS = 'ios';
+    canOpenURLSpy.mockResolvedValueOnce(false);
+
+    await expect(placeCall('9876543210')).rejects.toThrow('errors.telephonyUnavailable');
+    expect(openURLSpy).not.toHaveBeenCalled();
+  });
+
+  it('treats canOpenURL rejection as unavailable and throws telephonyUnavailable', async () => {
+    Platform.OS = 'ios';
+    canOpenURLSpy.mockRejectedValueOnce(new Error('permission denied by OS'));
+
+    await expect(placeCall('9876543210')).rejects.toThrow('errors.telephonyUnavailable');
+    expect(openURLSpy).not.toHaveBeenCalled();
+  });
+
+  it('throws errors.telephonyUnavailable on Android tablet when both direct call and canOpenURL fail', async () => {
+    Platform.OS = 'android';
+    mockedPlaceCallDirectly.mockRejectedValueOnce(new Error('no telephony hardware'));
+    canOpenURLSpy.mockResolvedValueOnce(false);
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    await expect(placeCall('9876543210')).rejects.toThrow('errors.telephonyUnavailable');
+    expect(openURLSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
   });
 });
 
