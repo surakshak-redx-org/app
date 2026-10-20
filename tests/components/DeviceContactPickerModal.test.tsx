@@ -1,4 +1,4 @@
-﻿import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import * as Contacts from 'expo-contacts';
 import React from 'react';
 
