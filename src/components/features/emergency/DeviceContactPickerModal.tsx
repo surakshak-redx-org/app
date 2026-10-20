@@ -1,4 +1,4 @@
-// SDK 57 deprecated `getContactsAsync` on the main entry — the read API now
+// SDK 57 deprecated `getContactsAsync` on the main entry ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â the read API now
 // lives behind the `/legacy` subpath. Permission prompting still uses the
 // non-deprecated main module via `permissions.utils`.
 import { MaterialIcons } from '@expo/vector-icons';
@@ -14,7 +14,7 @@ import { Text } from '@/components/ui/Text';
 import { COLORS } from '@/constants/colors';
 import type { EmergencyContactFormValues } from '@/types/emergency.types';
 import { requestContactsPermission } from '@/utils/permissions.utils';
-import { formatIndianPhone } from '@/utils/phone.utils';
+import { formatIndianPhone, validateIndianPhone } from '@/utils/phone.utils';
 
 export interface DeviceContactPickerModalProps {
   visible: boolean;
@@ -91,7 +91,8 @@ export function DeviceContactPickerModal({
 
         const mapped: DeviceContactRow[] = data
           .map((contact, index) => {
-            const phone = contact.phoneNumbers?.[0]?.number ?? '';
+            const rawPhone = contact.phoneNumbers?.[0]?.number ?? '';
+            const phone = (rawPhone.split(/[,;]|(?:ext\.?|x)\s*/i)[0] ?? '').trim();
             return {
               key: contact.id ?? String(index),
               name: contact.name ?? '',
@@ -180,14 +181,23 @@ export function DeviceContactPickerModal({
               keyExtractor={(row) => row.key}
               keyboardShouldPersistTaps="handled"
               renderItem={({ item }) => {
-                const normalizedPhone = formatIndianPhone(item.phone);
-                const isAlreadyAdded = existingPhones.has(normalizedPhone);
+                const isValidMobile = validateIndianPhone(item.phone ?? '');
+                const normalizedPhone = isValidMobile ? formatIndianPhone(item.phone) : '';
+                const isAlreadyAdded =
+                  normalizedPhone.length > 0 && existingPhones.has(normalizedPhone);
                 return (
                   <Pressable
                     onPress={() => {
-                      if (!isAlreadyAdded) {
-                        handlePick({ name: item.name, phone: item.phone, relationship: '' });
+                      if (isAlreadyAdded) return;
+                      if (!isValidMobile) {
+                        Alert.alert(t('emergency.invalidPhone'));
+                        return;
                       }
+                      handlePick({
+                        name: item.name,
+                        phone: normalizedPhone,
+                        relationship: '',
+                      });
                     }}
                     disabled={isAlreadyAdded}
                     accessibilityRole="button"
