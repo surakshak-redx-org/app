@@ -1,4 +1,4 @@
-﻿// SDK 57 deprecated `getContactsAsync` on the main entry â€” the read API now
+// SDK 57 deprecated `getContactsAsync` on the main entry â€” the read API now
 // lives behind the `/legacy` subpath. Permission prompting still uses the
 // non-deprecated main module via `permissions.utils`.
 import { MaterialIcons } from '@expo/vector-icons';
@@ -228,4 +228,3 @@ export function DeviceContactPickerModal({
     </Modal>
   );
 }
-
