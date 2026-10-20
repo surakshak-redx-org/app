@@ -31,26 +31,64 @@ class SurakshakNativeModule : Module() {
   private var previousAlarmVolume: Int? = null
   override fun definition() = ModuleDefinition {
     Name("SurakshakNative")
+    Events("onFakeCallTriggered")
+            AsyncFunction("scheduleFakeCall") { delayMs: Double, callerName: String ->
+      val context = appContext.reactContext
+        ?: throw IllegalStateException("No React context")
 
-    /**
-     * Turns the screen off while the phone is held to the ear, like a real
-     * call — used once a fake call is answered so the lit screen doesn't give
-     * it away. Requires `WAKE_LOCK` (declared in app.config.ts).
-     */
-    AsyncFunction("setProximityScreenOff") { enabled: Boolean ->
-      val context = appContext.reactContext ?: return@AsyncFunction
-      if (enabled) {
-        if (proximityWakeLock?.isHeld == true) return@AsyncFunction
-        val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-        if (!powerManager.isWakeLockLevelSupported(PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK)) {
-          return@AsyncFunction
-        }
-        proximityWakeLock =
-          powerManager
-            .newWakeLock(PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK, "surakshak:fake-call")
-            .apply { acquire(PROXIMITY_WAKE_LOCK_MAX_MS) }
+      require(delayMs > 0) { "Delay must be greater than zero" }
+
+      FakeCallAlarmReceiver.schedule(
+        context,
+        delayMs.toLong(),
+        callerName
+      )
+    }
+
+    AsyncFunction("cancelScheduledFakeCall") {
+      val context = appContext.reactContext
+        ?: throw IllegalStateException("No React context")
+
+      FakeCallAlarmReceiver.cancel(context)
+    }
+
+    AsyncFunction("getPendingFakeCall") {
+      val context = appContext.reactContext
+        ?: throw IllegalStateException("No React context")
+
+      val prefs = context.getSharedPreferences(
+        "fake_call",
+        android.content.Context.MODE_PRIVATE
+      )
+
+      if (!prefs.getBoolean("pending_fake_call", false)) {
+        null
       } else {
-        releaseProximityWakeLock()
+        val callerName = prefs.getString(
+          FakeCallAlarmReceiver.EXTRA_CALLER_NAME,
+          "Incoming Call"
+        ) ?: "Incoming Call"
+
+        prefs.edit()
+          .putBoolean("pending_fake_call", false)
+          .apply()
+
+        mapOf("callerName" to callerName)
+      }
+    }
+
+    AsyncFunction("canUseFullScreenIntent") {
+      if (android.os.Build.VERSION.SDK_INT >= 34) {
+        val context = appContext.reactContext
+          ?: throw IllegalStateException("No React context")
+
+        val manager = context.getSystemService(
+          android.content.Context.NOTIFICATION_SERVICE
+        ) as android.app.NotificationManager
+
+        manager.canUseFullScreenIntent()
+      } else {
+        true
       }
     }
 
