@@ -26,6 +26,7 @@ export const STORAGE_KEYS = {
    * Firestore document to push coordinates into.
    */
   LIVE_LOCATION_SESSION_ID: 'surakshak_live_session_id',
+  LIVE_LOCATION_USER_ID: 'surakshak_live_session_user_id',
   /**
    * Timestamp in milliseconds (as string) when the currently active live-location
    * session expires. Used by the background location task to self-terminate.
@@ -91,6 +92,7 @@ export const SENSITIVE_STORAGE_KEYS = [
   STORAGE_KEYS.CHECKIN_CONTACT_IDS,
   STORAGE_KEYS.CHECKIN_MISSED_COUNT,
   STORAGE_KEYS.ONBOARDING_COMPLETE,
+  STORAGE_KEYS.LIVE_LOCATION_USER_ID,
 ] as const;
 
 export type SensitiveStorageKey = (typeof SENSITIVE_STORAGE_KEYS)[number];
