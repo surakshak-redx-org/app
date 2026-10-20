@@ -1,4 +1,4 @@
-// SDK 57 deprecated `getContactsAsync` on the main entry â€” the read API now
+// SDK 57 deprecated `getContactsAsync` on the main entry ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â the read API now
 // lives behind the `/legacy` subpath. Permission prompting still uses the
 // non-deprecated main module via `permissions.utils`.
 import { MaterialIcons } from '@expo/vector-icons';
@@ -92,7 +92,7 @@ export function DeviceContactPickerModal({
         const mapped: DeviceContactRow[] = data
           .map((contact, index) => {
             const rawPhone = contact.phoneNumbers?.[0]?.number ?? '';
-            const phone = rawPhone.split(/[,;]|(?:ext\.?|x)\s*/i)[0].trim();
+            const phone = (rawPhone.split(/[,;]|(?:ext\.?|x)\s*/i)[0] ?? '').trim();
             return {
               key: contact.id ?? String(index),
               name: contact.name ?? '',
@@ -181,9 +181,10 @@ export function DeviceContactPickerModal({
               keyExtractor={(row) => row.key}
               keyboardShouldPersistTaps="handled"
               renderItem={({ item }) => {
-                const isValidMobile = validateIndianPhone(item.phone);
+                const isValidMobile = validateIndianPhone(item.phone ?? '');
                 const normalizedPhone = isValidMobile ? formatIndianPhone(item.phone) : '';
-                const isAlreadyAdded = normalizedPhone.length > 0 && existingPhones.has(normalizedPhone);
+                const isAlreadyAdded =
+                  normalizedPhone.length > 0 && existingPhones.has(normalizedPhone);
                 return (
                   <Pressable
                     onPress={() => {

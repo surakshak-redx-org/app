@@ -55,11 +55,18 @@ describe('DeviceContactPickerModal', () => {
 
   it('does not import an Indian landline as a mobile number', async () => {
     mockGetContactsAsync.mockResolvedValue({
-      data: [{ id: 'landline', name: 'Landline Contact', phoneNumbers: [{ number: '(022) 2410-1234' }] }],
+      data: [
+        { id: 'landline', name: 'Landline Contact', phoneNumbers: [{ number: '(022) 2410-1234' }] },
+      ],
     });
     const onPick = jest.fn();
     const { findByText } = await render(
-      <DeviceContactPickerModal visible existingPhones={new Set<string>()} onPick={onPick} onClose={jest.fn()} />,
+      <DeviceContactPickerModal
+        visible
+        existingPhones={new Set<string>()}
+        onPick={onPick}
+        onClose={jest.fn()}
+      />,
     );
     await fireEvent.press(await findByText('Landline Contact'));
     expect(onPick).not.toHaveBeenCalled();
@@ -273,4 +280,3 @@ describe('DeviceContactPickerModal', () => {
     expect(mockGetContactsAsync).toHaveBeenCalledTimes(1);
   });
 });
-
