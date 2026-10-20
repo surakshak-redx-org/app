@@ -26,6 +26,12 @@ export const STORAGE_KEYS = {
    * Firestore document to push coordinates into.
    */
   LIVE_LOCATION_SESSION_ID: 'surakshak_live_session_id',
+  LIVE_LOCATION_USER_ID: 'surakshak_live_session_user_id',
+  /**
+   * Timestamp in milliseconds (as string) when the currently active live-location
+   * session expires. Used by the background location task to self-terminate.
+   */
+  LIVE_LOCATION_EXPIRES_AT: 'surakshak_live_session_expires_at',
   /** `'false'` disables the suspicious-follow alert; absent means enabled. */
   FOLLOW_DETECTION_ENABLED: 'surakshak_follow_detection_enabled',
   /** `'true'` while a Safe Check-In session is running. */
@@ -38,6 +44,8 @@ export const STORAGE_KEYS = {
   CHECKIN_CONTACT_IDS: 'surakshak_checkin_contacts',
   /** `'true'` once the iOS one-tap-limitation hint on Home has been dismissed. */
   IOS_HINT_DISMISSED: 'surakshak_ios_hint_dismissed',
+  /** `'true'` once the Android battery-optimisation guidance for shake detection has been shown. */
+  SHAKE_BATTERY_HINT_SHOWN: 'surakshak_shake_battery_hint_shown',
   /** Consecutive missed check-ins since the last successful one. */
   CHECKIN_MISSED_COUNT: 'surakshak_checkin_missed',
   /** `'true'` once Disguise Mode is turned on. */
@@ -56,6 +64,11 @@ export const STORAGE_KEYS = {
    * preventing the watchdog from firing false-alarm overdue emergency alerts.
    */
   SAFE_JOURNEY_ARRIVED_SESSIONS: 'surakshak_safe_journey_arrived_sessions',
+  /**
+   * `JSON.stringify`'d PendingOutboxItem[] of emergency SMS alerts queued when permissions
+   * were missing, drained automatically upon permission grant.
+   */
+  EMERGENCY_OUTBOX: 'surakshak_emergency_outbox',
 } as const;
 
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];
@@ -72,12 +85,14 @@ export const SENSITIVE_STORAGE_KEYS = [
   STORAGE_KEYS.EVIDENCE_RECORDING_HISTORY,
   STORAGE_KEYS.LIVE_LOCATION_SESSION_ID,
   STORAGE_KEYS.SAFE_JOURNEY_ARRIVED_SESSIONS,
+  STORAGE_KEYS.EMERGENCY_OUTBOX,
   STORAGE_KEYS.CHECKIN_ACTIVE,
   STORAGE_KEYS.CHECKIN_INTERVAL_MINUTES,
   STORAGE_KEYS.CHECKIN_NEXT_AT,
   STORAGE_KEYS.CHECKIN_CONTACT_IDS,
   STORAGE_KEYS.CHECKIN_MISSED_COUNT,
   STORAGE_KEYS.ONBOARDING_COMPLETE,
+  STORAGE_KEYS.LIVE_LOCATION_USER_ID,
 ] as const;
 
 export type SensitiveStorageKey = (typeof SENSITIVE_STORAGE_KEYS)[number];

@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import { setAppIcon } from 'surakshak-native';
+import { setAppIcon, setSecureScreen } from 'surakshak-native';
 
 /** Alternate-icon names registered by `plugins/withDisguiseIcon.js`. */
 const CALCULATOR_ICON_IOS = 'Calculator';
@@ -18,5 +18,19 @@ export async function setDisguiseIcon(enabled: boolean): Promise<void> {
   } catch (error) {
     console.error('setDisguiseIcon failed:', error);
     throw error;
+  }
+}
+
+/**
+ * Android: blanks the Recents/Overview preview (and blocks screenshots) while
+ * Disguise Mode is on, so the task switcher never shows app content (BUG-109).
+ * Best-effort — a failure only means the preview is not blanked.
+ */
+export async function setDisguiseSecureScreen(enabled: boolean): Promise<void> {
+  if (Platform.OS !== 'android') return;
+  try {
+    await setSecureScreen(enabled);
+  } catch (error) {
+    console.warn('setDisguiseSecureScreen failed:', error);
   }
 }

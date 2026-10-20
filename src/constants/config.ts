@@ -23,6 +23,8 @@ export const APP_CONFIG = {
   LIVE_LOCATION_MAX_HOURS: 8,
   LIVE_LOCATION_UPDATE_INTERVAL_SECONDS: 30,
   SOS_COUNTDOWN_SECONDS: 5,
+  /** Cancel window shown when the app resumes after the SOS deadline already passed. */
+  SOS_RESUME_GRACE_SECONDS: 3,
   /** How long an SOS / alert waits for a fresh GPS fix before using the last known one. */
   ALERT_LOCATION_TIMEOUT_MS: 4000,
   /** A report's location fix must be no older than this to count as "here, now". */
@@ -32,7 +34,7 @@ export const APP_CONFIG = {
   SHAKE_THRESHOLD: 2.5,
   SHAKE_COUNT_REQUIRED: 3,
   SHAKE_WINDOW_MS: 2000,
-  SHAKE_SAMPLE_INTERVAL_MS: 100,
+  SHAKE_SAMPLE_INTERVAL_MS: 50,
   LOW_BATTERY_THRESHOLD_PERCENT: 20,
   FAKE_CALL_DEFAULT_DELAY_SECONDS: 15,
   FAKE_CALL_RING_SECONDS: 30,
@@ -46,6 +48,8 @@ export const APP_CONFIG = {
   MAX_EVIDENCE_RECORDING_MINUTES: 30,
   MAX_COMMUNITY_IMAGE_MB: 5,
   UNSAFE_AREA_SEARCH_RADIUS_KM: 50,
+  /** Maximum number of unsafe area pins fetched for map viewport. */
+  UNSAFE_AREA_QUERY_LIMIT: 100,
   CACHE_EXPIRY_HOURS: 24,
   /** Newest-first cap on the Information Hub news feed. */
   NEWS_FEED_LIMIT: 30,

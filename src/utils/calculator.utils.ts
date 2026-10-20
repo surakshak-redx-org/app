@@ -8,6 +8,7 @@ export interface CalculatorState {
 }
 
 const PERCENT_DIVISOR = 100;
+const ERROR_DISPLAY = 'Error';
 
 export function initialCalculatorState(): CalculatorState {
   return { display: '0', previousValue: null, operation: null, shouldResetDisplay: false };
@@ -22,7 +23,7 @@ function applyOperation(a: number, b: number, operation: CalculatorOperation): n
     case '×':
       return a * b;
     case '÷':
-      return b === 0 ? NaN : a / b;
+      return b === 0 ? Number.NaN : a / b;
     default:
       return b;
   }
@@ -30,8 +31,12 @@ function applyOperation(a: number, b: number, operation: CalculatorOperation): n
 
 /** Formats a computed value back into the display's string form, trimming float noise. */
 function formatResult(value: number): string {
-  if (Number.isNaN(value)) return 'Error';
+  if (!Number.isFinite(value)) return ERROR_DISPLAY;
   return Number(value.toFixed(10)).toString();
+}
+
+function errorState(): CalculatorState {
+  return { display: ERROR_DISPLAY, previousValue: null, operation: null, shouldResetDisplay: true };
 }
 
 export function inputDigit(state: CalculatorState, digit: string): CalculatorState {
@@ -52,11 +57,13 @@ export function clearCalculator(): CalculatorState {
 }
 
 export function toggleSign(state: CalculatorState): CalculatorState {
+  if (state.display === ERROR_DISPLAY) return state;
   const value = Number(state.display);
   return { ...state, display: formatResult(value * -1) };
 }
 
 export function applyPercent(state: CalculatorState): CalculatorState {
+  if (state.display === ERROR_DISPLAY) return state;
   const value = Number(state.display);
   return { ...state, display: formatResult(value / PERCENT_DIVISOR) };
 }
@@ -65,6 +72,7 @@ export function inputOperation(
   state: CalculatorState,
   operation: CalculatorOperation,
 ): CalculatorState {
+  if (state.display === ERROR_DISPLAY) return state;
   const current = Number(state.display);
 
   if (state.previousValue === null) {
@@ -76,6 +84,7 @@ export function inputOperation(
   }
 
   const result = applyOperation(state.previousValue, current, state.operation ?? operation);
+  if (!Number.isFinite(result)) return errorState();
   return {
     display: formatResult(result),
     previousValue: result,
@@ -89,6 +98,7 @@ export function calculateResult(state: CalculatorState): CalculatorState {
 
   const current = Number(state.display);
   const result = applyOperation(state.previousValue, current, state.operation);
+  if (!Number.isFinite(result)) return errorState();
   return {
     display: formatResult(result),
     previousValue: null,

@@ -121,7 +121,9 @@ export default function NearbyHelpScreen(): React.JSX.Element {
       trackNearbyHelpCalled(activeCategory);
       placeCall(place.phoneNumber).catch((error: unknown) => {
         captureException(error);
-        Alert.alert(t('errors.callFailed'));
+        const isNoTelephony =
+          error instanceof Error && error.message === 'errors.telephonyUnavailable';
+        Alert.alert(t(isNoTelephony ? 'errors.telephonyUnavailable' : 'errors.callFailed'));
       });
     },
     [activeCategory, t],

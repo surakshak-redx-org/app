@@ -49,13 +49,44 @@ export function registerLiveLocationTask(): void {
       captureException(error);
       return;
     }
-    const fix = data?.locations?.[0];
-    if (fix === undefined) return;
 
     try {
+      const expiresAtStr = await AsyncStorage.getItem(STORAGE_KEYS.LIVE_LOCATION_EXPIRES_AT);
+      if (expiresAtStr !== null) {
+        const expiresAtMs = Number(expiresAtStr);
+        if (!Number.isNaN(expiresAtMs) && Date.now() >= expiresAtMs) {
+          const sessionId = await AsyncStorage.getItem(STORAGE_KEYS.LIVE_LOCATION_SESSION_ID);
+          if (sessionId !== null) {
+            await stopLiveLocationSession(sessionId);
+          }
+          await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
+          await AsyncStorage.multiRemove([
+            STORAGE_KEYS.LIVE_LOCATION_SESSION_ID,
+            STORAGE_KEYS.LIVE_LOCATION_EXPIRES_AT,
+          ]);
+          return;
+        }
+      }
+
+      const permissions = await Location.getBackgroundPermissionsAsync();
+      if (!permissions.granted) {
+        try {
+          await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
+        } catch {
+          // The task may already have stopped after permission was revoked.
+        }
+        return;
+      }
+
+      const fix = data?.locations?.[0];
+      if (fix === undefined) return;
+
       const sessionId = await AsyncStorage.getItem(STORAGE_KEYS.LIVE_LOCATION_SESSION_ID);
-      if (sessionId === null) return;
-      await updateLiveLocation(sessionId, fix.coords.latitude, fix.coords.longitude);
+      const sessionUserId = await AsyncStorage.getItem(STORAGE_KEYS.LIVE_LOCATION_USER_ID);
+
+      if (sessionId === null || sessionUserId === null) return;
+
+      await updateLiveLocation(sessionId, fix.coords.latitude, fix.coords.longitude, sessionUserId);
     } catch (taskError) {
       captureException(taskError);
     }
@@ -66,6 +97,7 @@ export interface UseLiveLocationResult {
   isActive: boolean;
   sessionId: string | null;
   expiresAt: Date | null;
+  sharedWithCount: number;
   currentLocationUrl: string | null;
   startSharing: (sharedWithUserIds: string[], durationHours: number) => Promise<void>;
   stopSharing: () => Promise<void>;
@@ -84,15 +116,21 @@ export function useLiveLocation(): UseLiveLocationResult {
   const userId = surakshakUser?.userId ?? rawUser?.uid ?? null;
 
   const [expiresAt, setExpiresAt] = useState<Date | null>(null);
+  const [sharedWithCount, setSharedWithCount] = useState(0);
 
   const stopSharing = useCallback(async (): Promise<void> => {
     const activeSessionId = useLocationStore.getState().liveLocationSessionId;
     if (activeSessionId === null) return;
 
     await stopLiveLocationSession(activeSessionId);
-    await AsyncStorage.removeItem(STORAGE_KEYS.LIVE_LOCATION_SESSION_ID);
+    await AsyncStorage.multiRemove([
+      STORAGE_KEYS.LIVE_LOCATION_SESSION_ID,
+      STORAGE_KEYS.LIVE_LOCATION_USER_ID,
+      STORAGE_KEYS.LIVE_LOCATION_EXPIRES_AT,
+    ]);
     setLiveLocationActive(false);
     setExpiresAt(null);
+    setSharedWithCount(0);
 
     try {
       const started = await Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
@@ -116,9 +154,17 @@ export function useLiveLocation(): UseLiveLocationResult {
         if (expiry > new Date()) {
           setLiveLocationActive(true, session.id);
           setExpiresAt(expiry);
-          void AsyncStorage.setItem(STORAGE_KEYS.LIVE_LOCATION_SESSION_ID, session.id);
+          setSharedWithCount(session.sharedWithUserIds.length);
+          void AsyncStorage.multiSet([
+            [STORAGE_KEYS.LIVE_LOCATION_SESSION_ID, session.id],
+            [STORAGE_KEYS.LIVE_LOCATION_EXPIRES_AT, String(expiry.getTime())],
+          ]);
         } else {
           void stopLiveLocationSession(session.id);
+          void AsyncStorage.multiRemove([
+            STORAGE_KEYS.LIVE_LOCATION_SESSION_ID,
+            STORAGE_KEYS.LIVE_LOCATION_EXPIRES_AT,
+          ]);
         }
       })
       .catch((error: unknown) => captureException(error));
@@ -150,9 +196,14 @@ export function useLiveLocation(): UseLiveLocationResult {
         fix.longitude,
       );
 
-      await AsyncStorage.setItem(STORAGE_KEYS.LIVE_LOCATION_SESSION_ID, newSessionId);
+      const expiryDate = new Date(Date.now() + durationHours * MS_PER_HOUR);
+      await AsyncStorage.multiSet([
+        [STORAGE_KEYS.LIVE_LOCATION_SESSION_ID, newSessionId],
+        [STORAGE_KEYS.LIVE_LOCATION_EXPIRES_AT, String(expiryDate.getTime())],
+      ]);
       setLiveLocationActive(true, newSessionId);
-      setExpiresAt(new Date(Date.now() + durationHours * MS_PER_HOUR));
+      setExpiresAt(expiryDate);
+      setSharedWithCount(sharedWithUserIds.length);
 
       const backgroundGranted = await requestBackgroundLocationPermission();
       if (backgroundGranted) {
@@ -177,7 +228,7 @@ export function useLiveLocation(): UseLiveLocationResult {
       const language = surakshakUser?.language ?? profile?.language ?? 'en';
       const locationUrl = getLocationUrl(fix.latitude, fix.longitude);
 
-      const untilTime = formatClockTime(new Date(Date.now() + durationHours * MS_PER_HOUR));
+      const untilTime = formatClockTime(expiryDate);
       const result = await sendLiveLocationShare(selected, locationUrl, name, untilTime, language);
       await recordSMSAlert({
         type: 'live_location',
@@ -198,7 +249,14 @@ export function useLiveLocation(): UseLiveLocationResult {
 
       await extendLiveLocationSession(activeSessionId, hours);
       const refreshed = await getActiveLiveSession(userId);
-      if (refreshed !== null) setExpiresAt(refreshed.expiresAt.toDate());
+      if (refreshed !== null) {
+        const newExpiry = refreshed.expiresAt.toDate();
+        setExpiresAt(newExpiry);
+        await AsyncStorage.setItem(
+          STORAGE_KEYS.LIVE_LOCATION_EXPIRES_AT,
+          String(newExpiry.getTime()),
+        );
+      }
 
       trackLiveLocationExtended(hours);
     },
@@ -214,6 +272,7 @@ export function useLiveLocation(): UseLiveLocationResult {
     isActive,
     sessionId,
     expiresAt,
+    sharedWithCount,
     currentLocationUrl,
     startSharing,
     stopSharing,

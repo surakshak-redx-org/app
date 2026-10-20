@@ -69,6 +69,7 @@
     "sosResultPartial": "Alert sent to {{sent}} contact(s). {{failed}} could not be sent — please call them directly.",
     "sosResultNoContacts": "No alert was sent: add an emergency contact with a valid mobile number, or call 112.",
     "sosResultFailed": "Failed to send emergency alert. Please call 112 immediately.",
+    "sosResultDraft": "SOS opened as a draft in your messaging app. Tap Send to confirm, or grant SMS permission in settings for automatic sending.",
     "addContactsWarning": "Add"
   },
   "auth": {
@@ -147,7 +148,6 @@
     "signOutConfirm": "Are you sure you want to sign out?",
     "deleteAccount": "Delete Account",
     "deleteAccountConfirm": "This will permanently delete your account. This cannot be undone.",
-    "testSentryError": "[STAGING] Test Sentry Error",
     "guestBanner": "Sign in to access all features",
     "signInNow": "Sign In Now",
     "memberSince": "Member since {{date}}"
@@ -210,7 +210,13 @@
     "alertTypeLiveLocation": "Live Location",
     "alertTypeCheckinMissed": "Missed Check-In",
     "foregroundServiceTitle": "🛡️ Surakshak Active",
-    "foregroundServiceBody": "Shake detection is on. You are protected."
+    "foregroundServiceBody": "Shake detection is on. You are protected.",
+    "disguiseNotificationTitle": "Calculator active",
+    "disguiseNotificationBody": "Running",
+    "disguiseChannelName": "Calculator",
+    "shakeUnavailable": "Shake detection is unavailable on this device (no accelerometer access).",
+    "shakeBatteryTitle": "Keep shake-to-SOS working",
+    "shakeBatteryBody": "Battery Saver or battery optimisation can stop shake detection when your phone is locked. Set Surakshak to Unrestricted battery use for reliable SOS."
   },
   "map": {
     "title": "Safety Map",
@@ -352,7 +358,10 @@
     "journeyWarningTitle": "Safe Journey: 5 minutes left",
     "journeyWarningBody": "Check in or extend your time, or your contacts will be alerted.",
     "journeyDueTitle": "Safe Journey: are you safe?",
-    "journeyDueBody": "Your expected arrival time has passed, so your contacts are being alerted. Open Surakshak if you need to update them."
+    "journeyDueBody": "Your expected arrival time has passed, so your contacts are being alerted. Open Surakshak if you need to update them.",
+    "journeyOverdue": "Journey Overdue",
+    "journeyOverdueWarning": "Your arrival deadline has passed. An alert was sent to your emergency contacts.",
+    "destinationPickRequired": "Please select a valid place from the suggestions list."
   },
   "silentRecording": {
     "title": "Silent Evidence Recording",
@@ -412,9 +421,11 @@
     },
     "photoTooLarge": "That photo is larger than {{mb}} MB. Please choose a smaller one.",
     "photoUploadFailedTitle": "Photo upload failed",
-    "photoUploadFailedBody": "{{failed}} of {{total}} photo(s) could not be uploaded. Check your connection and try again, or remove them to submit without.",
     "historyLoadError": "Couldn't load your reports",
-    "viewPhoto": "View photo {{index}} of {{total}}"
+    "viewPhoto": "View photo {{index}} of {{total}}",
+    "viewPhotoDraft": "Preview photo",
+    "guestHistoryTitle": "Sign in to view your reports",
+    "guestHistorySubtitle": "Incident reports you submit while signed in are saved to your secure account"
   },
   "safeCheckin": {
     "active": "Check-In Active",
@@ -478,10 +489,13 @@
     "networkError": "No internet connection. Please try again.",
     "locationPermissionDenied": "Location permission required. Please enable in Settings.",
     "microphonePermissionDenied": "Microphone permission denied. Please enable in Settings.",
+    "microphonePermissionRevoked": "Microphone access was turned off, so recording stopped. Your recording so far is being saved.",
+    "storageInsufficient": "Not enough storage space to record. Free up space and try again. Audio recorded so far is kept when possible.",
     "cameraPermissionDenied": "Camera permission denied. Please enable in Settings.",
     "contactsPermissionDenied": "Contacts permission denied. Please enable in Settings.",
     "smsFailed": "Failed to send SMS alert. Please try again.",
     "callFailed": "Could not place the call. Please try manually.",
+    "telephonyUnavailable": "Calling is not supported on this device.",
     "contactSaveFailed": "Could not save the contact. Please try again.",
     "contactDeleteFailed": "Could not delete the contact. Please try again.",
     "contactsLoadFailed": "Could not load your emergency contacts.",

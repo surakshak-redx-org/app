@@ -11,7 +11,7 @@
  * silently passing. `jest.mock` calls are hoisted above it by babel-jest, so
  * the mocks below still apply.
  */
-import type * as React from 'react';
+import * as mockReact from 'react';
 
 import '@/i18n';
 
@@ -48,6 +48,7 @@ jest.mock('@react-native-firebase/firestore', () => ({
 jest.mock('expo-file-system', () => {
   class MockFile {
     exists = false;
+    size = 1024;
     text = jest.fn(() => Promise.resolve('{}'));
     write = jest.fn();
     create = jest.fn();
@@ -57,7 +58,11 @@ jest.mock('expo-file-system', () => {
     exists = true;
     create = jest.fn();
   }
-  return { File: MockFile, Directory: MockDirectory, Paths: { cache: {} } };
+  return {
+    File: MockFile,
+    Directory: MockDirectory,
+    Paths: { cache: {}, availableDiskSpace: 500 * 1024 * 1024 },
+  };
 });
 
 jest.mock('@react-native-firebase/storage', () => ({
@@ -101,6 +106,18 @@ jest.mock('expo-contacts', () => ({
   getPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false })),
 }));
 
+jest.mock('expo-battery', () => ({
+  getBatteryLevelAsync: jest.fn(() => Promise.resolve(1)),
+  getBatteryStateAsync: jest.fn(() => Promise.resolve(1)),
+  addBatteryLevelListener: jest.fn(() => ({ remove: jest.fn() })),
+  BatteryState: {
+    UNKNOWN: 0,
+    UNPLUGGED: 1,
+    CHARGING: 2,
+    FULL: 3,
+  },
+}));
+
 jest.mock('expo-location', () => ({
   requestForegroundPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false })),
   requestBackgroundPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false })),
@@ -135,6 +152,21 @@ jest.mock('react-native-maps', () => {
   const RN = jest.requireActual<typeof import('react-native')>('react-native');
   const Passthrough = (props: { children?: React.ReactNode }): React.ReactElement =>
     ReactActual.createElement(RN.View, null, props.children);
+  const MapView = ReactActual.forwardRef(
+    (
+      props: { children?: React.ReactNode; onPanDrag?: () => void },
+      ref: React.ForwardedRef<{
+        animateToRegion: jest.Mock;
+        animateCamera: jest.Mock;
+      }>,
+    ): React.ReactElement => {
+      ReactActual.useImperativeHandle(ref, () => ({
+        animateToRegion: jest.fn(),
+        animateCamera: jest.fn(),
+      }));
+      return ReactActual.createElement(RN.View, { onTouchMove: props.onPanDrag }, props.children);
+    },
+  );
   // Pressable so a test can tap a pin by its testID.
   const Marker = (props: {
     children?: React.ReactNode;
@@ -148,7 +180,7 @@ jest.mock('react-native-maps', () => {
     );
   return {
     __esModule: true,
-    default: Passthrough,
+    default: MapView,
     Marker,
     Circle: Passthrough,
     PROVIDER_GOOGLE: 'google',
@@ -239,6 +271,9 @@ jest.mock('surakshak-native', () => ({
   placeCallDirectly: jest.fn((phone: string) =>
     Promise.resolve({ success: true, phone, method: 'direct' as const }),
   ),
+  startSiren: jest.fn(() => Promise.resolve()),
+  stopSiren: jest.fn(() => Promise.resolve()),
+  setSecureScreen: jest.fn(() => Promise.resolve()),
 }));
 
 jest.mock('@expo-google-fonts/noto-sans-devanagari', () => ({
@@ -252,4 +287,9 @@ jest.mock('expo-router', () => ({
   useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
   useSegments: () => [],
   router: { push: jest.fn(), replace: jest.fn(), back: jest.fn() },
+  useFocusEffect: (cb: () => void | (() => void)): void => {
+    mockReact.useEffect(() => {
+      return cb();
+    }, [cb]);
+  },
 }));

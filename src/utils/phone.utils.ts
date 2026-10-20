@@ -8,6 +8,22 @@ const VISIBLE_DIGITS_WHEN_MASKED = 4;
 /** Government helplines are 3–5 digit short codes and must be dialled verbatim. */
 const SHORT_CODE_PATTERN = /^\d{3,5}$/;
 
+/** Single-digit repeated pattern (e.g. 9999999999, 8888888888) used for dummy test numbers. */
+const REPEATED_DIGIT_PATTERN = /^([6-9])\1{9}$/;
+
+/** Strips all characters except digits and an optional leading '+'. */
+export function sanitizePhoneInput(input: string): string {
+  const trimmed = input.trim();
+  const hasLeadingPlus = trimmed.startsWith('+');
+  const digits = input.replace(/\D/g, '');
+  return hasLeadingPlus ? `+${digits}` : digits;
+}
+
+/** Returns true if the phone string is a short government emergency helpline (3-5 digits). */
+export function isEmergencyShortcode(phone: string): boolean {
+  return SHORT_CODE_PATTERN.test(phone.replace(/\D/g, ''));
+}
+
 /** Strips everything non-numeric and any leading country code / trunk zero. */
 export function toNationalDigits(phone: string): string {
   let digits = phone.replace(/\D/g, '');
@@ -27,9 +43,27 @@ export function formatIndianPhone(phone: string): string {
   return `${INDIA_COUNTRY_CODE}${toNationalDigits(phone)}`;
 }
 
-/** Indian mobile numbers are 10 digits and always begin 6, 7, 8 or 9. */
+/**
+ * Indian mobile numbers are 10 digits and always begin 6, 7, 8 or 9.
+ * Rejects non-dialable characters (letters, emojis) and dummy repeated digits.
+ */
 export function validateIndianPhone(phone: string): boolean {
-  return /^[6-9]\d{9}$/.test(toNationalDigits(phone));
+  // Reject raw strings with emojis, alphabets, or illegal characters
+  if (/[^\d+\s()-]/.test(phone)) {
+    return false;
+  }
+
+  const national = toNationalDigits(phone);
+  if (!/^[6-9]\d{9}$/.test(national)) {
+    return false;
+  }
+
+  // Reject dummy numbers where all 10 digits are identical (e.g. 9999999999)
+  if (REPEATED_DIGIT_PATTERN.test(national)) {
+    return false;
+  }
+
+  return true;
 }
 
 /** Hides all but the last four digits, e.g. `+91XXXXXX3210`. */
@@ -55,13 +89,19 @@ export function maskPhone(phone: string): string {
  * restriction with no direct-call API, not fixable from here. Short codes
  * such as `112` / `1091` are dialled as-is; 10-digit numbers are normalised
  * to E.164.
+ *
+ * Throws `errors.telephonyUnavailable` on Wi-Fi-only tablets and devices
+ * where no telephony hardware or app can handle a `tel:` URI, so callers can
+ * surface a user-friendly error instead of crashing with an unhandled Promise.
  */
 export async function placeCall(phone: string): Promise<void> {
   try {
-    const digits = phone.replace(/\D/g, '');
-    const target = SHORT_CODE_PATTERN.test(digits) ? digits : formatIndianPhone(phone);
+    const isShortcode = isEmergencyShortcode(phone);
+    const target = isShortcode ? phone.replace(/\D/g, '') : formatIndianPhone(phone);
 
-    if (Platform.OS === 'android') {
+    // Emergency shortcodes (112, 100, etc.) are restricted by Android OS from non-system
+    // ACTION_CALL intents (requires CALL_PRIVILEGED). Route shortcodes directly to dialer.
+    if (Platform.OS === 'android' && !isShortcode) {
       try {
         await placeCallDirectly(target);
         return;
@@ -70,7 +110,12 @@ export async function placeCall(phone: string): Promise<void> {
       }
     }
 
-    await Linking.openURL(`tel:${target}`);
+    const url = `tel:${target}`;
+    const canCall = await Linking.canOpenURL(url).catch(() => false);
+    if (!canCall) {
+      throw new Error('errors.telephonyUnavailable');
+    }
+    await Linking.openURL(url);
   } catch (error) {
     console.error('placeCall failed:', error);
     throw error;

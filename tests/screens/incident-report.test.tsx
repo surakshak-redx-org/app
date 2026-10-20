@@ -1,4 +1,5 @@
 import { act, fireEvent, render } from '@testing-library/react-native';
+import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import React from 'react';
 import { Alert } from 'react-native';
@@ -13,6 +14,7 @@ jest.mock('expo-router', () => ({
 
 jest.mock('expo-location', () => ({
   requestForegroundPermissionsAsync: jest.fn(() => Promise.resolve({ granted: true })),
+  getForegroundPermissionsAsync: jest.fn(() => Promise.resolve({ granted: true })),
   hasServicesEnabledAsync: jest.fn(() => Promise.resolve(true)),
   getCurrentPositionAsync: jest.fn(() =>
     Promise.resolve({
@@ -20,7 +22,8 @@ jest.mock('expo-location', () => ({
       timestamp: Date.now(),
     }),
   ),
-  Accuracy: { Balanced: 3 },
+  getLastKnownPositionAsync: jest.fn(() => Promise.resolve(null)),
+  Accuracy: { Lowest: 1, Low: 2, Balanced: 3, High: 4, Highest: 5, BestForNavigation: 6 },
 }));
 
 jest.mock('@/services/firebase/incident.service', () => ({
@@ -184,5 +187,46 @@ describe('IncidentReportScreen', () => {
 
     expect(getMyIncidentReports).toHaveBeenCalledWith('user-1');
     expect(getByText('No reports yet')).toBeTruthy();
+  });
+
+  it('renders guest empty state when switching to history tab as a guest', async () => {
+    useAuthStore.setState({ user: null, isGuest: true });
+    const { getByText, findByText } = await render(<IncidentReportScreen />);
+
+    await act(async () => {
+      await fireEvent.press(getByText('History'));
+    });
+
+    expect(await findByText('Sign in to view your reports')).toBeTruthy();
+    expect(getMyIncidentReports).not.toHaveBeenCalled();
+  });
+
+  it('allows picking multiple photos in a single selection and previews draft photo', async () => {
+    jest.mocked(ImagePicker.launchImageLibraryAsync).mockResolvedValueOnce({
+      canceled: false,
+      assets: [
+        { uri: 'file:///photo1.jpg', width: 100, height: 100 },
+        { uri: 'file:///photo2.jpg', width: 100, height: 100 },
+      ],
+    } as never);
+
+    const { getByLabelText, findAllByLabelText } = await render(<IncidentReportScreen />);
+    await act(async () => {
+      await fireEvent.press(getByLabelText('Add a photo'));
+    });
+
+    expect(ImagePicker.launchImageLibraryAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        allowsMultipleSelection: true,
+        selectionLimit: 5,
+      }),
+    );
+
+    const draftPreviews = await findAllByLabelText('Preview photo');
+    expect(draftPreviews).toHaveLength(2);
+    await act(async () => {
+      await fireEvent.press(draftPreviews[0]!);
+    });
+    expect(getByLabelText('Close')).toBeTruthy();
   });
 });

@@ -1,6 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Platform, Pressable, ScrollView, View } from 'react-native';
@@ -67,21 +67,27 @@ export default function HomeScreen(): React.JSX.Element {
       trackEmergencyCallPlaced('predefined');
       placeCall(phone).catch((error: unknown) => {
         captureException(error);
-        Alert.alert(t('errors.callFailed'));
+        const isNoTelephony =
+          error instanceof Error && error.message === 'errors.telephonyUnavailable';
+        Alert.alert(t(isNoTelephony ? 'errors.telephonyUnavailable' : 'errors.callFailed'));
       });
     },
     [t],
   );
 
-  useEffect(() => {
-    AsyncStorage.multiGet([STORAGE_KEYS.SHAKE_ENABLED, STORAGE_KEYS.FOLLOW_DETECTION_ENABLED])
-      .then((entries) => {
-        const stored = new Map(entries);
-        setShakeEnabled(stored.get(STORAGE_KEYS.SHAKE_ENABLED) !== STORAGE_FLAG_OFF);
-        setFollowEnabled(stored.get(STORAGE_KEYS.FOLLOW_DETECTION_ENABLED) !== STORAGE_FLAG_OFF);
-      })
-      .catch((error: unknown) => captureException(error));
-  }, []);
+  // Re-read on every focus: the tab stays mounted while Settings is open, so a
+  // mount-only read would ignore toggles changed there.
+  useFocusEffect(
+    useCallback(() => {
+      AsyncStorage.multiGet([STORAGE_KEYS.SHAKE_ENABLED, STORAGE_KEYS.FOLLOW_DETECTION_ENABLED])
+        .then((entries) => {
+          const stored = new Map(entries);
+          setShakeEnabled(stored.get(STORAGE_KEYS.SHAKE_ENABLED) !== STORAGE_FLAG_OFF);
+          setFollowEnabled(stored.get(STORAGE_KEYS.FOLLOW_DETECTION_ENABLED) !== STORAGE_FLAG_OFF);
+        })
+        .catch((error: unknown) => captureException(error));
+    }, []),
+  );
 
   useEffect(() => {
     if (Platform.OS !== 'ios') return;
@@ -103,7 +109,16 @@ export default function HomeScreen(): React.JSX.Element {
     if (sosOutcome === null) return;
     const { sent, failed, error } = sosOutcome;
 
-    if (error === 'failed' || (sent === 0 && failed > 0)) {
+    if (error === 'draft_fallback') {
+      Alert.alert(t('home.sosResultTitle'), t('home.sosResultDraft'), [
+        { text: t('common.ok'), style: 'default' },
+        {
+          text: t('emergency.callEmergency112'),
+          style: 'destructive',
+          onPress: (): void => callHelpline('112'),
+        },
+      ]);
+    } else if (error === 'failed' || (sent === 0 && failed > 0)) {
       Alert.alert(t('home.sosResultTitle'), t('home.sosResultFailed'), [
         { text: t('common.cancel'), style: 'cancel' },
         { text: t('common.retry'), onPress: (): void => trigger('button') },

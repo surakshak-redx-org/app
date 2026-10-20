@@ -108,7 +108,7 @@ const config: ExpoConfig = {
   // native build built before it existed — runtimeVersion's "appVersion"
   // policy keys compatibility off this exact string. Minor bump (not patch):
   // this is a feature phase, not a fix.
-  version: '1.3.0',
+  version: '1.3.1',
   orientation: 'portrait',
   scheme: `surakshak-${APP_ENV}`,
   userInterfaceStyle: 'automatic',
@@ -141,6 +141,9 @@ const config: ExpoConfig = {
       // Proximity screen-off while a fake call is answered.
       'android.permission.WAKE_LOCK',
       'android.permission.READ_CONTACTS',
+      'android.permission.POST_NOTIFICATIONS',
+      'android.permission.USE_FULL_SCREEN_INTENT',
+      'android.permission.SCHEDULE_EXACT_ALARM',
     ],
   },
   ios: {

@@ -8,9 +8,39 @@ interface SurakshakNativeModuleInterface {
   placeCall: (phoneNumber: string) => Promise<string>;
   setProximityScreenOff: (enabled: boolean) => Promise<void>;
   setAppIcon: (name: string | null) => Promise<void>;
+  setSecureScreen: (enabled: boolean) => Promise<void>;
+  startSiren: (audioUri: string) => Promise<void>;
+  stopSiren: () => Promise<void>;
+  scheduleFakeCall(delayMs: number, callerName: string): Promise<void>;
+  cancelScheduledFakeCall(): Promise<void>;
+  getPendingFakeCall(): Promise<{ callerName: string } | null>;
+  canUseFullScreenIntent(): Promise<boolean>;
 }
 
 const NativeModule = requireNativeModule<SurakshakNativeModuleInterface>('SurakshakNative');
+/**
+ * Schedule a fake call using Android's native alarm scheduler.
+ */
+export async function scheduleFakeCall(delayMs: number, callerName: string): Promise<void> {
+  if (delayMs <= 0) {
+    throw new Error('Delay must be greater than zero');
+  }
+
+  await NativeModule.scheduleFakeCall(delayMs, callerName);
+}
+
+/**
+ * Cancel the pending native fake-call alarm.
+ */
+export async function cancelScheduledFakeCall(): Promise<void> {
+  await NativeModule.cancelScheduledFakeCall();
+}
+export async function getPendingFakeCall(): Promise<{ callerName: string } | null> {
+  return NativeModule.getPendingFakeCall();
+}
+export async function canUseFullScreenIntent(): Promise<boolean> {
+  return NativeModule.canUseFullScreenIntent();
+}
 
 /**
  * Sends one SMS directly, with no compose UI and no user interaction, using
@@ -74,6 +104,28 @@ export async function setProximityScreenOff(enabled: boolean): Promise<void> {
  */
 export async function setAppIcon(name: string | null): Promise<void> {
   await NativeModule.setAppIcon(name);
+}
+
+/**
+ * Android only: sets `FLAG_SECURE` so the Recents/Overview preview is blanked
+ * and screenshots are blocked. Callers must not invoke it on iOS.
+ */
+export async function setSecureScreen(enabled: boolean): Promise<void> {
+  await NativeModule.setSecureScreen(enabled);
+}
+
+/**
+ * Starts the emergency siren using Android's alarm audio stream.
+ */
+export async function startSiren(audioUri: string): Promise<void> {
+  await NativeModule.startSiren(audioUri);
+}
+
+/**
+ * Stops the emergency siren and restores the previous alarm volume.
+ */
+export async function stopSiren(): Promise<void> {
+  await NativeModule.stopSiren();
 }
 
 export type { CallResult, SendSmsResult } from './SurakshakNative.types';

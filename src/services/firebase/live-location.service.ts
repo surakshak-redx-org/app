@@ -68,8 +68,24 @@ export async function updateLiveLocation(
   sessionId: string,
   latitude: number,
   longitude: number,
+  expectedUserId?: string,
 ): Promise<void> {
   try {
+    const snapshot = await getDoc(sessionDoc(sessionId));
+    if (!snapshot.exists()) {
+      throw new Error('Live-location session not found');
+    }
+
+    const data = snapshot.data() as Omit<LiveLocationSession, 'id'>;
+
+    if (!data.isActive) {
+      throw new Error('Live-location session is inactive');
+    }
+
+    if (expectedUserId !== undefined && data.userId !== expectedUserId) {
+      throw new Error('Live-location session belongs to another user');
+    }
+
     await updateDoc(sessionDoc(sessionId), {
       latitude,
       longitude,

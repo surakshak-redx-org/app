@@ -53,6 +53,47 @@ describe('getCurrentLocation', () => {
     await expect(getCurrentLocation()).rejects.toThrow('errors.locationPermissionDenied');
     expect(errorSpy).toHaveBeenCalled();
   });
+
+  it('falls back to last known position when fresh fix times out', async () => {
+    jest
+      .mocked(Location.getCurrentPositionAsync)
+      .mockImplementationOnce(() => new Promise(() => undefined));
+    jest.mocked(Location.getLastKnownPositionAsync).mockResolvedValueOnce({
+      coords: { latitude: 19.1, longitude: 72.8, accuracy: 10 },
+      timestamp: 12345,
+    } as never);
+
+    const result = await getCurrentLocation(20);
+    expect(result).toEqual({
+      latitude: 19.1,
+      longitude: 72.8,
+      timestamp: 12345,
+      accuracy: 10,
+    });
+  });
+
+  it('throws errors.locationUnavailable when fresh fix times out and last known position is null', async () => {
+    jest
+      .mocked(Location.getCurrentPositionAsync)
+      .mockImplementationOnce(() => new Promise(() => undefined));
+    jest.mocked(Location.getLastKnownPositionAsync).mockResolvedValueOnce(null);
+
+    await expect(getCurrentLocation(20)).rejects.toThrow('errors.locationUnavailable');
+    expect(errorSpy).toHaveBeenCalled();
+  });
+
+  it('requests Location.Accuracy.Low when Android coarse permission is granted', async () => {
+    jest.mocked(Location.getForegroundPermissionsAsync).mockResolvedValueOnce({
+      granted: true,
+      android: { accuracy: 'coarse' },
+    } as never);
+
+    await getCurrentLocation();
+
+    expect(Location.getCurrentPositionAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ accuracy: Location.Accuracy.Low }),
+    );
+  });
 });
 
 describe('getLocationWithTimeout', () => {
@@ -194,6 +235,14 @@ describe('watchLocation', () => {
       timestamp: 9,
       accuracy: 3,
     });
+  });
+
+  it('passes custom accuracy and distanceInterval options to watchPositionAsync', () => {
+    watchLocation(jest.fn(), { accuracy: Location.Accuracy.Low, distanceInterval: 100 });
+    expect(Location.watchPositionAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ accuracy: Location.Accuracy.Low, distanceInterval: 100 }),
+      expect.any(Function),
+    );
   });
 });
 

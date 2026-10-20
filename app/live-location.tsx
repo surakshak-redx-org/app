@@ -32,8 +32,15 @@ export default function LiveLocationScreen(): React.JSX.Element {
     [emergencyContacts],
   );
 
-  const { isActive, expiresAt, currentLocationUrl, startSharing, stopSharing, extendTime } =
-    useLiveLocation();
+  const {
+    isActive,
+    expiresAt,
+    sharedWithCount,
+    currentLocationUrl,
+    startSharing,
+    stopSharing,
+    extendTime,
+  } = useLiveLocation();
 
   const [selectedContactIds, setSelectedContactIds] = useState<string[]>([]);
   const [selectedDuration, setSelectedDuration] = useState<number>(
@@ -101,9 +108,7 @@ export default function LiveLocationScreen(): React.JSX.Element {
           <Card padding="lg" className="mt-2 border-2 border-forest-green">
             <View className="flex-row items-center gap-2">
               <View className="h-3 w-3 rounded-full bg-forest-green" />
-              <Text variant="label">
-                {t('location.sharingWith', { count: selectedContactIds.length })}
-              </Text>
+              <Text variant="label">{t('location.sharingWith', { count: sharedWithCount })}</Text>
             </View>
 
             <View className="mt-3 flex-row items-center gap-2">

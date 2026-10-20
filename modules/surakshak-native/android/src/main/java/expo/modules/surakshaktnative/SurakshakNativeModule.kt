@@ -1,5 +1,7 @@
 package expo.modules.surakshaktnative
 
+import java.text.Normalizer
+
 import android.Manifest
 import android.app.Activity
 import android.app.PendingIntent
@@ -10,10 +12,14 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.media.AudioAttributes
+import android.media.AudioManager
+import android.media.MediaPlayer
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
 import android.telephony.SmsManager
+import android.view.WindowManager
 import androidx.core.content.ContextCompat
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
@@ -23,33 +29,90 @@ import expo.modules.kotlin.modules.ModuleDefinition
 
 class SurakshakNativeModule : Module() {
   private var proximityWakeLock: PowerManager.WakeLock? = null
-
+  private var sirenPlayer: MediaPlayer? = null
+  private var previousAlarmVolume: Int? = null
   override fun definition() = ModuleDefinition {
     Name("SurakshakNative")
+    Events("onFakeCallTriggered")
+            AsyncFunction("scheduleFakeCall") { delayMs: Double, callerName: String ->
+      val context = appContext.reactContext
+        ?: throw IllegalStateException("No React context")
 
-    /**
-     * Turns the screen off while the phone is held to the ear, like a real
-     * call — used once a fake call is answered so the lit screen doesn't give
-     * it away. Requires `WAKE_LOCK` (declared in app.config.ts).
-     */
-    AsyncFunction("setProximityScreenOff") { enabled: Boolean ->
-      val context = appContext.reactContext ?: return@AsyncFunction
-      if (enabled) {
-        if (proximityWakeLock?.isHeld == true) return@AsyncFunction
-        val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-        if (!powerManager.isWakeLockLevelSupported(PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK)) {
-          return@AsyncFunction
-        }
-        proximityWakeLock =
-          powerManager
-            .newWakeLock(PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK, "surakshak:fake-call")
-            .apply { acquire(PROXIMITY_WAKE_LOCK_MAX_MS) }
+      require(delayMs > 0) { "Delay must be greater than zero" }
+
+      FakeCallAlarmReceiver.schedule(
+        context,
+        delayMs.toLong(),
+        callerName
+      )
+    }
+
+    AsyncFunction("cancelScheduledFakeCall") {
+      val context = appContext.reactContext
+        ?: throw IllegalStateException("No React context")
+
+      FakeCallAlarmReceiver.cancel(context)
+    }
+
+    AsyncFunction("getPendingFakeCall") {
+      val context = appContext.reactContext
+        ?: throw IllegalStateException("No React context")
+
+      val prefs = context.getSharedPreferences(
+        "fake_call",
+        android.content.Context.MODE_PRIVATE
+      )
+
+      if (!prefs.getBoolean("pending_fake_call", false)) {
+        null
       } else {
-        releaseProximityWakeLock()
+        val callerName = prefs.getString(
+          FakeCallAlarmReceiver.EXTRA_CALLER_NAME,
+          "Incoming Call"
+        ) ?: "Incoming Call"
+
+        prefs.edit()
+          .putBoolean("pending_fake_call", false)
+          .apply()
+
+        mapOf("callerName" to callerName)
       }
     }
 
-    OnDestroy { releaseProximityWakeLock() }
+    AsyncFunction("canUseFullScreenIntent") {
+      if (android.os.Build.VERSION.SDK_INT >= 34) {
+        val context = appContext.reactContext
+          ?: throw IllegalStateException("No React context")
+
+        val manager = context.getSystemService(
+          android.content.Context.NOTIFICATION_SERVICE
+        ) as android.app.NotificationManager
+
+        manager.canUseFullScreenIntent()
+      } else {
+        true
+      }
+    }
+
+OnDestroy {
+  releaseProximityWakeLock()
+  stopSirenPlayback()
+}
+    /**
+     * Sets or clears `FLAG_SECURE` on the app window. With it set, Android
+     * blanks the app's preview in Recents/Overview and blocks screenshots —
+     * used while Disguise Mode is on so the task switcher never shows content.
+     */
+    AsyncFunction("setSecureScreen") { enabled: Boolean ->
+      val activity = appContext.currentActivity ?: return@AsyncFunction
+      activity.runOnUiThread {
+        if (enabled) {
+          activity.window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        } else {
+          activity.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
+      }
+    }
 
     /**
      * Send SMS directly in the background with no compose UI and no user
@@ -88,7 +151,8 @@ class SurakshakNativeModule : Module() {
 
       try {
         val smsManager = context.getSystemService(SmsManager::class.java) ?: SmsManager.getDefault()
-        val parts = smsManager.divideMessage(message)
+        val normalizedMessage = Normalizer.normalize(message, Normalizer.Form.NFC)
+        val parts = smsManager.divideMessage(normalizedMessage)
         sendWithResult(context, smsManager, phoneNumber, parts, promise)
       } catch (e: Exception) {
         promise.reject("SMS_FAILED", "Failed to send SMS: ${e.message}", e)
@@ -153,6 +217,16 @@ class SurakshakNativeModule : Module() {
         return@AsyncFunction
       }
 
+      val pm = context.packageManager
+      if (!pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+        promise.reject(
+          "NO_TELEPHONY",
+          "Device does not support telephony features (no cellular radio)",
+          null,
+        )
+        return@AsyncFunction
+      }
+
       if (ContextCompat.checkSelfPermission(context, Manifest.permission.CALL_PHONE)
           != PackageManager.PERMISSION_GRANTED
       ) {
@@ -177,9 +251,54 @@ class SurakshakNativeModule : Module() {
           }
         context.startActivity(intent)
         promise.resolve("calling")
-      } catch (e: Exception) {
+            } catch (e: Exception) {
         promise.reject("CALL_FAILED", "Failed to place call: ${e.message}", e)
       }
+    }
+
+    AsyncFunction("startSiren") { audioUri: String ->
+      val context = appContext.reactContext
+        ?: throw IllegalStateException("No React context")
+
+      // Avoid starting the siren more than once.
+      if (sirenPlayer?.isPlaying == true) return@AsyncFunction
+
+      val audioManager =
+        context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+
+      // Save the original alarm volume before raising it.
+      if (previousAlarmVolume == null) {
+        previousAlarmVolume = audioManager.getStreamVolume(AudioManager.STREAM_ALARM)
+      }
+
+      try {
+        audioManager.setStreamVolume(
+          AudioManager.STREAM_ALARM,
+          audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM),
+          0,
+        )
+
+        val player = MediaPlayer()
+        player.setAudioAttributes(
+          AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_ALARM)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build(),
+        )
+        player.setDataSource(context, Uri.parse(audioUri))
+        player.isLooping = true
+        player.prepare()
+        player.start()
+
+        sirenPlayer = player
+      } catch (e: Exception) {
+        stopSirenPlayback()
+        throw e
+      }
+    }
+
+    AsyncFunction("stopSiren") {
+      stopSirenPlayback()
     }
   }
 
@@ -270,6 +389,37 @@ class SurakshakNativeModule : Module() {
     proximityWakeLock?.let { if (it.isHeld) it.release() }
     proximityWakeLock = null
   }
+  private fun stopSirenPlayback() {
+  try {
+    sirenPlayer?.let { player ->
+      if (player.isPlaying) {
+        player.stop()
+      }
+      player.release()
+    }
+  } catch (_: Exception) {
+    // Player may already be stopped or released.
+  } finally {
+    sirenPlayer = null
+  }
+
+  val previousVolume = previousAlarmVolume
+  previousAlarmVolume = null
+
+  if (previousVolume != null) {
+    val context = appContext.reactContext
+    if (context != null) {
+      val audioManager =
+        context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+
+      audioManager.setStreamVolume(
+        AudioManager.STREAM_ALARM,
+        previousVolume,
+        0,
+      )
+    }
+  }
+}
 
   companion object {
     private const val DEFAULT_LAUNCHER_ALIAS = "DefaultLauncher"

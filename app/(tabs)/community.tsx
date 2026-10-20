@@ -165,6 +165,10 @@ export default function CommunityScreen(): React.JSX.Element {
   };
 
   const handleReportPress = (postId: string): void => {
+    if (isGuest || currentUserId === null) {
+      Alert.alert(t('community.guestPrompt'));
+      return;
+    }
     Alert.alert(t('community.reportConfirmTitle'), t('community.reportConfirmBody'), [
       { text: t('common.cancel'), style: 'cancel' },
       {
@@ -234,6 +238,7 @@ export default function CommunityScreen(): React.JSX.Element {
 
     return (
       <FlatList
+        testID="community-feed-list"
         data={posts}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
@@ -250,6 +255,11 @@ export default function CommunityScreen(): React.JSX.Element {
           void loadMore();
         }}
         onEndReachedThreshold={0.5}
+        initialNumToRender={6}
+        maxToRenderPerBatch={5}
+        windowSize={5}
+        removeClippedSubviews
+        updateCellsBatchingPeriod={50}
         contentContainerClassName="pb-24 pt-3"
         ListEmptyComponent={
           <EmptyState

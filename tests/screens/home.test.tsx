@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, render } from '@testing-library/react-native';
-import React from 'react';
+import * as mockReact from 'react';
 import { Alert } from 'react-native';
 
 import { ROUTES } from '@/constants/routes';
@@ -14,6 +14,11 @@ const mockPush = jest.fn();
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, replace: jest.fn(), back: jest.fn() }),
+  useFocusEffect: (cb: () => void | (() => void)): void => {
+    mockReact.useEffect(() => {
+      return cb();
+    }, [cb]);
+  },
 }));
 
 jest.mock('expo-audio', () => ({
@@ -41,7 +46,14 @@ jest.mock('expo-sensors', () => ({
 
 jest.mock('expo-battery', () => ({
   getBatteryLevelAsync: jest.fn(() => Promise.resolve(1)),
+  getBatteryStateAsync: jest.fn(() => Promise.resolve(1)),
   addBatteryLevelListener: jest.fn(() => ({ remove: jest.fn() })),
+  BatteryState: {
+    UNKNOWN: 0,
+    UNPLUGGED: 1,
+    CHARGING: 2,
+    FULL: 3,
+  },
 }));
 
 jest.mock('expo-sms', () => ({
