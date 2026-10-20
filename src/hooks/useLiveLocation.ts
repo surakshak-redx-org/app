@@ -68,6 +68,16 @@ export function registerLiveLocationTask(): void {
         }
       }
 
+      const permissions = await Location.getBackgroundPermissionsAsync();
+      if (!permissions.granted) {
+        try {
+          await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
+        } catch {
+          // The task may already have stopped after permission was revoked.
+        }
+        return;
+      }
+
       const fix = data?.locations?.[0];
       if (fix === undefined) return;
 

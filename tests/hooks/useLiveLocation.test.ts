@@ -99,6 +99,31 @@ describe('useLiveLocation', () => {
     expect(extendLiveLocationSession).toHaveBeenCalledWith('session-1', 1);
   });
 
+  it('stops background updates when background location permission is revoked', async () => {
+    registerLiveLocationTask();
+    const taskCallback = jest.mocked(TaskManager.defineTask).mock.calls[0]?.[1] as
+      ((body: { data?: unknown; error?: unknown }) => Promise<void>) | undefined;
+
+    jest.mocked(Location.getBackgroundPermissionsAsync).mockResolvedValue({
+      granted: false,
+      status: 'denied',
+      canAskAgain: false,
+      expires: 'never',
+      android: { accuracy: 'fine' },
+    } as never);
+
+    jest.mocked(AsyncStorage.getItem).mockImplementation((key: string) => {
+      if (key === STORAGE_KEYS.LIVE_LOCATION_EXPIRES_AT)
+        return Promise.resolve(String(Date.now() + 60000));
+      if (key === STORAGE_KEYS.LIVE_LOCATION_SESSION_ID) return Promise.resolve('session-1');
+      return Promise.resolve(null);
+    });
+
+    await taskCallback!({ data: { locations: [{ coords: { latitude: 19, longitude: 72 } }] } });
+
+    expect(Location.stopLocationUpdatesAsync).toHaveBeenCalled();
+  });
+
   it('registerLiveLocationTask terminates background updates when session is expired', async () => {
     registerLiveLocationTask();
     const taskCallback = jest.mocked(TaskManager.defineTask).mock.calls[0]?.[1] as
