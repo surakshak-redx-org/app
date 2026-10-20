@@ -38,13 +38,24 @@ export function IncomingCallOverlay({
   const { t } = useTranslation();
   const [answered, setAnswered] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [prevVisible, setPrevVisible] = useState(visible);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const ringtoneRef = useRef<AudioPlayer | null>(null);
 
-  function resetCallState(): void {
-    setAnswered(false);
-    setElapsed(0);
+  if (prevVisible !== visible) {
+    setPrevVisible(visible);
+    if (!visible) {
+      setAnswered(false);
+      setElapsed(0);
+    }
   }
+
+  useEffect(() => {
+    if (!visible && intervalRef.current !== null) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  }, [visible]);
 
   useEffect(() => {
     const player = createAudioPlayer(RINGTONE_SOURCE);
@@ -102,13 +113,13 @@ export function IncomingCallOverlay({
     onAnswer();
   }
 
+  function handleShow(): void {
+    setAnswered(false);
+    setElapsed(0);
+  }
+
   return (
-    <Modal
-      visible={visible}
-      animationType="fade"
-      onShow={resetCallState}
-      onRequestClose={onDecline}
-    >
+    <Modal visible={visible} animationType="fade" onShow={handleShow} onRequestClose={onDecline}>
       <View className="flex-1 items-center justify-between bg-near-black px-8 py-20">
         <View className="items-center">
           <Text variant="h1" className="text-white">
