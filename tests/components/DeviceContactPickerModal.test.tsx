@@ -48,7 +48,7 @@ describe('DeviceContactPickerModal', () => {
     await fireEvent.press(contact);
     expect(onPick).toHaveBeenCalledWith({
       name: 'Ma',
-      phone: '98765 43210',
+      phone: '+919876543210',
       relationship: '',
     });
   });
