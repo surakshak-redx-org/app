@@ -21,10 +21,7 @@ const NativeModule = requireNativeModule<SurakshakNativeModuleInterface>('Suraks
 /**
  * Schedule a fake call using Android's native alarm scheduler.
  */
-export async function scheduleFakeCall(
-  delayMs: number,
-  callerName: string,
-): Promise<void> {
+export async function scheduleFakeCall(delayMs: number, callerName: string): Promise<void> {
   if (delayMs <= 0) {
     throw new Error('Delay must be greater than zero');
   }
