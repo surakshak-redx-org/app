@@ -1,5 +1,7 @@
 package expo.modules.surakshaktnative
 
+import java.text.Normalizer
+
 import android.Manifest
 import android.app.Activity
 import android.app.PendingIntent
@@ -149,7 +151,8 @@ OnDestroy {
 
       try {
         val smsManager = context.getSystemService(SmsManager::class.java) ?: SmsManager.getDefault()
-        val parts = smsManager.divideMessage(message)
+        val normalizedMessage = Normalizer.normalize(message, Normalizer.Form.NFC)
+        val parts = smsManager.divideMessage(normalizedMessage)
         sendWithResult(context, smsManager, phoneNumber, parts, promise)
       } catch (e: Exception) {
         promise.reject("SMS_FAILED", "Failed to send SMS: ${e.message}", e)
