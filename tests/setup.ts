@@ -274,6 +274,10 @@ jest.mock('surakshak-native', () => ({
   startSiren: jest.fn(() => Promise.resolve()),
   stopSiren: jest.fn(() => Promise.resolve()),
   setSecureScreen: jest.fn(() => Promise.resolve()),
+  scheduleFakeCall: jest.fn(() => Promise.resolve()),
+  cancelScheduledFakeCall: jest.fn(() => Promise.resolve()),
+  getPendingFakeCall: jest.fn(() => Promise.resolve(null)),
+  canUseFullScreenIntent: jest.fn(() => Promise.resolve(true)),
 }));
 
 jest.mock('@expo-google-fonts/noto-sans-devanagari', () => ({

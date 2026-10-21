@@ -23,7 +23,7 @@ const NativeModule = requireNativeModule<SurakshakNativeModuleInterface>('Suraks
  */
 export async function scheduleFakeCall(delayMs: number, callerName: string): Promise<void> {
   if (delayMs <= 0) {
-    throw new Error('Delay must be greater than zero');
+    return;
   }
 
   await NativeModule.scheduleFakeCall(delayMs, callerName);

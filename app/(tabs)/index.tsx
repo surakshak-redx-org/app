@@ -172,6 +172,9 @@ export default function HomeScreen(): React.JSX.Element {
   function scheduleFakeCall(delaySeconds: number, callerName: string): void {
     void fakeCall.scheduleCall(delaySeconds, callerName);
     setFakeCallModalVisible(false);
+    if (delaySeconds > 0) {
+      Alert.alert(t('emergency.fakeCallScheduled'));
+    }
   }
 
   // Guest mode never signs in to Firebase (see welcome.tsx — it's a local-only
