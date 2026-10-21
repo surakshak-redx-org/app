@@ -284,7 +284,16 @@
     "deletePost": "Delete post",
     "deleteConfirmTitle": "Delete this post?",
     "deleteConfirmBody": "It will be removed for everyone. This cannot be undone.",
-    "deleteFailed": "Could not delete the post. Please try again."
+    "deleteFailed": "Could not delete the post. Please try again.",
+    "emergencyDisclaimer": "In immediate danger? Do not post here. Tap SOS or call 112 immediately.",
+    "call112": "Call 112",
+    "tapSos": "SOS",
+    "filterAll": "All",
+    "filterSafetyAlerts": "🚨 Safety Alerts",
+    "filterHelpRequests": "🆘 Help Requests",
+    "filterDiscussions": "💬 Discussions",
+    "noFilterResults": "No posts found for this filter",
+    "tryDifferentFilter": "Try switching to another category or All"
   },
   "info": {
     "title": "Information",

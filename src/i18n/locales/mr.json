@@ -284,7 +284,16 @@
     "deletePost": "पोस्ट हटवा",
     "deleteConfirmTitle": "ही पोस्ट हटवायची?",
     "deleteConfirmBody": "ती सर्वांसाठी हटवली जाईल. हे पूर्ववत करता येणार नाही.",
-    "deleteFailed": "पोस्ट हटवता आली नाही. कृपया पुन्हा प्रयत्न करा."
+    "deleteFailed": "पोस्ट हटवता आली नाही. कृपया पुन्हा प्रयत्न करा.",
+    "emergencyDisclaimer": "तातडीच्या धोक्यात आहात? येथे पोस्ट करू नका. त्वरित SOS दाबा किंवा 112 वर कॉल करा.",
+    "call112": "112 वर कॉल करा",
+    "tapSos": "SOS",
+    "filterAll": "सर्व",
+    "filterSafetyAlerts": "🚨 सुरक्षा अलर्ट",
+    "filterHelpRequests": "🆘 मदत विनंत्या",
+    "filterDiscussions": "💬 चर्चा",
+    "noFilterResults": "या फिल्टरसाठी कोणत्याही पोस्ट आढळल्या नाहीत",
+    "tryDifferentFilter": "दुसऱ्या श्रेणीवर किंवा 'सर्व' वर स्विच करा"
   },
   "info": {
     "title": "माहिती",

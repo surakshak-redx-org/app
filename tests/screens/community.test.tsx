@@ -9,9 +9,19 @@ import CommunityScreen from '@app/(tabs)/community';
 // NativeWind JIT) can exceed Jest's 5s default on a loaded CI runner.
 jest.setTimeout(20000);
 
+const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
+  useRouter: () => ({ push: mockPush, replace: jest.fn(), back: jest.fn() }),
 }));
+
+const mockPlaceCall = jest.fn((_phone: string) => Promise.resolve());
+jest.mock('@/utils/phone.utils', () => {
+  const actual = jest.requireActual<typeof import('@/utils/phone.utils')>('@/utils/phone.utils');
+  return {
+    ...actual,
+    placeCall: (phone: string) => mockPlaceCall(phone),
+  };
+});
 
 let feed: CommunityPost[] = [];
 const mockCity = jest.fn((...args: unknown[]) => {
@@ -51,14 +61,18 @@ const SEED_USER = {
   updatedAt: null as never,
 };
 
-function makePost(id: string): CommunityPost {
+function makePost(
+  id: string,
+  type: CommunityPost['type'] = 'text',
+  createdAt = { toDate: () => new Date() } as never,
+): CommunityPost {
   return {
     id,
     authorId: 'u2',
     authorName: 'Bina',
     authorPhotoUrl: '',
     content: `post ${id}`,
-    type: 'text',
+    type,
     isAnonymous: false,
     locationUrl: null,
     imageUrl: null,
@@ -66,7 +80,7 @@ function makePost(id: string): CommunityPost {
     state: 'MH',
     reportCount: 0,
     isHidden: false,
-    createdAt: { toDate: () => new Date() } as never,
+    createdAt,
   };
 }
 
@@ -151,5 +165,79 @@ describe('CommunityScreen', () => {
     expect(flatList.props.removeClippedSubviews).toBe(true);
     expect(flatList.props.maxToRenderPerBatch).toBe(5);
     expect(flatList.props.initialNumToRender).toBe(6);
+  });
+
+  it('renders emergency disclaimer banner with SOS and Call 112 actions', async () => {
+    const { getByText, getByLabelText } = await render(<CommunityScreen />);
+
+    expect(
+      getByText('In immediate danger? Do not post here. Tap SOS or call 112 immediately.'),
+    ).toBeTruthy();
+
+    await fireEvent.press(getByLabelText('SOS'));
+    expect(mockPush).toHaveBeenCalledWith('/(tabs)/');
+
+    await fireEvent.press(getByLabelText('Call 112'));
+    expect(mockPlaceCall).toHaveBeenCalledWith('112');
+  });
+
+  it('filters posts by Safety Alerts and excludes incidents older than 72 hours', async () => {
+    const freshIncidentTime = { toMillis: () => Date.now() - 3600 * 1000 } as never;
+    const oldIncidentTime = { toMillis: () => Date.now() - 80 * 3600 * 1000 } as never;
+
+    feed = [
+      makePost('p-fresh', 'incident', freshIncidentTime),
+      makePost('p-old', 'incident', oldIncidentTime),
+      makePost('p-help', 'help_request'),
+      makePost('p-text', 'text'),
+    ];
+
+    const { getByText, queryByText } = await render(<CommunityScreen />);
+
+    // Switch to Safety Alerts
+    await fireEvent.press(getByText('🚨 Safety Alerts'));
+
+    expect(getByText('post p-fresh')).toBeTruthy();
+    expect(queryByText('post p-old')).toBeNull();
+    expect(queryByText('post p-help')).toBeNull();
+    expect(queryByText('post p-text')).toBeNull();
+  });
+
+  it('filters posts by Help Requests and Discussions', async () => {
+    feed = [
+      makePost('p-fresh', 'incident'),
+      makePost('p-help', 'help_request'),
+      makePost('p-text', 'text'),
+    ];
+
+    const { getByText, queryByText } = await render(<CommunityScreen />);
+
+    // Filter by Help Requests
+    await fireEvent.press(getByText('🆘 Help Requests'));
+    expect(getByText('post p-help')).toBeTruthy();
+    expect(queryByText('post p-fresh')).toBeNull();
+    expect(queryByText('post p-text')).toBeNull();
+
+    // Filter by Discussions
+    await fireEvent.press(getByText('💬 Discussions'));
+    expect(getByText('post p-text')).toBeTruthy();
+    expect(queryByText('post p-fresh')).toBeNull();
+    expect(queryByText('post p-help')).toBeNull();
+
+    // Switch back to All
+    await fireEvent.press(getByText('All'));
+    expect(getByText('post p-fresh')).toBeTruthy();
+    expect(getByText('post p-help')).toBeTruthy();
+    expect(getByText('post p-text')).toBeTruthy();
+  });
+
+  it('shows empty filter state when no posts match filter category', async () => {
+    feed = [makePost('p-text', 'text')];
+
+    const { getByText, queryByText } = await render(<CommunityScreen />);
+
+    await fireEvent.press(getByText('🚨 Safety Alerts'));
+    expect(queryByText('post p-text')).toBeNull();
+    expect(getByText('No posts found for this filter')).toBeTruthy();
   });
 });
