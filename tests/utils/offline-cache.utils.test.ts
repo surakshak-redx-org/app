@@ -5,8 +5,10 @@ import type { EmergencyContact } from '@/types/user.types';
 import {
   cacheEmergencyContacts,
   cacheUserInfo,
+  cacheUserProfile,
   getCachedEmergencyContacts,
   getCachedUserInfo,
+  getCachedUserProfile,
 } from '@/utils/offline-cache.utils';
 
 const CUSTOM_CONTACT: EmergencyContact = {
@@ -82,5 +84,36 @@ describe('getCachedUserInfo', () => {
       .mockResolvedValueOnce(JSON.stringify({ userId: 'u1', name: 'Asha', language: 'hi' }));
 
     expect(await getCachedUserInfo()).toEqual({ userId: 'u1', name: 'Asha', language: 'hi' });
+  });
+});
+
+describe('cacheUserProfile & getCachedUserProfile', () => {
+  const dummyProfile = {
+    userId: 'u1',
+    name: 'Asha',
+    phone: '+919999999999',
+    profilePhotoUrl: '',
+    city: 'Mumbai',
+    state: 'Maharashtra',
+    language: 'en' as const,
+    isGuest: false,
+    createdAt: null as never,
+    updatedAt: null as never,
+  };
+
+  it('saves and reads full user profile correctly', async () => {
+    await cacheUserProfile(dummyProfile);
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+      STORAGE_KEYS.USER_PROFILE_CACHE,
+      JSON.stringify(dummyProfile),
+    );
+
+    jest.mocked(AsyncStorage.getItem).mockResolvedValueOnce(JSON.stringify(dummyProfile));
+    expect(await getCachedUserProfile()).toEqual(dummyProfile);
+  });
+
+  it('returns null when no cached profile exists', async () => {
+    jest.mocked(AsyncStorage.getItem).mockResolvedValueOnce(null);
+    expect(await getCachedUserProfile()).toBeNull();
   });
 });

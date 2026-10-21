@@ -40,7 +40,12 @@ import { useDisguiseStore } from '@/stores/disguise.store';
 import { useSOSStore } from '@/stores/sos.store';
 import { useUserStore } from '@/stores/user.store';
 import { installGlobalErrorHandler } from '@/utils/global-error-handler.utils';
-import { cacheUserInfo } from '@/utils/offline-cache.utils';
+import {
+  cacheUserInfo,
+  cacheUserProfile,
+  getCachedEmergencyContacts,
+  getCachedUserProfile,
+} from '@/utils/offline-cache.utils';
 
 const AUTH_SEGMENT = '(auth)';
 const ONBOARDING_SEGMENT = 'onboarding';
@@ -117,31 +122,72 @@ function RootLayout(): React.JSX.Element {
             setGuest(false);
             setGuestSigningIn(false);
 
-            const profile = await getUserProfile(firebaseUser.uid);
+            // Rehydrate immediately from local disk cache so returning users reach Home in <100ms
+            const [cachedProfile, cachedContacts] = await Promise.all([
+              getCachedUserProfile(),
+              getCachedEmergencyContacts(),
+            ]);
+
+            if (cachedProfile !== null) {
+              setSurakshakUser(cachedProfile);
+              setProfileMirror(cachedProfile);
+              identifyUser(firebaseUser.uid);
+              void changeLanguage(cachedProfile.language);
+              const customContacts = cachedContacts.filter((c) => !c.isPredefined);
+              setEmergencyContacts(customContacts);
+              setInitialized(true);
+
+              // Background non-blocking network sync
+              void Promise.allSettled([
+                getUserProfile(firebaseUser.uid),
+                getEmergencyContacts(firebaseUser.uid),
+                registerForPushNotifications(firebaseUser.uid),
+              ])
+                .then(([profileRes, contactsRes]) => {
+                  if (profileRes.status === 'fulfilled' && profileRes.value !== null) {
+                    const freshProfile = profileRes.value;
+                    setSurakshakUser(freshProfile);
+                    setProfileMirror(freshProfile);
+                    void cacheUserProfile(freshProfile);
+                    void cacheUserInfo({
+                      userId: firebaseUser.uid,
+                      name: freshProfile.name,
+                      language: freshProfile.language,
+                    });
+                  }
+                  if (contactsRes.status === 'fulfilled') {
+                    setEmergencyContacts(contactsRes.value);
+                  }
+                })
+                .catch((error: unknown) => {
+                  captureException(error);
+                });
+              return;
+            }
+
+            // Fresh install or cleared cache: fetch profile and contacts concurrently
+            const [profile, contacts] = await Promise.all([
+              getUserProfile(firebaseUser.uid),
+              getEmergencyContacts(firebaseUser.uid),
+            ]);
+
             if (profile !== null) {
               setSurakshakUser(profile);
               setProfileMirror(profile);
+              setEmergencyContacts(contacts);
               identifyUser(firebaseUser.uid);
-              await registerForPushNotifications(firebaseUser.uid).catch((pushError: unknown) => {
+              void registerForPushNotifications(firebaseUser.uid).catch((pushError: unknown) => {
                 captureException(pushError);
               });
               await changeLanguage(profile.language);
-              // Offline fallback for the SOS/battery-alert fan-out — see
-              // `src/utils/offline-cache.utils.ts`.
-              await cacheUserInfo({
-                userId: firebaseUser.uid,
-                name: profile.name,
-                language: profile.language,
-              });
-
-              // Emergency contacts otherwise only ever load lazily when the
-              // Emergency Contacts screen itself mounts — every other
-              // consumer (SOS fan-out, low-battery alert, safe check-in,
-              // silent-recording share) reads this same store synchronously
-              // via getState() and would silently see an empty list until
-              // that screen happened to be visited once this session.
-              const contacts = await getEmergencyContacts(firebaseUser.uid);
-              setEmergencyContacts(contacts);
+              await Promise.all([
+                cacheUserInfo({
+                  userId: firebaseUser.uid,
+                  name: profile.name,
+                  language: profile.language,
+                }),
+                cacheUserProfile(profile),
+              ]);
             }
 
             const onboardingDone = await AsyncStorage.getItem(STORAGE_KEYS.ONBOARDING_COMPLETE);

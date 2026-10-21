@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { captureException } from '@/config/sentry';
 import { PREDEFINED_EMERGENCY_NUMBERS } from '@/constants/emergency-numbers';
 import { STORAGE_KEYS } from '@/constants/storage';
-import type { EmergencyContact, Language } from '@/types/user.types';
+import type { EmergencyContact, Language, User } from '@/types/user.types';
 
 /**
  * Minimal user info needed to build an SOS/battery/journey SMS offline —
@@ -67,6 +67,31 @@ export async function getCachedUserInfo(): Promise<OfflineUserCache | null> {
     return JSON.parse(raw) as OfflineUserCache;
   } catch (error) {
     console.warn('getCachedUserInfo: could not read cache:', error);
+    return null;
+  }
+}
+
+/**
+ * Caches full user profile to AsyncStorage so the app can rehydrate instantly on launch.
+ */
+export async function cacheUserProfile(user: User): Promise<void> {
+  try {
+    await AsyncStorage.setItem(STORAGE_KEYS.USER_PROFILE_CACHE, JSON.stringify(user));
+  } catch (error) {
+    captureException(error);
+  }
+}
+
+/**
+ * Reads cached full user profile, or null if nothing has been cached.
+ */
+export async function getCachedUserProfile(): Promise<User | null> {
+  try {
+    const raw = await AsyncStorage.getItem(STORAGE_KEYS.USER_PROFILE_CACHE);
+    if (raw === null) return null;
+    return JSON.parse(raw) as User;
+  } catch (error) {
+    console.warn('getCachedUserProfile: could not read cache:', error);
     return null;
   }
 }

@@ -140,6 +140,53 @@ describe('RootLayout auth listener', () => {
     expect(useUserStore.getState().emergencyContacts[0]).toMatchObject({ name: 'Mom' });
   });
 
+  it('rehydrates user profile and emergency contacts from local cache offline', async () => {
+    const cachedProfile = {
+      userId: 'u1',
+      name: 'Priya Cached',
+      phone: '+919876543210',
+      profilePhotoUrl: '',
+      city: 'Mumbai',
+      state: '',
+      language: 'en' as const,
+      isGuest: false,
+      createdAt: null as never,
+      updatedAt: null as never,
+    };
+    const cachedContacts = [
+      {
+        id: 'c1',
+        name: 'Sister',
+        phone: '+919876500001',
+        relationship: 'sister',
+        isPredefined: false,
+        order: 0,
+      },
+    ];
+
+    jest.mocked(AsyncStorage.getItem).mockImplementation((key: string) => {
+      if (key === STORAGE_KEYS.USER_PROFILE_CACHE) {
+        return Promise.resolve(JSON.stringify(cachedProfile));
+      }
+      if (key === STORAGE_KEYS.EMERGENCY_CONTACTS_CACHE) {
+        return Promise.resolve(JSON.stringify(cachedContacts));
+      }
+      return Promise.resolve(null);
+    });
+
+    // Simulate network error in background sync
+    jest.mocked(getDoc).mockRejectedValueOnce(new Error('Network offline'));
+    jest.mocked(getDocs).mockRejectedValueOnce(new Error('Network offline'));
+
+    await render(<RootLayout />);
+    await emitAuth({ uid: 'u1', phoneNumber: '+919876543210' });
+
+    expect(useAuthStore.getState().isInitialized).toBe(true);
+    expect(useAuthStore.getState().surakshakUser?.name).toBe('Priya Cached');
+    expect(useUserStore.getState().emergencyContacts).toHaveLength(1);
+    expect(useUserStore.getState().emergencyContacts[0]).toMatchObject({ name: 'Sister' });
+  });
+
   it('clears the user on sign-out when not in guest mode', async () => {
     await render(<RootLayout />);
     useAuthStore.getState().setUser({ uid: 'u1' } as never);

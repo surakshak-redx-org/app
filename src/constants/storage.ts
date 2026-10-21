@@ -78,6 +78,10 @@ export const STORAGE_KEYS = {
    * `'false'` disables sending safe arrival SMS to contacts; absent or anything else means enabled.
    */
   NOTIFY_ARRIVAL_SMS: 'surakshak_notify_arrival_sms',
+  /**
+   * `JSON.stringify`'d `User` profile cache for instantaneous non-blocking app launch hydration.
+   */
+  USER_PROFILE_CACHE: 'surakshak_user_profile_cache',
 } as const;
 
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];
@@ -88,6 +92,7 @@ export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];
  * cross-account data leakage on shared devices.
  */
 export const SENSITIVE_STORAGE_KEYS = [
+  STORAGE_KEYS.USER_PROFILE_CACHE,
   STORAGE_KEYS.EMERGENCY_CONTACTS_CACHE,
   STORAGE_KEYS.USER_INFO_CACHE,
   STORAGE_KEYS.SMS_HISTORY,
