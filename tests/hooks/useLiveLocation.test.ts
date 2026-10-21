@@ -65,11 +65,34 @@ describe('useLiveLocation', () => {
       await result.current.startSharing(['c1', 'c2'], 4);
     });
 
-    expect(createLiveLocationSession).toHaveBeenCalledWith('u1', ['c1', 'c2'], 4, 19.076, 72.8777);
+    expect(createLiveLocationSession).toHaveBeenCalledWith(
+      'u1',
+      ['c1', 'c2'],
+      4,
+      19.076,
+      72.8777,
+      expect.any(String),
+    );
     expect(getCurrentLocation).toHaveBeenCalled();
     expect(sendLiveLocationShare).toHaveBeenCalled();
     expect(useLocationStore.getState().isLiveLocationActive).toBe(true);
     expect(useLocationStore.getState().liveLocationSessionId).toBe('session-1');
+  });
+
+  it('does not rehydrate session belonging to another device (BUG-136)', async () => {
+    jest.mocked(getActiveLiveSession).mockResolvedValueOnce({
+      id: 'foreign-session',
+      userId: 'u1',
+      deviceId: 'different-device-123',
+      isActive: true,
+      expiresAt: { toDate: () => new Date(Date.now() + 3600000) },
+      sharedWithUserIds: ['c1'],
+    } as never);
+
+    await renderHook(() => useLiveLocation());
+
+    expect(useLocationStore.getState().isLiveLocationActive).toBe(false);
+    expect(useLocationStore.getState().liveLocationSessionId).toBeNull();
   });
 
   it('stopSharing ends the session and clears the store', async () => {

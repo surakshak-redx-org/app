@@ -20,13 +20,12 @@ export const STORAGE_KEYS = {
   EMERGENCY_CONTACTS_CACHE: 'surakshak_emergency_contacts_cache',
   /** `JSON.stringify`'d `OfflineUserCache` (name + language), same fallback use. */
   USER_INFO_CACHE: 'surakshak_user_info_cache',
-  /**
-   * Id of the currently active live-location session. Read by the background
-   * location task (which has no access to the Zustand store) to know which
-   * Firestore document to push coordinates into.
-   */
+  /** Persistent unique identifier for this app installation/device. */
+  DEVICE_ID: 'surakshak_device_id',
+  /** Id of the currently active live-location session. */
   LIVE_LOCATION_SESSION_ID: 'surakshak_live_session_id',
   LIVE_LOCATION_USER_ID: 'surakshak_live_session_user_id',
+  LIVE_LOCATION_DEVICE_ID: 'surakshak_live_session_device_id',
   /**
    * Timestamp in milliseconds (as string) when the currently active live-location
    * session expires. Used by the background location task to self-terminate.
