@@ -250,6 +250,7 @@
     "allIndia": "All India",
     "helpRequest": "Help Needed",
     "incidentAlert": "Incident Alert",
+    "incidentBadge": "⚠️ Incident Alert",
     "shareLocation": "Share Location",
     "shareImage": "Share Image",
     "anonymous": "Post Anonymously",
@@ -431,7 +432,9 @@
     "viewPhoto": "View photo {{index}} of {{total}}",
     "viewPhotoDraft": "Preview photo",
     "guestHistoryTitle": "Sign in to view your reports",
-    "guestHistorySubtitle": "Incident reports you submit while signed in are saved to your secure account"
+    "guestHistorySubtitle": "Incident reports you submit while signed in are saved to your secure account",
+    "postToCommunity": "Post anonymous hazard alert to Community feed",
+    "postToCommunityDesc": "Warn nearby residents anonymously without revealing your identity or evidence photos."
   },
   "safeCheckin": {
     "active": "Check-In Active",

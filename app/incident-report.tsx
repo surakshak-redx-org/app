@@ -6,7 +6,7 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Alert, FlatList, Pressable, View } from 'react-native';
+import { Alert, FlatList, Pressable, Switch, View } from 'react-native';
 import { z } from 'zod';
 
 import { ImageViewer } from '@/components/features/community/ImageViewer';
@@ -26,6 +26,7 @@ import { APP_CONFIG } from '@/constants/config';
 import { ROUTES } from '@/constants/routes';
 import { ICON_SIZE } from '@/constants/ui';
 import { trackIncidentReportSubmitted } from '@/services/analytics.service';
+import { createPost } from '@/services/firebase/community.service';
 import {
   getMyIncidentReports,
   submitIncidentReport,
@@ -36,7 +37,7 @@ import { getCurrentLocation, getFreshLocation } from '@/services/location.servic
 import { useAuthStore } from '@/stores/auth.store';
 import type { LocationData } from '@/types/location.types';
 import { formatTimestamp } from '@/utils/date.utils';
-import { locationErrorKey } from '@/utils/location.utils';
+import { getLocationUrl, locationErrorKey } from '@/utils/location.utils';
 
 type ActiveView = 'new' | 'history';
 
@@ -60,11 +61,13 @@ export default function IncidentReportScreen(): React.JSX.Element {
 
   const userId = useAuthStore((state) => state.user?.uid ?? null);
   const isGuest = useAuthStore((state) => state.isGuest);
+  const surakshakUser = useAuthStore((state) => state.surakshakUser);
 
   const [activeView, setActiveView] = useState<ActiveView>('new');
   const [location, setLocation] = useState<LocationData | null>(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
   const [photoUris, setPhotoUris] = useState<string[]>([]);
+  const [postToCommunity, setPostToCommunity] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [incidents, setIncidents] = useState<IncidentReport[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(() => userId !== null);
@@ -233,9 +236,27 @@ export default function IncidentReportScreen(): React.JSX.Element {
           photoUrls,
         });
 
+        if (postToCommunity) {
+          try {
+            const locUrl = getLocationUrl(fix.latitude, fix.longitude);
+            await createPost(userId, 'Resident', '', {
+              type: 'incident',
+              isAnonymous: true,
+              content: `⚠️ [Hazard Incident] ${values.title.trim()}: ${values.description.trim()}`,
+              locationUrl: locUrl,
+              city: surakshakUser?.city ?? '',
+              state: surakshakUser?.state ?? '',
+            });
+          } catch (communityErr) {
+            console.warn('Failed to syndicate incident to community:', communityErr);
+            captureException(communityErr);
+          }
+        }
+
         trackIncidentReportSubmitted(photoUrls.length);
         reset();
         setPhotoUris([]);
+        setPostToCommunity(false);
         loadHistory();
         Alert.alert(t('incidentReport.submittedTitle'), t('incidentReport.submittedBody'), [
           {
@@ -251,7 +272,7 @@ export default function IncidentReportScreen(): React.JSX.Element {
         setIsSubmitting(false);
       }
     },
-    [location, loadHistory, photoUris, reset, t, userId],
+    [location, loadHistory, photoUris, postToCommunity, reset, surakshakUser, t, userId],
   );
 
   return (
@@ -400,6 +421,23 @@ export default function IncidentReportScreen(): React.JSX.Element {
                   <MaterialIcons name="add-a-photo" size={24} color={COLORS.STONE} />
                 </Pressable>
               )}
+            </View>
+
+            <View className="mt-4 flex-row items-center justify-between rounded-xl border border-stone/20 bg-stone/5 p-3">
+              <View className="flex-1 pr-3">
+                <Text variant="label" tKey="incidentReport.postToCommunity" />
+                <Text
+                  variant="caption"
+                  tKey="incidentReport.postToCommunityDesc"
+                  className="text-stone"
+                />
+              </View>
+              <Switch
+                value={postToCommunity}
+                onValueChange={setPostToCommunity}
+                trackColor={{ true: COLORS.SHAKTI_PURPLE, false: COLORS.STONE }}
+                accessibilityLabel={t('incidentReport.postToCommunity')}
+              />
             </View>
 
             <Button

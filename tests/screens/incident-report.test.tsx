@@ -4,9 +4,14 @@ import * as Location from 'expo-location';
 import React from 'react';
 import { Alert } from 'react-native';
 
+import { createPost } from '@/services/firebase/community.service';
 import { getMyIncidentReports, submitIncidentReport } from '@/services/firebase/incident.service';
 import { useAuthStore } from '@/stores/auth.store';
 import IncidentReportScreen from '@app/incident-report';
+
+jest.mock('@/services/firebase/community.service', () => ({
+  createPost: jest.fn(() => Promise.resolve('post-123')),
+}));
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
@@ -228,5 +233,49 @@ describe('IncidentReportScreen', () => {
       await fireEvent.press(draftPreviews[0]!);
     });
     expect(getByLabelText('Close')).toBeTruthy();
+  });
+
+  it('syndicates anonymous hazard alert to community feed when toggle is enabled', async () => {
+    const { getByPlaceholderText, getByText, getByRole } = await render(<IncidentReportScreen />);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const communitySwitch = getByRole('switch');
+    await act(async () => {
+      await fireEvent(communitySwitch, 'valueChange', true);
+    });
+
+    await act(async () => {
+      await fireEvent.changeText(
+        getByPlaceholderText('e.g. Harassment near Metro Station'),
+        'Followed near station',
+      );
+      await fireEvent.changeText(
+        getByPlaceholderText(
+          'Describe the incident in detail. Include time, location details, and description of the person(s) involved.',
+        ),
+        'Followed near the station platform with details',
+      );
+    });
+
+    await act(async () => {
+      await fireEvent.press(getByText('Submit Report'));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(submitIncidentReport).toHaveBeenCalled();
+    expect(createPost).toHaveBeenCalledWith(
+      'user-1',
+      'Resident',
+      '',
+      expect.objectContaining({
+        type: 'incident',
+        isAnonymous: true,
+        content: expect.stringContaining('⚠️ [Hazard Incident] Followed near station'),
+      }),
+    );
   });
 });

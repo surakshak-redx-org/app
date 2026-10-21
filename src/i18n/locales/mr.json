@@ -250,6 +250,7 @@
     "allIndia": "संपूर्ण भारत",
     "helpRequest": "मदत हवी आहे",
     "incidentAlert": "घटना अलर्ट",
+    "incidentBadge": "⚠️ घटना अलर्ट",
     "shareLocation": "स्थान शेअर करा",
     "shareImage": "फोटो शेअर करा",
     "anonymous": "नाव न सांगता पोस्ट करा",
@@ -431,7 +432,9 @@
     "viewPhoto": "फोटो {{index}}/{{total}} पहा",
     "viewPhotoDraft": "फोटो पूर्वावलोकन",
     "guestHistoryTitle": "आपले अहवाल पाहण्यासाठी साइन इन करा",
-    "guestHistorySubtitle": "साइन इन असताना तुम्ही सबमिट केलेले अहवाल तुमच्या सुरक्षित खात्यात सेव्ह केले जातात"
+    "guestHistorySubtitle": "साइन इन असताना तुम्ही सबमिट केलेले अहवाल तुमच्या सुरक्षित खात्यात सेव्ह केले जातात",
+    "postToCommunity": "समुदायामध्ये अनामिक इशारा पोस्ट करा",
+    "postToCommunityDesc": "तुमची ओळख किंवा पुरावे उघड न करता शेजाऱ्यांना सावध करा."
   },
   "safeCheckin": {
     "active": "चेक-इन सुरू आहे",
