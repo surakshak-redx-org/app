@@ -1,11 +1,10 @@
 import {
   addDoc,
   arrayUnion,
-  getDoc,
   increment,
   limit,
   onSnapshot,
-  updateDoc,
+  runTransaction,
 } from '@react-native-firebase/firestore';
 
 import {
@@ -14,13 +13,20 @@ import {
   voteOnUnsafeArea,
 } from '@/services/firebase/unsafe-areas.service';
 
+const mockTransaction = {
+  get: jest.fn(),
+  update: jest.fn(),
+};
+
 jest.mock('@react-native-firebase/firestore', () => ({
   getFirestore: jest.fn(() => ({})),
   collection: jest.fn((...segments: string[]) => ({ path: segments.join('/') })),
   doc: jest.fn((...segments: string[]) => ({ path: segments.join('/') })),
   addDoc: jest.fn(() => Promise.resolve({ id: 'area-1' })),
-  getDoc: jest.fn(),
-  updateDoc: jest.fn(() => Promise.resolve()),
+  runTransaction: jest.fn(
+    (_firestore: unknown, fn: (tx: typeof mockTransaction) => Promise<unknown>) =>
+      fn(mockTransaction),
+  ),
   query: jest.fn((ref: unknown) => ref),
   orderBy: jest.fn((field: string) => ({ orderBy: field })),
   limit: jest.fn((n: number) => ({ limit: n })),
@@ -38,6 +44,8 @@ describe('unsafe-areas.service', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockTransaction.get.mockReset();
+    mockTransaction.update.mockReset();
     errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
   });
   afterEach(() => errorSpy.mockRestore());
@@ -96,37 +104,40 @@ describe('unsafe-areas.service', () => {
   });
 
   it('voteOnUnsafeArea increments the vote and records the voter', async () => {
-    jest.mocked(getDoc).mockResolvedValueOnce({
+    mockTransaction.get.mockResolvedValueOnce({
       exists: () => true,
       id: 'area-1',
       data: () => ({ voterIds: [] }),
-    } as never);
+    });
 
     await voteOnUnsafeArea('area-1', 'user-1', 'up');
 
+    expect(runTransaction).toHaveBeenCalled();
     expect(increment).toHaveBeenCalledWith(1);
     expect(arrayUnion).toHaveBeenCalledWith('user-1');
-    expect(updateDoc).toHaveBeenCalledWith(expect.anything(), {
+    expect(mockTransaction.update).toHaveBeenCalledWith(expect.anything(), {
       upvotes: { __increment: 1 },
       voterIds: { __arrayUnion: 'user-1' },
     });
   });
 
   it('voteOnUnsafeArea is a no-op when the user has already voted', async () => {
-    jest.mocked(getDoc).mockResolvedValueOnce({
+    mockTransaction.get.mockResolvedValueOnce({
       exists: () => true,
       id: 'area-1',
       data: () => ({ voterIds: ['user-1'] }),
-    } as never);
+    });
 
     await voteOnUnsafeArea('area-1', 'user-1', 'down');
-    expect(updateDoc).not.toHaveBeenCalled();
+    expect(mockTransaction.update).not.toHaveBeenCalled();
   });
 
   it('voteOnUnsafeArea rejects when the area does not exist', async () => {
-    jest
-      .mocked(getDoc)
-      .mockResolvedValueOnce({ exists: () => false, id: 'x', data: () => undefined } as never);
+    mockTransaction.get.mockResolvedValueOnce({
+      exists: () => false,
+      id: 'x',
+      data: () => undefined,
+    });
     await expect(voteOnUnsafeArea('missing', 'user-1', 'up')).rejects.toThrow('Area not found');
     expect(errorSpy).toHaveBeenCalled();
   });

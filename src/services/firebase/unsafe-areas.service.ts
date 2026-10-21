@@ -3,14 +3,13 @@ import {
   arrayUnion,
   collection,
   doc,
-  getDoc,
   increment,
   limit,
   onSnapshot,
   orderBy,
   query,
+  runTransaction,
   serverTimestamp,
-  updateDoc,
 } from '@react-native-firebase/firestore';
 
 import { firestore } from '@/config/firebase';
@@ -103,8 +102,8 @@ export function subscribeToUnsafeAreas(
 }
 
 /**
- * Records an up or down vote. One vote per user per area — a repeat vote from
- * the same user is a no-op.
+ * Records an up or down vote atomically via a Firestore transaction. One vote per
+ * user per area — a repeat vote from the same user is a no-op.
  * @phase Phase 4 — Location & Maps
  */
 export async function voteOnUnsafeArea(
@@ -113,14 +112,19 @@ export async function voteOnUnsafeArea(
   vote: 'up' | 'down',
 ): Promise<void> {
   try {
-    const snapshot = await getDoc(areaDoc(areaId));
-    const data = snapshot.data() as Omit<UnsafeArea, 'id'> | undefined;
-    if (data === undefined) throw new Error('Area not found');
-    if (data.voterIds.includes(userId)) return;
+    await runTransaction(firestore, async (transaction) => {
+      const ref = areaDoc(areaId);
+      const snapshot = await transaction.get(ref);
+      if (!snapshot.exists()) throw new Error('Area not found');
 
-    await updateDoc(areaDoc(areaId), {
-      [vote === 'up' ? 'upvotes' : 'downvotes']: increment(1),
-      voterIds: arrayUnion(userId),
+      const data = snapshot.data() as Omit<UnsafeArea, 'id'> | undefined;
+      if (data === undefined) throw new Error('Area not found');
+      if (data.voterIds.includes(userId)) return;
+
+      transaction.update(ref, {
+        [vote === 'up' ? 'upvotes' : 'downvotes']: increment(1),
+        voterIds: arrayUnion(userId),
+      });
     });
   } catch (error) {
     console.error('voteOnUnsafeArea failed:', error);
