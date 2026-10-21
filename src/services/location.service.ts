@@ -374,18 +374,24 @@ export async function getPlaceLocation(placeId: string): Promise<PlaceLocation> 
     const response = await fetch(`${PLACES_BASE_URL}/places/${placeId}`, {
       method: 'GET',
       signal: AbortSignal.timeout(8000),
-      headers: placesHeaders('id,displayName,location'),
+      headers: placesHeaders('id,displayName,location,formattedAddress'),
     });
 
     const data = (await response.json()) as PlacesNewPlace & {
       error?: { message: string };
+      formattedAddress?: string;
     };
     if (!response.ok || data.error !== undefined || data.location === undefined) {
       throw new Error(data.error?.message ?? 'errors.networkError');
     }
 
+    const resolvedName =
+      data.displayName?.text?.trim() ||
+      data.formattedAddress?.trim() ||
+      `Location (${data.location.latitude.toFixed(4)}, ${data.location.longitude.toFixed(4)})`;
+
     return {
-      name: data.displayName?.text ?? '',
+      name: resolvedName,
       latitude: data.location.latitude,
       longitude: data.location.longitude,
     };

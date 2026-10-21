@@ -380,5 +380,19 @@ describe('Places API (New)', () => {
       mockResponse(true, { id: 'p1', displayName: { text: 'x' } });
       await expect(getPlaceLocation('p1')).rejects.toThrow('errors.networkError');
     });
+
+    it('falls back to formattedAddress or coordinates when displayName is missing (BUG-145)', async () => {
+      mockResponse(true, {
+        id: 'p2',
+        formattedAddress: 'SV Road, Mumbai',
+        location: { latitude: 19.119, longitude: 72.846 },
+      });
+
+      await expect(getPlaceLocation('p2')).resolves.toEqual({
+        name: 'SV Road, Mumbai',
+        latitude: 19.119,
+        longitude: 72.846,
+      });
+    });
   });
 });

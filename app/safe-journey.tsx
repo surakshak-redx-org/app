@@ -508,8 +508,14 @@ export default function SafeJourneyScreen(): React.JSX.Element {
                       setDestinationCoords(null);
                     }}
                     onSelectPlace={(place) => {
-                      field.onChange(place.name);
-                      setDestinationCoords(place);
+                      const placeName = place.name?.trim() || field.value?.trim();
+                      if (placeName) {
+                        field.onChange(placeName);
+                      }
+                      setDestinationCoords({
+                        ...place,
+                        name: placeName,
+                      });
                     }}
                     bias={biasCoords}
                     error={fieldState.error?.message}
