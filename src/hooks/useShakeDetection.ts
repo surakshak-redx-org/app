@@ -9,6 +9,7 @@ import { APP_CONFIG } from '@/constants/config';
 import { NOTIFICATION_CHANNEL_IDS, NOTIFICATION_IDS } from '@/constants/notifications';
 import { STORAGE_FLAG_ON, STORAGE_KEYS } from '@/constants/storage';
 import { useDisguiseStore } from '@/stores/disguise.store';
+import { useSOSStore } from '@/stores/sos.store';
 
 const NOTIFICATION_CHANNEL_NAME = 'Surakshak Protection';
 
@@ -76,8 +77,13 @@ export function useShakeDetection(onShake: () => void, shakeEnabled: boolean): v
   const isCalculatorShowing = useDisguiseStore(
     (state) => state.isEnabled === true && !state.isUnlockedThisSession,
   );
-  const enabled = shakeEnabled && !isCalculatorShowing;
+  // While SOS countdown or dispatch is running, ignore shake events to prevent
+  // high-frequency sensor callbacks from flooding the JS bridge and starving the
+  // countdown timer / freezing the UI (BUG-143).
+  const isSosActive = useSOSStore((state) => state.isActive || state.isSending);
+  const enabled = shakeEnabled && !isCalculatorShowing && !isSosActive;
   const shakeTimestampsRef = useRef<number[]>([]);
+  const cooldownUntilRef = useRef(0);
   const { t } = useTranslation();
   const [resumeCount, setResumeCount] = useState(0);
   const isDisguised = useDisguiseStore((state) => state.isEnabled !== false);
@@ -133,6 +139,7 @@ export function useShakeDetection(onShake: () => void, shakeEnabled: boolean): v
     if (!enabled) return;
 
     shakeTimestampsRef.current = [];
+    cooldownUntilRef.current = 0;
     Accelerometer.setUpdateInterval(APP_CONFIG.SHAKE_SAMPLE_INTERVAL_MS);
     // In Disguise Mode the tray must not reveal a safety app: use neutral text and
     // channel name. `isEnabled` is null until the stored flag loads — treat that as
@@ -146,10 +153,15 @@ export function useShakeDetection(onShake: () => void, shakeEnabled: boolean): v
     );
 
     const subscription = Accelerometer.addListener(({ x, y, z }): void => {
+      // Early guard if SOS became active before the subscription teardown takes effect.
+      if (useSOSStore.getState().isActive || useSOSStore.getState().isSending) return;
+
+      const now = Date.now();
+      if (now < cooldownUntilRef.current) return;
+
       const magnitude = Math.sqrt(x * x + y * y + z * z);
       if (magnitude <= APP_CONFIG.SHAKE_THRESHOLD) return;
 
-      const now = Date.now();
       shakeTimestampsRef.current = [
         ...shakeTimestampsRef.current.filter((at) => now - at < APP_CONFIG.SHAKE_WINDOW_MS),
         now,
@@ -157,6 +169,7 @@ export function useShakeDetection(onShake: () => void, shakeEnabled: boolean): v
 
       if (shakeTimestampsRef.current.length >= APP_CONFIG.SHAKE_COUNT_REQUIRED) {
         shakeTimestampsRef.current = [];
+        cooldownUntilRef.current = now + APP_CONFIG.SHAKE_WINDOW_MS;
         onShake();
       }
     });
