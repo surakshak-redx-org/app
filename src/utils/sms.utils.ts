@@ -42,6 +42,16 @@ interface SafeJourneyEtaExtendedTemplateInput {
   newEtaTime: string;
 }
 
+interface SafeJourneyArrivedTemplateInput {
+  name: string;
+  destination: string;
+}
+
+interface SafeJourneyCancelledTemplateInput {
+  name: string;
+  destination: string;
+}
+
 interface LiveLocationTemplateInput {
   name: string;
   locationUrl: string;
@@ -151,6 +161,28 @@ const SAFE_JOURNEY_ETA_EXTENDED_TEMPLATES: Record<
     `— सुरक्षक`,
 };
 
+const SAFE_JOURNEY_ARRIVED_TEMPLATES: Record<
+  Language,
+  (input: SafeJourneyArrivedTemplateInput) => string
+> = {
+  en: ({ name, destination }) =>
+    `Surakshak: ${name} has arrived safely at ${destination}. Safe Journey tracking completed.`,
+  hi: ({ name, destination }) =>
+    `सुरक्षक: ${name} ${destination} पर सुरक्षित पहुँच चुकी हैं। सेफ जर्नी ट्रैकिंग पूरी हुई।`,
+  mr: ({ name, destination }) =>
+    `सुरक्षक: ${name} ${destination} येथे सुरक्षित पोहोचल्या आहेत. सेफ जर्नी ट्रॅकिंग पूर्ण झाले.`,
+};
+
+const SAFE_JOURNEY_CANCELLED_TEMPLATES: Record<
+  Language,
+  (input: SafeJourneyCancelledTemplateInput) => string
+> = {
+  en: ({ name, destination }) => `Surakshak: ${name} has ended the Safe Journey to ${destination}.`,
+  hi: ({ name, destination }) => `सुरक्षक: ${name} ने ${destination} की सेफ जर्नी समाप्त कर दी है।`,
+  mr: ({ name, destination }) =>
+    `सुरक्षक: ${name} ने ${destination} चा सेफ जर्नी प्रवास समाप्त केला आहे.`,
+};
+
 // Routine sharing, not an emergency (BUG-026).
 const LIVE_LOCATION_TEMPLATES: Record<Language, (input: LiveLocationTemplateInput) => string> = {
   en: ({ name, locationUrl, untilTime }) =>
@@ -231,6 +263,22 @@ export function buildSafeJourneyEtaExtendedMessage(
   language: Language,
 ): string {
   return SAFE_JOURNEY_ETA_EXTENDED_TEMPLATES[language]({ name, destination, newEtaTime });
+}
+
+export function buildSafeJourneyArrivedMessage(
+  name: string,
+  destination: string,
+  language: Language,
+): string {
+  return SAFE_JOURNEY_ARRIVED_TEMPLATES[language]({ name, destination });
+}
+
+export function buildSafeJourneyCancelledMessage(
+  name: string,
+  destination: string,
+  language: Language,
+): string {
+  return SAFE_JOURNEY_CANCELLED_TEMPLATES[language]({ name, destination });
 }
 
 export function buildLiveLocationMessage(

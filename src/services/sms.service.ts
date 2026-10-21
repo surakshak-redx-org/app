@@ -12,9 +12,11 @@ import {
   buildCheckInMissedMessage,
   buildLiveLocationMessage,
   buildLowBatteryMessage,
+  buildSafeJourneyArrivedMessage,
+  buildSafeJourneyCancelledMessage,
+  buildSafeJourneyEtaExtendedMessage,
   buildSafeJourneyMessage,
   buildSafeJourneyStartMessage,
-  buildSafeJourneyEtaExtendedMessage,
   buildSOSMessage,
 } from '@/utils/sms.utils';
 
@@ -277,6 +279,32 @@ export async function sendSafeJourneyEtaExtended(
   return dispatch(
     resolveRecipients(contacts),
     buildSafeJourneyEtaExtendedMessage(userName, destination, newEtaTime, language),
+  );
+}
+
+/** Notifies chosen contacts that the user has safely arrived at her destination. */
+export async function sendSafeJourneyArrived(
+  contacts: EmergencyContact[],
+  destination: string,
+  userName: string,
+  language: Language,
+): Promise<SMSAlertResult> {
+  return dispatch(
+    resolveRecipients(contacts),
+    buildSafeJourneyArrivedMessage(userName, destination, language),
+  );
+}
+
+/** Notifies chosen contacts that the user ended or cancelled her journey. */
+export async function sendSafeJourneyCancelled(
+  contacts: EmergencyContact[],
+  destination: string,
+  userName: string,
+  language: Language,
+): Promise<SMSAlertResult> {
+  return dispatch(
+    resolveRecipients(contacts),
+    buildSafeJourneyCancelledMessage(userName, destination, language),
   );
 }
 

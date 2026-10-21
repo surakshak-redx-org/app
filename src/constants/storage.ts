@@ -74,6 +74,10 @@ export const STORAGE_KEYS = {
    * were missing, drained automatically upon permission grant.
    */
   EMERGENCY_OUTBOX: 'surakshak_emergency_outbox',
+  /**
+   * `'false'` disables sending safe arrival SMS to contacts; absent or anything else means enabled.
+   */
+  NOTIFY_ARRIVAL_SMS: 'surakshak_notify_arrival_sms',
 } as const;
 
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];

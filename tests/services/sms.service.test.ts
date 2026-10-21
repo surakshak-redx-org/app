@@ -8,6 +8,8 @@ import {
   flushPendingOutbox,
   getPendingOutbox,
   sendLowBatteryAlert,
+  sendSafeJourneyArrived,
+  sendSafeJourneyCancelled,
   sendSOSAlert,
 } from '@/services/sms.service';
 import type { EmergencyContact } from '@/types/user.types';
@@ -214,6 +216,34 @@ describe('sms.service', () => {
       expect(mockedSendSmsToContacts).toHaveBeenCalledWith(
         ['+919876543210'],
         expect.stringContaining('battery'),
+      );
+    });
+
+    it('sendSafeJourneyArrived dispatches the safe arrival message', async () => {
+      mockedSendSmsToContacts.mockResolvedValueOnce([
+        { success: true, phone: '+919876543210', method: 'direct' },
+      ]);
+
+      const result = await sendSafeJourneyArrived([contact()], 'Home', 'Asha', 'en');
+
+      expect(result).toEqual({ sent: ['+919876543210'], failed: [] });
+      expect(mockedSendSmsToContacts).toHaveBeenCalledWith(
+        ['+919876543210'],
+        expect.stringContaining('arrived safely at Home'),
+      );
+    });
+
+    it('sendSafeJourneyCancelled dispatches the safe cancellation message', async () => {
+      mockedSendSmsToContacts.mockResolvedValueOnce([
+        { success: true, phone: '+919876543210', method: 'direct' },
+      ]);
+
+      const result = await sendSafeJourneyCancelled([contact()], 'Office', 'Asha', 'en');
+
+      expect(result).toEqual({ sent: ['+919876543210'], failed: [] });
+      expect(mockedSendSmsToContacts).toHaveBeenCalledWith(
+        ['+919876543210'],
+        expect.stringContaining('ended the Safe Journey to Office'),
       );
     });
   });
