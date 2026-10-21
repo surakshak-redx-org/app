@@ -70,10 +70,50 @@ describe('ContactFormModal', () => {
     await waitFor(() => {
       expect(onSubmit).toHaveBeenCalledWith({
         name: 'Ma',
-        phone: '9876543210',
+        phone: '+919876543210',
         relationship: 'Mother',
       });
     });
+  });
+
+  it('normalizes leading-zero phone numbers to E.164 on submit (BUG-144)', async () => {
+    const onSubmit = jest.fn();
+    const { getByLabelText, getByText } = await render(
+      <ContactFormModal visible onSubmit={onSubmit} onClose={jest.fn()} />,
+    );
+
+    await fireEvent.changeText(getByLabelText('Name'), 'Papa');
+    await fireEvent.changeText(getByLabelText('Phone Number'), '09876543210');
+    await fireEvent.changeText(getByLabelText('Relationship'), 'Father');
+
+    await fireEvent.press(getByText('Save'));
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledWith({
+        name: 'Papa',
+        phone: '+919876543210',
+        relationship: 'Father',
+      });
+    });
+  });
+
+  it('preserves active typed input when component re-renders (BUG-140)', async () => {
+    const { getByLabelText, getByDisplayValue, rerender } = await render(
+      <ContactFormModal visible onSubmit={jest.fn()} onClose={jest.fn()} />,
+    );
+
+    await fireEvent.changeText(getByLabelText('Name'), 'Ananya');
+    await fireEvent.changeText(getByLabelText('Phone Number'), '9876543210');
+
+    expect(getByDisplayValue('Ananya')).toBeTruthy();
+    expect(getByDisplayValue('9876543210')).toBeTruthy();
+
+    // Re-render while visible (e.g. language or theme change)
+    await rerender(<ContactFormModal visible onSubmit={jest.fn()} onClose={jest.fn()} />);
+
+    // Value must not be wiped by reset()
+    expect(getByDisplayValue('Ananya')).toBeTruthy();
+    expect(getByDisplayValue('9876543210')).toBeTruthy();
   });
 
   it('blocks submit and shows error for repeated dummy phone numbers', async () => {

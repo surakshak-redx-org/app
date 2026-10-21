@@ -3,6 +3,7 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import { useShakeDetection } from '@/hooks/useShakeDetection';
+import { useSOSStore } from '@/stores/sos.store';
 
 type AccelListener = (reading: { x: number; y: number; z: number }) => void;
 
@@ -31,6 +32,30 @@ describe('useShakeDetection', () => {
     mockRemove.mockClear();
     mockAddListenerCount = 0;
     mockCapturedListener = undefined;
+    useSOSStore.getState().reset();
+  });
+
+  it('does not subscribe when SOS is active or sending (BUG-143)', async () => {
+    useSOSStore.setState({ isActive: true });
+    await renderHook(() => useShakeDetection(jest.fn(), true));
+    expect(mockAddListenerCount).toBe(0);
+  });
+
+  it('drops accelerometer events and does not refire during cooldown (BUG-143)', async () => {
+    const onShake = jest.fn();
+    await renderHook(() => useShakeDetection(onShake, true));
+
+    // Three hard shakes trigger onShake
+    mockCapturedListener!(HARD_SHAKE);
+    mockCapturedListener!(HARD_SHAKE);
+    mockCapturedListener!(HARD_SHAKE);
+    expect(onShake).toHaveBeenCalledTimes(1);
+
+    // Immediate subsequent shakes within cooldown do not trigger onShake again
+    mockCapturedListener!(HARD_SHAKE);
+    mockCapturedListener!(HARD_SHAKE);
+    mockCapturedListener!(HARD_SHAKE);
+    expect(onShake).toHaveBeenCalledTimes(1);
   });
 
   it('fires onShake after three hard shakes inside the window', async () => {

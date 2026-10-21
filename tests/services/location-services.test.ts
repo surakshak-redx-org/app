@@ -11,12 +11,14 @@ import {
   reverseGeocode,
   watchLocation,
 } from '@/services/location.service';
+import { useLocationStore } from '@/stores/location.store';
 
 describe('getCurrentLocation', () => {
   let errorSpy: jest.SpyInstance;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    useLocationStore.getState().reset();
     errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
     jest
       .mocked(Location.requestForegroundPermissionsAsync)
@@ -101,6 +103,7 @@ describe('getLocationWithTimeout', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    useLocationStore.getState().reset();
     warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
     jest
       .mocked(Location.getForegroundPermissionsAsync)
@@ -115,6 +118,18 @@ describe('getLocationWithTimeout', () => {
   it('returns a fresh fix when it arrives in time', async () => {
     await expect(getLocationWithTimeout(1000)).resolves.toMatchObject({ latitude: 19.076 });
     expect(Location.getLastKnownPositionAsync).not.toHaveBeenCalled();
+  });
+
+  it('returns cached store location immediately if fresh (<30s) to avoid GPS radio lock contention (BUG-134)', async () => {
+    useLocationStore.getState().setCurrentLocation({
+      latitude: 18.99,
+      longitude: 72.85,
+      timestamp: Date.now() - 5000,
+    });
+
+    const result = await getLocationWithTimeout(1000);
+    expect(result).toEqual(expect.objectContaining({ latitude: 18.99, longitude: 72.85 }));
+    expect(Location.getCurrentPositionAsync).not.toHaveBeenCalled();
   });
 
   it('falls back to the last known position when the fresh fix times out', async () => {
@@ -164,6 +179,7 @@ describe('getFreshLocation', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    useLocationStore.getState().reset();
     errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
     jest
       .mocked(Location.requestForegroundPermissionsAsync)
@@ -363,6 +379,20 @@ describe('Places API (New)', () => {
     it('throws when the place has no location', async () => {
       mockResponse(true, { id: 'p1', displayName: { text: 'x' } });
       await expect(getPlaceLocation('p1')).rejects.toThrow('errors.networkError');
+    });
+
+    it('falls back to formattedAddress or coordinates when displayName is missing (BUG-145)', async () => {
+      mockResponse(true, {
+        id: 'p2',
+        formattedAddress: 'SV Road, Mumbai',
+        location: { latitude: 19.119, longitude: 72.846 },
+      });
+
+      await expect(getPlaceLocation('p2')).resolves.toEqual({
+        name: 'SV Road, Mumbai',
+        latitude: 19.119,
+        longitude: 72.846,
+      });
     });
   });
 });

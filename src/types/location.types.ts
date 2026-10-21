@@ -16,6 +16,7 @@ export interface LocationData {
 export interface LiveLocationSession {
   id: string;
   userId: string;
+  deviceId?: string;
   latitude: number;
   longitude: number;
   locationUrl: string;

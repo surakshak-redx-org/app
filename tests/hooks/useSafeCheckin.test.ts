@@ -87,6 +87,7 @@ describe('useSafeCheckin', () => {
       expect.any(String),
       30 * 60,
       { type: 'safe_checkin' },
+      'surakshak_checkin',
     );
     expect(result.current.isActive).toBe(true);
   });

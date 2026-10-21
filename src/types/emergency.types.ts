@@ -12,6 +12,7 @@ export interface SMSAlertResult {
   sent: string[];
   failed: string[];
   isDraftFallback?: boolean;
+  isAirplaneMode?: boolean;
 }
 
 export type SMSAlertType =

@@ -1,8 +1,10 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 
 import { captureException } from '@/config/sentry';
 import { APP_CONFIG } from '@/constants/config';
+import { STORAGE_KEYS } from '@/constants/storage';
 import i18n from '@/i18n';
 import { trackSafeJourneyAlertSent } from '@/services/analytics.service';
 import {
@@ -47,7 +49,7 @@ async function cancelJourneyNotifications(): Promise<void> {
  * heads-up shortly before the deadline, and an "are you safe?" at it.
  */
 async function scheduleJourneyNotifications(deadline: number, now: number): Promise<void> {
-  await cancelJourneyNotifications();
+  await cancelJourneyNotifications().catch(() => undefined);
   const secondsLeft = Math.floor((deadline - now) / MS_PER_SECOND);
   const warnInSeconds = secondsLeft - APP_CONFIG.SAFE_JOURNEY_ALERT_WARN_SECONDS;
   if (warnInSeconds > 0) {
@@ -57,7 +59,7 @@ async function scheduleJourneyNotifications(deadline: number, now: number): Prom
       warnInSeconds,
       { type: 'safe_journey' },
       WARNING_NOTIFICATION_ID,
-    );
+    ).catch(() => undefined);
   }
   await scheduleLocalNotification(
     i18n.t('location.journeyDueTitle'),
@@ -65,7 +67,7 @@ async function scheduleJourneyNotifications(deadline: number, now: number): Prom
     secondsLeft,
     { type: 'safe_journey' },
     DUE_NOTIFICATION_ID,
-  );
+  ).catch(() => undefined);
 }
 
 /** Texts the journey's contacts that she has not checked in. */
@@ -144,7 +146,12 @@ export function useSafeJourneyMonitor(userId: string | null): void {
       const session = await getActiveJourneySession(userId);
       if (session === null || (await isSafeJourneyArrivedOffline(session.id))) {
         setSafeJourneyActive(false);
-        await cancelJourneyNotifications();
+        await cancelJourneyNotifications().catch(() => undefined);
+        await AsyncStorage.multiRemove([
+          STORAGE_KEYS.SAFE_JOURNEY_SESSION_ID,
+          STORAGE_KEYS.SAFE_JOURNEY_USER_ID,
+          STORAGE_KEYS.SAFE_JOURNEY_DEADLINE,
+        ]).catch(() => undefined);
         if (session !== null) {
           markSafeJourneyArrived(session.id)
             .then(() => clearSafeJourneyArrivedOffline(session.id))
@@ -158,14 +165,25 @@ export function useSafeJourneyMonitor(userId: string | null): void {
       if (deadline > now) {
         setSafeJourneyActive(true, session.id);
         await scheduleJourneyNotifications(deadline, now);
-        timerRef.current = setTimeout(
-          () => void checkRef.current(),
-          deadline - now + DEADLINE_GRACE_MS,
-        );
+        await AsyncStorage.multiSet([
+          [STORAGE_KEYS.SAFE_JOURNEY_SESSION_ID, session.id],
+          [STORAGE_KEYS.SAFE_JOURNEY_USER_ID, session.userId],
+          [STORAGE_KEYS.SAFE_JOURNEY_DEADLINE, String(deadline)],
+        ]).catch(() => undefined);
+        // Clamp timeout delay to at most 30s: if the user or OS changes the
+        // device clock backward or across timezones, the watchdog re-evaluates
+        // within 30 seconds rather than locking the timer for hours.
+        const delayMs = Math.min(Math.max(deadline - now + DEADLINE_GRACE_MS, 0), 30_000);
+        timerRef.current = setTimeout(() => void checkRef.current(), delayMs);
         return;
       }
 
-      await cancelJourneyNotifications();
+      await cancelJourneyNotifications().catch(() => undefined);
+      await AsyncStorage.multiRemove([
+        STORAGE_KEYS.SAFE_JOURNEY_SESSION_ID,
+        STORAGE_KEYS.SAFE_JOURNEY_USER_ID,
+        STORAGE_KEYS.SAFE_JOURNEY_DEADLINE,
+      ]).catch(() => undefined);
       if (now - deadline > APP_CONFIG.SAFE_JOURNEY_STALE_HOURS * MS_PER_HOUR) {
         await cancelSafeJourney(session.id);
       } else {
@@ -201,6 +219,36 @@ export function useSafeJourneyMonitor(userId: string | null): void {
     });
     return (): void => subscription.remove();
   }, []);
+
+  // BUG-137: Rehydrate in-memory watchdog immediately from local storage on app reload / OTA update
+  useEffect(() => {
+    let cancelled = false;
+    async function restoreWatchdog(): Promise<void> {
+      try {
+        const [cachedId, cachedDeadlineStr] = await Promise.all([
+          AsyncStorage.getItem(STORAGE_KEYS.SAFE_JOURNEY_SESSION_ID),
+          AsyncStorage.getItem(STORAGE_KEYS.SAFE_JOURNEY_DEADLINE),
+        ]);
+        if (cancelled || cachedId === null || cachedDeadlineStr === null) return;
+        const cachedDeadline = Number(cachedDeadlineStr);
+        if (Number.isNaN(cachedDeadline)) return;
+
+        const now = Date.now();
+        if (cachedDeadline > now) {
+          setSafeJourneyActive(true, cachedId);
+          await scheduleJourneyNotifications(cachedDeadline, now);
+          const delayMs = Math.min(Math.max(cachedDeadline - now + DEADLINE_GRACE_MS, 0), 30_000);
+          timerRef.current = setTimeout(() => void checkRef.current(), delayMs);
+        }
+      } catch (error) {
+        captureException(error);
+      }
+    }
+    void restoreWatchdog();
+    return (): void => {
+      cancelled = true;
+    };
+  }, [setSafeJourneyActive]);
 
   useEffect(() => clearTimer, [clearTimer]);
 }

@@ -1,4 +1,5 @@
 import { MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -9,8 +10,10 @@ import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { SafeScreen } from '@/components/ui/SafeScreen';
 import { Spinner } from '@/components/ui/Spinner';
 import { Text } from '@/components/ui/Text';
+import { captureException } from '@/config/sentry';
 import { OTP_LENGTH, OTP_RESEND_SECONDS } from '@/constants/auth';
 import { ROUTES } from '@/constants/routes';
+import { STORAGE_KEYS } from '@/constants/storage';
 import { ICON_SIZE, TIMING } from '@/constants/ui';
 import { useTheme } from '@/hooks/useTheme';
 import { ANALYTICS_EVENTS, trackEvent } from '@/services/analytics.service';
@@ -48,6 +51,36 @@ export default function OtpScreen(): React.JSX.Element {
     return (): void => task.cancel();
   }, []);
 
+  // BUG-139 / BUG-150: Rehydrate countdown from AsyncStorage so app force-close or navigation
+  // cannot bypass the OTP resend cooldown and trigger Firebase auth/too-many-requests.
+  useEffect(() => {
+    let cancelled = false;
+    async function restoreCountdown(): Promise<void> {
+      try {
+        const storedDeadlineStr = await AsyncStorage.getItem(STORAGE_KEYS.OTP_RESEND_DEADLINE);
+        if (cancelled) return;
+        if (storedDeadlineStr !== null) {
+          const deadline = Number(storedDeadlineStr);
+          if (!Number.isNaN(deadline)) {
+            const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+            setCountdown(remaining);
+            return;
+          }
+        }
+        await AsyncStorage.setItem(
+          STORAGE_KEYS.OTP_RESEND_DEADLINE,
+          String(Date.now() + OTP_RESEND_SECONDS * 1000),
+        );
+      } catch (err) {
+        captureException(err);
+      }
+    }
+    void restoreCountdown();
+    return (): void => {
+      cancelled = true;
+    };
+  }, []);
+
   useEffect(() => {
     if (countdown <= 0) return;
 
@@ -76,6 +109,7 @@ export default function OtpScreen(): React.JSX.Element {
       const isNewUser = !(await doesUserExist(credential.user.uid));
       trackEvent(ANALYTICS_EVENTS.OTP_VERIFIED, { is_new_user: isNewUser });
       setStoredConfirmation(null);
+      await AsyncStorage.removeItem(STORAGE_KEYS.OTP_RESEND_DEADLINE).catch(() => undefined);
       router.replace(isNewUser ? ROUTES.ONBOARDING : ROUTES.HOME);
     } catch (verifyError) {
       const isAuthError = verifyError instanceof AuthError;
@@ -140,6 +174,8 @@ export default function OtpScreen(): React.JSX.Element {
     try {
       const confirmation = await sendOtp(phone);
       setStoredConfirmation(confirmation);
+      const nextDeadline = Date.now() + OTP_RESEND_SECONDS * 1000;
+      await AsyncStorage.setItem(STORAGE_KEYS.OTP_RESEND_DEADLINE, String(nextDeadline));
       setCountdown(OTP_RESEND_SECONDS);
       setDigits(emptyDigits());
       setError(null);

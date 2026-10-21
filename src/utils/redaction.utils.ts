@@ -60,13 +60,17 @@ export function sanitizeDiagnostics(target: unknown, seen = new WeakSet<object>(
   }
 
   const sanitized: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(target)) {
-    const lowerKey = key.toLowerCase();
-    if (SENSITIVE_KEYS.has(lowerKey)) {
-      sanitized[key] = '[REDACTED]';
-    } else {
-      sanitized[key] = sanitizeDiagnostics(value, seen);
+  try {
+    for (const [key, value] of Object.entries(target)) {
+      const lowerKey = key.toLowerCase();
+      if (SENSITIVE_KEYS.has(lowerKey)) {
+        sanitized[key] = '[REDACTED]';
+      } else {
+        sanitized[key] = sanitizeDiagnostics(value, seen);
+      }
     }
+  } catch {
+    return '[UNSERIALIZABLE]';
   }
 
   return sanitized;

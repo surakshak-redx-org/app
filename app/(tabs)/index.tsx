@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Platform, Pressable, ScrollView, View } from 'react-native';
 
+import { GuestBanner } from '@/components/features/auth/GuestBanner';
 import { FakeCallScheduler } from '@/components/features/emergency/FakeCallScheduler';
 import { IncomingCallOverlay } from '@/components/features/emergency/IncomingCallOverlay';
 import { QuickActionCard } from '@/components/features/emergency/QuickActionCard';
@@ -109,7 +110,16 @@ export default function HomeScreen(): React.JSX.Element {
     if (sosOutcome === null) return;
     const { sent, failed, error } = sosOutcome;
 
-    if (error === 'draft_fallback') {
+    if (error === 'airplane_mode') {
+      Alert.alert(t('home.sosResultTitle'), t('home.sosResultAirplaneMode'), [
+        { text: t('common.ok'), style: 'default' },
+        {
+          text: t('emergency.callEmergency112'),
+          style: 'destructive',
+          onPress: (): void => callHelpline('112'),
+        },
+      ]);
+    } else if (error === 'draft_fallback') {
       Alert.alert(t('home.sosResultTitle'), t('home.sosResultDraft'), [
         { text: t('common.ok'), style: 'default' },
         {
@@ -172,6 +182,9 @@ export default function HomeScreen(): React.JSX.Element {
   function scheduleFakeCall(delaySeconds: number, callerName: string): void {
     void fakeCall.scheduleCall(delaySeconds, callerName);
     setFakeCallModalVisible(false);
+    if (delaySeconds > 0) {
+      Alert.alert(t('emergency.fakeCallScheduled'));
+    }
   }
 
   // Guest mode never signs in to Firebase (see welcome.tsx — it's a local-only
@@ -212,6 +225,12 @@ export default function HomeScreen(): React.JSX.Element {
             className="mt-3 text-center text-stone"
           />
         </View>
+
+        {isGuest && (
+          <View className="mt-6">
+            <GuestBanner />
+          </View>
+        )}
 
         <View className="mt-8 flex-row flex-wrap">
           <QuickActionCard

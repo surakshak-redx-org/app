@@ -1,10 +1,12 @@
 import { requireNativeModule } from 'expo-modules-core';
+import { Platform } from 'react-native';
 
 import type { CallResult, SendSmsResult } from './SurakshakNative.types';
 
 interface SurakshakNativeModuleInterface {
   sendSms: (phoneNumber: string, message: string) => Promise<string>;
   checkSmsPermission: () => Promise<boolean>;
+  isAirplaneModeOn: () => Promise<boolean>;
   placeCall: (phoneNumber: string) => Promise<string>;
   setProximityScreenOff: (enabled: boolean) => Promise<void>;
   setAppIcon: (name: string | null) => Promise<void>;
@@ -23,9 +25,10 @@ const NativeModule = requireNativeModule<SurakshakNativeModuleInterface>('Suraks
  */
 export async function scheduleFakeCall(delayMs: number, callerName: string): Promise<void> {
   if (delayMs <= 0) {
-    throw new Error('Delay must be greater than zero');
+    return;
   }
 
+  if (typeof NativeModule?.scheduleFakeCall !== 'function') return;
   await NativeModule.scheduleFakeCall(delayMs, callerName);
 }
 
@@ -33,12 +36,15 @@ export async function scheduleFakeCall(delayMs: number, callerName: string): Pro
  * Cancel the pending native fake-call alarm.
  */
 export async function cancelScheduledFakeCall(): Promise<void> {
+  if (typeof NativeModule?.cancelScheduledFakeCall !== 'function') return;
   await NativeModule.cancelScheduledFakeCall();
 }
 export async function getPendingFakeCall(): Promise<{ callerName: string } | null> {
+  if (typeof NativeModule?.getPendingFakeCall !== 'function') return null;
   return NativeModule.getPendingFakeCall();
 }
 export async function canUseFullScreenIntent(): Promise<boolean> {
+  if (typeof NativeModule?.canUseFullScreenIntent !== 'function') return true;
   return NativeModule.canUseFullScreenIntent();
 }
 
@@ -76,6 +82,16 @@ export async function checkSmsPermission(): Promise<boolean> {
   return NativeModule.checkSmsPermission();
 }
 
+/** Whether Airplane mode is active on the device (Android only; returns false on iOS). */
+export async function isAirplaneModeOn(): Promise<boolean> {
+  if (Platform.OS !== 'android') return false;
+  try {
+    return await NativeModule.isAirplaneModeOn();
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Places a call directly via `Intent.ACTION_CALL` — no dialer shown, no user
  * tap (Android only — `CALL_PHONE` permission required). Callers on iOS
@@ -94,6 +110,9 @@ export async function placeCallDirectly(phone: string): Promise<CallResult> {
  * sensor simply keep the screen on.
  */
 export async function setProximityScreenOff(enabled: boolean): Promise<void> {
+  if (Platform.OS !== 'ios') {
+    return;
+  }
   await NativeModule.setProximityScreenOff(enabled);
 }
 
@@ -111,21 +130,37 @@ export async function setAppIcon(name: string | null): Promise<void> {
  * and screenshots are blocked. Callers must not invoke it on iOS.
  */
 export async function setSecureScreen(enabled: boolean): Promise<void> {
+  if (typeof NativeModule?.setSecureScreen !== 'function') return;
   await NativeModule.setSecureScreen(enabled);
 }
 
 /**
  * Starts the emergency siren using Android's alarm audio stream.
+ * Returns true if native alarm stream playback started, false otherwise.
  */
-export async function startSiren(audioUri: string): Promise<void> {
-  await NativeModule.startSiren(audioUri);
+export async function startSiren(audioUri: string): Promise<boolean> {
+  if (Platform.OS !== 'android') return false;
+  if (typeof NativeModule?.startSiren !== 'function') return false;
+  try {
+    await NativeModule.startSiren(audioUri);
+    return true;
+  } catch (error) {
+    console.warn('startSiren native playback failed:', error);
+    return false;
+  }
 }
 
 /**
  * Stops the emergency siren and restores the previous alarm volume.
  */
 export async function stopSiren(): Promise<void> {
-  await NativeModule.stopSiren();
+  if (Platform.OS !== 'android') return;
+  if (typeof NativeModule?.stopSiren !== 'function') return;
+  try {
+    await NativeModule.stopSiren();
+  } catch (error) {
+    console.warn('stopSiren native stop failed:', error);
+  }
 }
 
 export type { CallResult, SendSmsResult } from './SurakshakNative.types';

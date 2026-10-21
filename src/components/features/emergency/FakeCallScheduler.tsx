@@ -28,7 +28,7 @@ export function FakeCallScheduler({
     FAKE_CALL_DELAY_OPTIONS_SECONDS[0],
   );
   const [customMinutes, setCustomMinutes] = useState('');
-  const [callerName, setCallerName] = useState('');
+  const [callerName, setCallerName] = useState(() => t('emergency.callerNameDefault'));
 
   function resetToDefaults(): void {
     setSelected(FAKE_CALL_DELAY_OPTIONS_SECONDS[0]);

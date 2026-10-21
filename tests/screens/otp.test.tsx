@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import React from 'react';
 
@@ -151,6 +152,17 @@ describe('OtpScreen', () => {
     await act(async () => {
       resolveSendOtp({ confirm: jest.fn() });
       await Promise.resolve();
+    });
+  });
+
+  it('restores pending resend countdown from AsyncStorage to prevent rate limit lockouts (BUG-139 / BUG-150)', async () => {
+    const futureDeadline = Date.now() + 45000;
+    jest.mocked(AsyncStorage.getItem).mockResolvedValueOnce(String(futureDeadline));
+
+    const { getByText } = await render(<OtpScreen />);
+
+    await waitFor(() => {
+      expect(getByText(/Resend in \d+s/)).toBeTruthy();
     });
   });
 });

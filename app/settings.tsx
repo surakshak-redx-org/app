@@ -25,6 +25,7 @@ import {
   type StorageKey,
 } from '@/constants/storage';
 import { DANGER_ROW_HITSLOP, ICON_SIZE } from '@/constants/ui';
+import { useSafeCheckin } from '@/hooks/useSafeCheckin';
 import {
   ANALYTICS_EVENTS,
   trackDisguiseModeEnabled,
@@ -46,7 +47,7 @@ export default function SettingsScreen(): React.JSX.Element {
   const [shakeEnabled, setShakeEnabled] = useState(true);
   const [lowBatteryEnabled, setLowBatteryEnabled] = useState(true);
   const [followDetectionEnabled, setFollowDetectionEnabled] = useState(true);
-  const [checkinActive, setCheckinActive] = useState(false);
+  const { isActive: checkinActive } = useSafeCheckin();
   const [disguiseEnabled, setDisguiseEnabled] = useState(false);
   const [disguiseModalMode, setDisguiseModalMode] = useState<DisguiseModalMode>(null);
 
@@ -55,7 +56,6 @@ export default function SettingsScreen(): React.JSX.Element {
       STORAGE_KEYS.SHAKE_ENABLED,
       STORAGE_KEYS.LOW_BATTERY_ENABLED,
       STORAGE_KEYS.FOLLOW_DETECTION_ENABLED,
-      STORAGE_KEYS.CHECKIN_ACTIVE,
       STORAGE_KEYS.DISGUISE_ENABLED,
     ])
       .then((entries) => {
@@ -65,7 +65,6 @@ export default function SettingsScreen(): React.JSX.Element {
         setFollowDetectionEnabled(
           stored.get(STORAGE_KEYS.FOLLOW_DETECTION_ENABLED) !== STORAGE_FLAG_OFF,
         );
-        setCheckinActive(stored.get(STORAGE_KEYS.CHECKIN_ACTIVE) === STORAGE_FLAG_ON);
         setDisguiseEnabled(stored.get(STORAGE_KEYS.DISGUISE_ENABLED) === STORAGE_FLAG_ON);
       })
       .catch((error: unknown) => captureException(error));

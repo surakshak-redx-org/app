@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import {
   cancelScheduledFakeCall,
   canUseFullScreenIntent,
@@ -27,29 +27,7 @@ export function useFakeCall(): UseFakeCallResult {
   const [isCallActive, setIsCallActive] = useState(false);
   const [callerName, setCallerName] = useState('');
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    if (Platform.OS !== 'android') return;
 
-    let mounted = true;
-
-    void getPendingFakeCall()
-      .then((pendingCall) => {
-        if (mounted && pendingCall) {
-          setCallerName(pendingCall.callerName);
-          setIsCallActive(true);
-          trackFakeCallTriggered();
-
-          void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        }
-      })
-      .catch((error) => {
-        console.error('Failed to recover pending fake call:', error);
-      });
-
-    return (): void => {
-      mounted = false;
-    };
-  }, []);
   const clearPending = useCallback((): void => {
     if (timeoutRef.current !== null) {
       clearTimeout(timeoutRef.current);
@@ -57,14 +35,65 @@ export function useFakeCall(): UseFakeCallResult {
     }
   }, []);
 
+  const triggerCall = useCallback(
+    (name: string): void => {
+      clearPending();
+      setCallerName(name);
+      setIsCallActive(true);
+      trackFakeCallTriggered();
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    },
+    [clearPending],
+  );
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+
+    let mounted = true;
+
+    const checkPending = (): void => {
+      void getPendingFakeCall()
+        .then((pendingCall) => {
+          if (mounted && pendingCall) {
+            triggerCall(pendingCall.callerName);
+          }
+        })
+        .catch((error: unknown) => {
+          console.error('Failed to recover pending fake call:', error);
+        });
+    };
+
+    checkPending();
+
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        checkPending();
+      }
+    });
+
+    return (): void => {
+      mounted = false;
+      subscription.remove();
+    };
+  }, [triggerCall]);
+
   const scheduleCall = useCallback(
     async (delaySeconds: number, name: string): Promise<void> => {
       clearPending();
       setCallerName(name);
+
+      if (delaySeconds <= 0) {
+        if (Platform.OS === 'android') {
+          await cancelScheduledFakeCall().catch(() => undefined);
+        }
+        triggerCall(name);
+        return;
+      }
+
       trackFakeCallScheduled(delaySeconds);
 
       if (Platform.OS === 'android') {
-        const canUseFullScreen = await canUseFullScreenIntent();
+        const canUseFullScreen = await canUseFullScreenIntent().catch(() => true);
 
         if (!canUseFullScreen) {
           console.warn(
@@ -73,25 +102,26 @@ export function useFakeCall(): UseFakeCallResult {
           );
         }
 
-        await scheduleNativeFakeCall(delaySeconds * TIMING.SECOND_MS, name);
-        return;
+        await scheduleNativeFakeCall(delaySeconds * TIMING.SECOND_MS, name).catch(
+          (error: unknown) => {
+            console.warn('Native alarm schedule failed, falling back to JS timer:', error);
+          },
+        );
       }
 
       timeoutRef.current = setTimeout((): void => {
         timeoutRef.current = null;
-        setIsCallActive(true);
-        trackFakeCallTriggered();
-        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        triggerCall(name);
       }, delaySeconds * TIMING.SECOND_MS);
     },
-    [clearPending],
+    [clearPending, triggerCall],
   );
 
   const cancelCall = useCallback(async (): Promise<void> => {
     clearPending();
 
     if (Platform.OS === 'android') {
-      await cancelScheduledFakeCall();
+      await cancelScheduledFakeCall().catch(() => undefined);
     }
   }, [clearPending]);
 
@@ -99,7 +129,7 @@ export function useFakeCall(): UseFakeCallResult {
     clearPending();
 
     if (Platform.OS === 'android') {
-      void cancelScheduledFakeCall();
+      void cancelScheduledFakeCall().catch(() => undefined);
     }
 
     setIsCallActive(false);

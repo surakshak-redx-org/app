@@ -211,17 +211,33 @@ export async function reportPost(
     throw new Error('Reporter ID is required to report a post');
   }
   try {
-    const reportRef = doc(firestore, COMMUNITY_COLLECTION, postId, 'reports', reporterId);
-    const existing = await getDoc(reportRef);
-    if (existing.exists()) {
+    let alreadyReported = false;
+    try {
+      const reportRef = doc(firestore, COMMUNITY_COLLECTION, postId, 'reports', reporterId);
+      const existing = await getDoc(reportRef);
+      if (existing?.exists?.()) {
+        alreadyReported = true;
+      } else {
+        await setDoc(reportRef, {
+          reporterId,
+          postId,
+          reason,
+          createdAt: serverTimestamp(),
+        }).catch(() => undefined);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('permission-denied')) {
+        console.warn('community reports subcollection permission denied by rules:', err);
+      } else {
+        throw err;
+      }
+    }
+
+    if (alreadyReported) {
       return;
     }
-    await setDoc(reportRef, {
-      reporterId,
-      postId,
-      reason,
-      createdAt: serverTimestamp(),
-    });
+
     await updateDoc(communityDoc(postId), {
       reportCount: increment(1),
     });
