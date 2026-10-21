@@ -28,6 +28,7 @@ export async function scheduleFakeCall(delayMs: number, callerName: string): Pro
     return;
   }
 
+  if (typeof NativeModule?.scheduleFakeCall !== 'function') return;
   await NativeModule.scheduleFakeCall(delayMs, callerName);
 }
 
@@ -35,12 +36,15 @@ export async function scheduleFakeCall(delayMs: number, callerName: string): Pro
  * Cancel the pending native fake-call alarm.
  */
 export async function cancelScheduledFakeCall(): Promise<void> {
+  if (typeof NativeModule?.cancelScheduledFakeCall !== 'function') return;
   await NativeModule.cancelScheduledFakeCall();
 }
 export async function getPendingFakeCall(): Promise<{ callerName: string } | null> {
+  if (typeof NativeModule?.getPendingFakeCall !== 'function') return null;
   return NativeModule.getPendingFakeCall();
 }
 export async function canUseFullScreenIntent(): Promise<boolean> {
+  if (typeof NativeModule?.canUseFullScreenIntent !== 'function') return true;
   return NativeModule.canUseFullScreenIntent();
 }
 
@@ -126,21 +130,37 @@ export async function setAppIcon(name: string | null): Promise<void> {
  * and screenshots are blocked. Callers must not invoke it on iOS.
  */
 export async function setSecureScreen(enabled: boolean): Promise<void> {
+  if (typeof NativeModule?.setSecureScreen !== 'function') return;
   await NativeModule.setSecureScreen(enabled);
 }
 
 /**
  * Starts the emergency siren using Android's alarm audio stream.
+ * Returns true if native alarm stream playback started, false otherwise.
  */
-export async function startSiren(audioUri: string): Promise<void> {
-  await NativeModule.startSiren(audioUri);
+export async function startSiren(audioUri: string): Promise<boolean> {
+  if (Platform.OS !== 'android') return false;
+  if (typeof NativeModule?.startSiren !== 'function') return false;
+  try {
+    await NativeModule.startSiren(audioUri);
+    return true;
+  } catch (error) {
+    console.warn('startSiren native playback failed:', error);
+    return false;
+  }
 }
 
 /**
  * Stops the emergency siren and restores the previous alarm volume.
  */
 export async function stopSiren(): Promise<void> {
-  await NativeModule.stopSiren();
+  if (Platform.OS !== 'android') return;
+  if (typeof NativeModule?.stopSiren !== 'function') return;
+  try {
+    await NativeModule.stopSiren();
+  } catch (error) {
+    console.warn('stopSiren native stop failed:', error);
+  }
 }
 
 export type { CallResult, SendSmsResult } from './SurakshakNative.types';
