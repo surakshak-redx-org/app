@@ -78,6 +78,20 @@ describe('sms.service', () => {
       expect(result).toEqual({ sent: ['+919876543210'], failed: [] });
     });
 
+    it('uses the custom template from AsyncStorage when available', async () => {
+      mockedSendSmsToContacts.mockResolvedValueOnce([
+        { success: true, phone: '+919876543210', method: 'direct' },
+      ]);
+      jest.mocked(AsyncStorage.getItem).mockResolvedValueOnce('CUSTOM HELP: {name} at {location}');
+
+      await sendSOSAlert([contact()], 'https://maps.example/1', 'Asha', 'en');
+
+      expect(mockedSendSmsToContacts).toHaveBeenCalledWith(
+        ['+919876543210'],
+        'CUSTOM HELP: Asha at https://maps.example/1',
+      );
+    });
+
     it('detects Airplane mode, flags isAirplaneMode, marks recipients failed, and enqueues to outbox', async () => {
       jest.mocked(isAirplaneModeOn).mockResolvedValueOnce(true);
 

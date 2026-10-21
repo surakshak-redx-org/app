@@ -217,7 +217,104 @@ const CHECKIN_MISSED_TEMPLATES: Record<Language, (input: CheckInMissedTemplateIn
     `— सुरक्षक`,
 };
 
-export function buildSOSMessage(name: string, locationUrl: string, language: Language): string {
+export interface SMSCharacterCount {
+  isUnicode: boolean;
+  charCount: number;
+  segmentLimit: number;
+  segments: number;
+  remainingInSegment: number;
+}
+
+const GSM_7_REGEX =
+  /^[@£$¥èéùìòÇ\r\nØøÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !"#¤%&'()*+,\-./0-9:;<=>?¡A-ZÄÖÑÜ§¿a-zäöñüà^{}\\[~\]|€]*$/;
+
+export function isGsm7String(text: string): boolean {
+  return GSM_7_REGEX.test(text);
+}
+
+export function calculateSMSCharacterCount(text: string): SMSCharacterCount {
+  const isUnicode = !isGsm7String(text);
+  const charCount = Array.from(text).length;
+
+  if (isUnicode) {
+    const singleLimit = 70;
+    const multiLimit = 67;
+    const segments =
+      charCount <= singleLimit
+        ? charCount === 0
+          ? 1
+          : Math.ceil(charCount / singleLimit)
+        : Math.ceil(charCount / multiLimit);
+    const segmentLimit = charCount <= singleLimit ? singleLimit : segments * multiLimit;
+    const remainingInSegment =
+      charCount <= singleLimit ? singleLimit - charCount : segments * multiLimit - charCount;
+    return {
+      isUnicode: true,
+      charCount,
+      segmentLimit,
+      segments: Math.max(1, segments),
+      remainingInSegment,
+    };
+  }
+
+  const singleLimit = 160;
+  const multiLimit = 153;
+  const segments =
+    charCount <= singleLimit
+      ? charCount === 0
+        ? 1
+        : Math.ceil(charCount / singleLimit)
+      : Math.ceil(charCount / multiLimit);
+  const segmentLimit = charCount <= singleLimit ? singleLimit : segments * multiLimit;
+  const remainingInSegment =
+    charCount <= singleLimit ? singleLimit - charCount : segments * multiLimit - charCount;
+  return {
+    isUnicode: false,
+    charCount,
+    segmentLimit,
+    segments: Math.max(1, segments),
+    remainingInSegment,
+  };
+}
+
+export function interpolateSOSTemplate(
+  template: string,
+  variables: { name: string; locationUrl: string; battery?: string | number | null | undefined },
+): string {
+  let batteryStr = 'N/A';
+  if (variables.battery !== undefined && variables.battery !== null) {
+    if (typeof variables.battery === 'number') {
+      const pct =
+        variables.battery <= 1
+          ? Math.round(variables.battery * 100)
+          : Math.round(variables.battery);
+      batteryStr = `${pct}%`;
+    } else {
+      batteryStr = String(variables.battery);
+    }
+  }
+
+  return template
+    .replace(/\{name\}/gi, variables.name)
+    .replace(/\{location\}/gi, variables.locationUrl)
+    .replace(/\{battery\}/gi, batteryStr);
+}
+
+export function buildSOSMessage(
+  name: string,
+  locationUrl: string,
+  language: Language,
+  customTemplate?: string | null,
+  batteryLevel?: number | null,
+): string {
+  if (typeof customTemplate === 'string' && customTemplate.trim().length > 0) {
+    return interpolateSOSTemplate(customTemplate.trim(), {
+      name,
+      locationUrl,
+      battery: batteryLevel,
+    });
+  }
+
   // 'en-IN' keeps the timestamp in ASCII digits regardless of the app's
   // selected language or the device's own locale — Devanagari numerals
   // (e.g. from a hi-IN/mr-IN device default) are never acceptable here.

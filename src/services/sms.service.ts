@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Battery from 'expo-battery';
 import * as SMS from 'expo-sms';
 import { Platform } from 'react-native';
 import { checkSmsPermission, isAirplaneModeOn, sendSmsToContacts } from 'surakshak-native';
@@ -224,7 +225,15 @@ export async function sendSOSAlert(
   userName: string,
   language: Language,
 ): Promise<SMSAlertResult> {
-  return dispatch(resolveRecipients(contacts), buildSOSMessage(userName, locationUrl, language));
+  const customTemplate = await AsyncStorage.getItem(STORAGE_KEYS.CUSTOM_SOS_MESSAGE_TEMPLATE);
+  let batteryLevel: number | null = null;
+  try {
+    batteryLevel = await Battery.getBatteryLevelAsync();
+  } catch {
+    // Battery read optional
+  }
+  const message = buildSOSMessage(userName, locationUrl, language, customTemplate, batteryLevel);
+  return dispatch(resolveRecipients(contacts), message);
 }
 
 export async function sendLowBatteryAlert(

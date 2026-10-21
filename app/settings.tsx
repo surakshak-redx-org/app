@@ -8,8 +8,10 @@ import { Alert, Pressable, Switch, View } from 'react-native';
 
 import { DisguisePinModal } from '@/components/features/settings/DisguisePinModal';
 import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
+import { Input } from '@/components/ui/Input';
 import { SafeScreen } from '@/components/ui/SafeScreen';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { Text } from '@/components/ui/Text';
@@ -28,8 +30,8 @@ import { DANGER_ROW_HITSLOP, ICON_SIZE } from '@/constants/ui';
 import { useSafeCheckin } from '@/hooks/useSafeCheckin';
 import {
   ANALYTICS_EVENTS,
-  trackDisguiseModeEnabled,
   resetUser as resetAnalytics,
+  trackDisguiseModeEnabled,
   trackEvent,
 } from '@/services/analytics.service';
 import { setDisguiseIcon } from '@/services/disguise.service';
@@ -37,6 +39,7 @@ import { AuthError, deleteAccount } from '@/services/firebase/auth.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { useDisguiseStore } from '@/stores/disguise.store';
 import { useUserStore } from '@/stores/user.store';
+import { calculateSMSCharacterCount, interpolateSOSTemplate } from '@/utils/sms.utils';
 
 type DisguiseModalMode = 'enable' | 'disable' | 'change' | null;
 
@@ -50,6 +53,8 @@ export default function SettingsScreen(): React.JSX.Element {
   const { isActive: checkinActive } = useSafeCheckin();
   const [disguiseEnabled, setDisguiseEnabled] = useState(false);
   const [disguiseModalMode, setDisguiseModalMode] = useState<DisguiseModalMode>(null);
+  const [customSosTemplate, setCustomSosTemplate] = useState('');
+  const surakshakUser = useAuthStore((state) => state.surakshakUser);
 
   useEffect(() => {
     AsyncStorage.multiGet([
@@ -57,6 +62,7 @@ export default function SettingsScreen(): React.JSX.Element {
       STORAGE_KEYS.LOW_BATTERY_ENABLED,
       STORAGE_KEYS.FOLLOW_DETECTION_ENABLED,
       STORAGE_KEYS.DISGUISE_ENABLED,
+      STORAGE_KEYS.CUSTOM_SOS_MESSAGE_TEMPLATE,
     ])
       .then((entries) => {
         const stored = new Map<string, string | null>(entries);
@@ -66,6 +72,10 @@ export default function SettingsScreen(): React.JSX.Element {
           stored.get(STORAGE_KEYS.FOLLOW_DETECTION_ENABLED) !== STORAGE_FLAG_OFF,
         );
         setDisguiseEnabled(stored.get(STORAGE_KEYS.DISGUISE_ENABLED) === STORAGE_FLAG_ON);
+        const savedTemplate = stored.get(STORAGE_KEYS.CUSTOM_SOS_MESSAGE_TEMPLATE);
+        if (savedTemplate !== null && savedTemplate !== undefined) {
+          setCustomSosTemplate(savedTemplate);
+        }
       })
       .catch((error: unknown) => captureException(error));
   }, []);
@@ -98,6 +108,43 @@ export default function SettingsScreen(): React.JSX.Element {
     setFollowDetectionEnabled(value);
     persistToggle(STORAGE_KEYS.FOLLOW_DETECTION_ENABLED, value, setFollowDetectionEnabled);
   }
+
+  function handleSaveSosTemplate(): void {
+    const trimmed = customSosTemplate.trim();
+    if (trimmed.length === 0) {
+      AsyncStorage.removeItem(STORAGE_KEYS.CUSTOM_SOS_MESSAGE_TEMPLATE)
+        .then(() => {
+          Alert.alert(t('common.save'), t('settings.templateSaved'));
+        })
+        .catch((error: unknown) => captureException(error));
+    } else {
+      AsyncStorage.setItem(STORAGE_KEYS.CUSTOM_SOS_MESSAGE_TEMPLATE, trimmed)
+        .then(() => {
+          Alert.alert(t('common.save'), t('settings.templateSaved'));
+        })
+        .catch((error: unknown) => captureException(error));
+    }
+  }
+
+  function handleResetSosTemplate(): void {
+    AsyncStorage.removeItem(STORAGE_KEYS.CUSTOM_SOS_MESSAGE_TEMPLATE)
+      .then(() => {
+        setCustomSosTemplate('');
+      })
+      .catch((error: unknown) => captureException(error));
+  }
+
+  const characterStats = calculateSMSCharacterCount(customSosTemplate);
+  const defaultPlaceholder =
+    'SOS EMERGENCY ALERT from {name}. I need help immediately.\nMy location: {location}\nBattery: {battery}';
+  const previewText = interpolateSOSTemplate(
+    customSosTemplate.trim().length > 0 ? customSosTemplate : defaultPlaceholder,
+    {
+      name: surakshakUser?.name ?? 'User',
+      locationUrl: 'https://maps.google.com/?q=19.076,72.877',
+      battery: 85,
+    },
+  );
 
   function handleDisguiseToggle(value: boolean): void {
     setDisguiseModalMode(value ? 'enable' : 'disable');
@@ -302,6 +349,85 @@ export default function SettingsScreen(): React.JSX.Element {
               <Text variant="body" tKey="settings.changePin" className="text-shakti-purple" />
             </Pressable>
           )}
+        </Card>
+
+        <Card padding="md" className="mt-4">
+          <Text variant="label" tKey="settings.customSosMessage" className="mb-1" />
+          <Text
+            variant="caption"
+            tKey="settings.customSosMessageDesc"
+            className="mb-3 text-stone"
+          />
+
+          <Input
+            value={customSosTemplate}
+            onChangeText={setCustomSosTemplate}
+            multiline
+            numberOfLines={3}
+            placeholder={defaultPlaceholder}
+            accessibilityLabel={t('settings.customSosMessage')}
+          />
+
+          <View className="mt-2 flex-row items-center justify-between">
+            <Text variant="caption" className="text-stone">
+              {characterStats.isUnicode
+                ? t('settings.charCountUnicode', {
+                    count: characterStats.charCount,
+                    limit: characterStats.segmentLimit,
+                    segments: characterStats.segments,
+                  })
+                : t('settings.charCountGsm', {
+                    count: characterStats.charCount,
+                    limit: characterStats.segmentLimit,
+                    segments: characterStats.segments,
+                  })}
+            </Text>
+
+            <View className="flex-row gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                label={t('settings.resetDefault')}
+                onPress={handleResetSosTemplate}
+              />
+              <Button
+                variant="primary"
+                size="sm"
+                label={t('common.save')}
+                onPress={handleSaveSosTemplate}
+              />
+            </View>
+          </View>
+
+          {/* Quick Token Chips */}
+          <View className="mt-3 flex-row flex-wrap items-center gap-2">
+            <Text variant="caption" className="text-stone" tKey="settings.insertToken" />
+            {(['{name}', '{location}', '{battery}'] as const).map((token) => (
+              <Pressable
+                key={token}
+                onPress={() => setCustomSosTemplate((prev) => `${prev} ${token}`.trim())}
+                className="rounded-full border border-shakti-purple/30 bg-shakti-purple/10 px-2.5 py-1"
+                accessibilityRole="button"
+                accessibilityLabel={`Insert ${token}`}
+              >
+                <Text variant="caption" className="font-medium text-shakti-purple">
+                  +{token}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          {/* Live Preview */}
+          <View className="mt-4 rounded-xl border border-stone/20 bg-stone/5 p-3">
+            <Text
+              variant="caption"
+              className="mb-1 font-medium text-stone"
+              tKey="settings.messagePreview"
+            />
+            <Text variant="body" className="text-sm">
+              {previewText}
+            </Text>
+          </View>
         </Card>
 
         <Card padding="md" className="mt-4">

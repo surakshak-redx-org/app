@@ -82,6 +82,10 @@ export const STORAGE_KEYS = {
    * `JSON.stringify`'d `User` profile cache for instantaneous non-blocking app launch hydration.
    */
   USER_PROFILE_CACHE: 'surakshak_user_profile_cache',
+  /**
+   * User-customized SOS SMS template containing optional tokens {name}, {location}, {battery}.
+   */
+  CUSTOM_SOS_MESSAGE_TEMPLATE: 'surakshak_custom_sos_message_template',
 } as const;
 
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];
@@ -92,6 +96,7 @@ export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];
  * cross-account data leakage on shared devices.
  */
 export const SENSITIVE_STORAGE_KEYS = [
+  STORAGE_KEYS.CUSTOM_SOS_MESSAGE_TEMPLATE,
   STORAGE_KEYS.USER_PROFILE_CACHE,
   STORAGE_KEYS.EMERGENCY_CONTACTS_CACHE,
   STORAGE_KEYS.USER_INFO_CACHE,

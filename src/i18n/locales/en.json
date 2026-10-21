@@ -491,7 +491,15 @@
     "deleteAccount": "Delete Account",
     "deleteAccountWarning": "This action is permanent and cannot be undone.",
     "deleteAccountConfirmFinal": "Yes, delete my account",
-    "disguiseIconFailed": "Disguise Mode is on, but the home-screen icon could not be changed on this device."
+    "disguiseIconFailed": "Disguise Mode is on, but the home-screen icon could not be changed on this device.",
+    "customSosMessage": "Custom SOS Alert Message",
+    "customSosMessageDesc": "Customize the emergency SMS sent to your contacts. Keep within character limits for single-SMS delivery.",
+    "charCountGsm": "{{count}} / {{limit}} chars ({{segments}} SMS)",
+    "charCountUnicode": "{{count}} / {{limit}} chars [Unicode] ({{segments}} SMS)",
+    "resetDefault": "Reset",
+    "insertToken": "Insert token:",
+    "messagePreview": "Live Preview:",
+    "templateSaved": "SOS message template saved."
   },
   "errors": {
     "networkError": "No internet connection. Please try again.",

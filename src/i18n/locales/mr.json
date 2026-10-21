@@ -491,7 +491,15 @@
     "deleteAccount": "खाते हटवा",
     "deleteAccountWarning": "ही क्रिया कायमची आहे आणि परत होणार नाही.",
     "deleteAccountConfirmFinal": "हो, माझे खाते हटवा",
-    "disguiseIconFailed": "डिसगाइज मोड सुरू आहे, पण या डिव्हाइसवर होम स्क्रीन आयकॉन बदलता आला नाही."
+    "disguiseIconFailed": "डिसगाइज मोड सुरू आहे, पण या डिव्हाइसवर होम स्क्रीन आयकॉन बदलता आला नाही.",
+    "customSosMessage": "कस्टम SOS संदेश",
+    "customSosMessageDesc": "संपर्कांना पाठवला जाणारा आपत्कालीन SMS सानुकूलित करा.",
+    "charCountGsm": "{{count}} / {{limit}} अक्षरे ({{segments}} SMS)",
+    "charCountUnicode": "{{count}} / {{limit}} अक्षरे [युनिकोड] ({{segments}} SMS)",
+    "resetDefault": "रीसेट करा",
+    "insertToken": "टोकन जोडा:",
+    "messagePreview": "थेट पूर्वावलोकन:",
+    "templateSaved": "SOS संदेश टेम्पलेट सेव्ह केला."
   },
   "errors": {
     "networkError": "इंटरनेट नाही. कृपया पुन्हा प्रयत्न करा.",

@@ -130,4 +130,37 @@ describe('SettingsScreen', () => {
 
     expect(getByText("PINs didn't match. Try again.")).toBeTruthy();
   });
+
+  it('renders custom SOS message template card and saves template', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    const { getByText, getByLabelText } = await render(<SettingsScreen />);
+
+    expect(getByText('Custom SOS Alert Message')).toBeTruthy();
+    expect(getByText('Live Preview:')).toBeTruthy();
+
+    const input = getByLabelText('Custom SOS Alert Message');
+    await fireEvent.changeText(input, 'CUSTOM ALERT: {name} at {location}');
+
+    expect(getByText('+{battery}')).toBeTruthy();
+    await fireEvent.press(getByText('+{battery}'));
+
+    await fireEvent.press(getByText('Save'));
+
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+      'surakshak_custom_sos_message_template',
+      'CUSTOM ALERT: {name} at {location} {battery}',
+    );
+    expect(alertSpy).toHaveBeenCalledWith('Save', 'SOS message template saved.');
+    alertSpy.mockRestore();
+  });
+
+  it('resets custom SOS template to default when Reset is pressed', async () => {
+    const { getByText, getByLabelText } = await render(<SettingsScreen />);
+    const input = getByLabelText('Custom SOS Alert Message');
+    await fireEvent.changeText(input, 'temporary text');
+
+    await fireEvent.press(getByText('Reset'));
+
+    expect(AsyncStorage.removeItem).toHaveBeenCalledWith('surakshak_custom_sos_message_template');
+  });
 });
