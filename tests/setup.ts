@@ -266,6 +266,7 @@ jest.mock('surakshak-native', () => ({
     Promise.resolve(phones.map((phone) => ({ success: true, phone, method: 'direct' as const }))),
   ),
   checkSmsPermission: jest.fn(() => Promise.resolve(true)),
+  isAirplaneModeOn: jest.fn(() => Promise.resolve(false)),
   setProximityScreenOff: jest.fn(() => Promise.resolve()),
   setAppIcon: jest.fn(() => Promise.resolve()),
   placeCallDirectly: jest.fn((phone: string) =>

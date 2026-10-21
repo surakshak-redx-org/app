@@ -21,6 +21,14 @@ export async function scheduleLocalNotification(
   identifier?: string,
 ): Promise<string> {
   try {
+    if (typeof Notifications.getPermissionsAsync === 'function') {
+      const permissions = await Notifications.getPermissionsAsync().catch(() => null);
+      if (permissions !== null && !permissions.granted) {
+        console.warn('scheduleLocalNotification: permission not granted, skipping notification');
+        return '';
+      }
+    }
+
     return await Notifications.scheduleNotificationAsync({
       // A fixed identifier makes `cancelLocalNotification(identifier)` work;
       // without one Expo generates a random id the caller never sees.

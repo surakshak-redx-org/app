@@ -47,7 +47,7 @@ async function cancelJourneyNotifications(): Promise<void> {
  * heads-up shortly before the deadline, and an "are you safe?" at it.
  */
 async function scheduleJourneyNotifications(deadline: number, now: number): Promise<void> {
-  await cancelJourneyNotifications();
+  await cancelJourneyNotifications().catch(() => undefined);
   const secondsLeft = Math.floor((deadline - now) / MS_PER_SECOND);
   const warnInSeconds = secondsLeft - APP_CONFIG.SAFE_JOURNEY_ALERT_WARN_SECONDS;
   if (warnInSeconds > 0) {
@@ -57,7 +57,7 @@ async function scheduleJourneyNotifications(deadline: number, now: number): Prom
       warnInSeconds,
       { type: 'safe_journey' },
       WARNING_NOTIFICATION_ID,
-    );
+    ).catch(() => undefined);
   }
   await scheduleLocalNotification(
     i18n.t('location.journeyDueTitle'),
@@ -65,7 +65,7 @@ async function scheduleJourneyNotifications(deadline: number, now: number): Prom
     secondsLeft,
     { type: 'safe_journey' },
     DUE_NOTIFICATION_ID,
-  );
+  ).catch(() => undefined);
 }
 
 /** Texts the journey's contacts that she has not checked in. */
@@ -158,14 +158,15 @@ export function useSafeJourneyMonitor(userId: string | null): void {
       if (deadline > now) {
         setSafeJourneyActive(true, session.id);
         await scheduleJourneyNotifications(deadline, now);
-        timerRef.current = setTimeout(
-          () => void checkRef.current(),
-          deadline - now + DEADLINE_GRACE_MS,
-        );
+        // Clamp timeout delay to at most 30s: if the user or OS changes the
+        // device clock backward or across timezones, the watchdog re-evaluates
+        // within 30 seconds rather than locking the timer for hours.
+        const delayMs = Math.min(Math.max(deadline - now + DEADLINE_GRACE_MS, 0), 30_000);
+        timerRef.current = setTimeout(() => void checkRef.current(), delayMs);
         return;
       }
 
-      await cancelJourneyNotifications();
+      await cancelJourneyNotifications().catch(() => undefined);
       if (now - deadline > APP_CONFIG.SAFE_JOURNEY_STALE_HOURS * MS_PER_HOUR) {
         await cancelSafeJourney(session.id);
       } else {

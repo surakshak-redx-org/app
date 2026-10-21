@@ -6,6 +6,7 @@ import type { CallResult, SendSmsResult } from './SurakshakNative.types';
 interface SurakshakNativeModuleInterface {
   sendSms: (phoneNumber: string, message: string) => Promise<string>;
   checkSmsPermission: () => Promise<boolean>;
+  isAirplaneModeOn: () => Promise<boolean>;
   placeCall: (phoneNumber: string) => Promise<string>;
   setProximityScreenOff: (enabled: boolean) => Promise<void>;
   setAppIcon: (name: string | null) => Promise<void>;
@@ -75,6 +76,16 @@ export async function sendSmsToContacts(
 /** Whether `SEND_SMS` is currently granted (Android only; always `true` on iOS). */
 export async function checkSmsPermission(): Promise<boolean> {
   return NativeModule.checkSmsPermission();
+}
+
+/** Whether Airplane mode is active on the device (Android only; returns false on iOS). */
+export async function isAirplaneModeOn(): Promise<boolean> {
+  if (Platform.OS !== 'android') return false;
+  try {
+    return await NativeModule.isAirplaneModeOn();
+  } catch {
+    return false;
+  }
 }
 
 /**

@@ -36,7 +36,9 @@ async function triggerFollowAlert(): Promise<void> {
     'You may be being followed. Tap for safety options.',
     0,
     { type: 'suspicious_follow' },
-  );
+  ).catch((err) => {
+    console.warn('triggerFollowAlert: notification failed or permission denied:', err);
+  });
 }
 
 /**

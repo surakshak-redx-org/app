@@ -18,6 +18,7 @@ import android.media.MediaPlayer
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
+import android.provider.Settings
 import android.telephony.SmsManager
 import android.view.WindowManager
 import androidx.core.content.ContextCompat
@@ -149,6 +150,16 @@ OnDestroy {
         return@AsyncFunction
       }
 
+      val isAirplaneModeOn = Settings.Global.getInt(
+        context.contentResolver,
+        Settings.Global.AIRPLANE_MODE_ON,
+        0
+      ) != 0
+      if (isAirplaneModeOn) {
+        promise.reject("AIRPLANE_MODE_ON", "Airplane mode is enabled", null)
+        return@AsyncFunction
+      }
+
       try {
         val smsManager = context.getSystemService(SmsManager::class.java) ?: SmsManager.getDefault()
         val normalizedMessage = Normalizer.normalize(message, Normalizer.Form.NFC)
@@ -204,6 +215,20 @@ OnDestroy {
         ContextCompat.checkSelfPermission(context, Manifest.permission.SEND_SMS) ==
           PackageManager.PERMISSION_GRANTED
       promise.resolve(granted)
+    }
+
+    AsyncFunction("isAirplaneModeOn") { promise: expo.modules.kotlin.Promise ->
+      val context = appContext.reactContext
+      if (context == null) {
+        promise.resolve(false)
+        return@AsyncFunction
+      }
+      val isAirplaneMode = Settings.Global.getInt(
+        context.contentResolver,
+        Settings.Global.AIRPLANE_MODE_ON,
+        0
+      ) != 0
+      promise.resolve(isAirplaneMode)
     }
 
     /**
@@ -369,7 +394,20 @@ OnDestroy {
       )
 
     handler.postAtTime(
-      { settle { promise.resolve("sent_unconfirmed") } },
+      {
+        val isAirplane = Settings.Global.getInt(
+          context.contentResolver,
+          Settings.Global.AIRPLANE_MODE_ON,
+          0
+        ) != 0
+        settle {
+          if (isAirplane) {
+            promise.reject("AIRPLANE_MODE_ON", "Airplane mode is enabled", null)
+          } else {
+            promise.resolve("sent_unconfirmed")
+          }
+        }
+      },
       action,
       android.os.SystemClock.uptimeMillis() + SEND_RESULT_TIMEOUT_MS,
     )
@@ -425,7 +463,7 @@ OnDestroy {
     private const val DEFAULT_LAUNCHER_ALIAS = "DefaultLauncher"
     private const val CALCULATOR_LAUNCHER_ALIAS = "CalculatorLauncher"
     private const val CALCULATOR_ICON_NAME = "calculator"
-    private const val SEND_RESULT_TIMEOUT_MS = 30_000L
+    private const val SEND_RESULT_TIMEOUT_MS = 8_000L
     /** Safety net so a wake lock is never held forever if JS never releases it. */
     private const val PROXIMITY_WAKE_LOCK_MAX_MS = 60 * 60 * 1000L
   }

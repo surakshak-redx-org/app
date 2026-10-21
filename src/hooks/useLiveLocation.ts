@@ -81,6 +81,13 @@ export function registerLiveLocationTask(): void {
       const fix = data?.locations?.[0];
       if (fix === undefined) return;
 
+      useLocationStore.getState().setCurrentLocation({
+        latitude: fix.coords.latitude,
+        longitude: fix.coords.longitude,
+        timestamp: fix.timestamp,
+        ...(fix.coords.accuracy != null ? { accuracy: fix.coords.accuracy } : {}),
+      });
+
       const sessionId = await AsyncStorage.getItem(STORAGE_KEYS.LIVE_LOCATION_SESSION_ID);
       const sessionUserId = await AsyncStorage.getItem(STORAGE_KEYS.LIVE_LOCATION_USER_ID);
 

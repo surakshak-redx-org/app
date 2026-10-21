@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SMS from 'expo-sms';
 import { Platform } from 'react-native';
-import { checkSmsPermission, sendSmsToContacts } from 'surakshak-native';
+import { checkSmsPermission, isAirplaneModeOn, sendSmsToContacts } from 'surakshak-native';
 
 import {
   clearPendingOutbox,
@@ -74,6 +74,37 @@ describe('sms.service', () => {
         expect.stringContaining('Asha'),
       );
       expect(result).toEqual({ sent: ['+919876543210'], failed: [] });
+    });
+
+    it('detects Airplane mode, flags isAirplaneMode, marks recipients failed, and enqueues to outbox', async () => {
+      jest.mocked(isAirplaneModeOn).mockResolvedValueOnce(true);
+
+      const result = await sendSOSAlert([contact()], 'https://maps.example/1', 'Asha', 'en');
+
+      expect(mockedSendSmsToContacts).not.toHaveBeenCalled();
+      expect(mockedSendSMSAsync).not.toHaveBeenCalled();
+      expect(result).toEqual({ sent: [], failed: ['+919876543210'], isAirplaneMode: true });
+
+      const pending = await getPendingOutbox();
+      expect(pending.length).toBe(1);
+      expect(pending[0]?.recipients).toEqual(['+919876543210']);
+    });
+
+    it('handles native AIRPLANE_MODE_ON error during silent send', async () => {
+      mockedSendSmsToContacts.mockResolvedValueOnce([
+        {
+          success: false,
+          phone: '+919876543210',
+          error: 'AIRPLANE_MODE_ON: Airplane mode',
+          method: 'direct',
+        },
+      ]);
+
+      const result = await sendSOSAlert([contact()], 'https://maps.example/1', 'Asha', 'en');
+
+      expect(result).toEqual({ sent: [], failed: ['+919876543210'], isAirplaneMode: true });
+      const pending = await getPendingOutbox();
+      expect(pending.length).toBe(1);
     });
 
     it('falls back to the compose sheet when SEND_SMS has not been granted and enqueues to outbox', async () => {

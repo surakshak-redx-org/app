@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SMS from 'expo-sms';
 import { Platform } from 'react-native';
-import { checkSmsPermission, sendSmsToContacts } from 'surakshak-native';
+import { checkSmsPermission, isAirplaneModeOn, sendSmsToContacts } from 'surakshak-native';
 
 import { SMS_HISTORY_LIMIT } from '@/constants/config';
 import { STORAGE_KEYS } from '@/constants/storage';
@@ -154,9 +154,28 @@ export async function flushPendingOutbox(): Promise<{ dispatched: number }> {
 async function dispatch(recipients: string[], message: string): Promise<SMSAlertResult> {
   if (recipients.length === 0) return { sent: [], failed: [] };
 
+  const isAirplane = await isAirplaneModeOn();
+  if (isAirplane) {
+    if (Platform.OS === 'android') {
+      await enqueuePendingOutbox(recipients, message);
+    }
+    return { sent: [], failed: recipients, isAirplaneMode: true };
+  }
+
   if (await canSendSilently()) {
     try {
       const results = await sendSmsToContacts(recipients, message);
+      const hasAirplaneError = results.some(
+        (sendResult) =>
+          !sendResult.success &&
+          sendResult.error !== undefined &&
+          (sendResult.error.includes('AIRPLANE_MODE_ON') ||
+            sendResult.error.toLowerCase().includes('airplane mode')),
+      );
+      if (hasAirplaneError) {
+        await enqueuePendingOutbox(recipients, message);
+        return { sent: [], failed: recipients, isAirplaneMode: true };
+      }
       return {
         sent: results
           .filter((sendResult) => sendResult.success)
