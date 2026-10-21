@@ -38,6 +38,7 @@ const TYPE_ICON: Record<PostType, keyof typeof MaterialIcons.glyphMap> = {
   location: 'place',
   image: 'image',
   help_request: 'sos',
+  incident: 'warning',
 };
 
 const TYPE_LABEL_KEY: Record<PostType, string> = {
@@ -45,6 +46,7 @@ const TYPE_LABEL_KEY: Record<PostType, string> = {
   location: 'community.shareLocation',
   image: 'community.shareImage',
   help_request: 'community.helpRequest',
+  incident: 'community.incidentAlert',
 };
 
 export default function CommunityScreen(): React.JSX.Element {
