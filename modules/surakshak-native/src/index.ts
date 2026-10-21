@@ -1,4 +1,5 @@
 import { requireNativeModule } from 'expo-modules-core';
+import { Platform } from 'react-native';
 
 import type { CallResult, SendSmsResult } from './SurakshakNative.types';
 
@@ -94,6 +95,9 @@ export async function placeCallDirectly(phone: string): Promise<CallResult> {
  * sensor simply keep the screen on.
  */
 export async function setProximityScreenOff(enabled: boolean): Promise<void> {
+  if (Platform.OS !== 'ios') {
+    return;
+  }
   await NativeModule.setProximityScreenOff(enabled);
 }
 

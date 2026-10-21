@@ -60,4 +60,15 @@ describe('sanitizeDiagnostics', () => {
     expect(result.message).toBe('Failed at [PHONE_REDACTED]');
     expect(result.stack).toBeDefined();
   });
+
+  it('safely handles objects with throwing getters without crashing', () => {
+    const throwingObj = {
+      name: 'test',
+      get throwProp() {
+        throw new Error('Getter error');
+      },
+    };
+    expect(() => sanitizeDiagnostics(throwingObj)).not.toThrow();
+    expect(sanitizeDiagnostics(throwingObj)).toBe('[UNSERIALIZABLE]');
+  });
 });

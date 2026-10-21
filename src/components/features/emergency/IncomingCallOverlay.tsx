@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { type AudioPlayer, createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Modal, Pressable, Vibration, View } from 'react-native';
+import { Modal, Platform, Pressable, Vibration, View } from 'react-native';
 import { setProximityScreenOff } from 'surakshak-native';
 
 import { Text } from '@/components/ui/Text';
@@ -101,7 +101,7 @@ export function IncomingCallOverlay({
   // a fake call that stays lit was a giveaway (BUG-005).
   const inCall = visible && answered;
   useEffect(() => {
-    if (!inCall) return;
+    if (!inCall || Platform.OS !== 'ios') return;
     setProximityScreenOff(true).catch((error: unknown) => captureException(error));
     return (): void => {
       setProximityScreenOff(false).catch((error: unknown) => captureException(error));
@@ -139,8 +139,9 @@ export function IncomingCallOverlay({
 
         <View className="w-full max-w-sm flex-row justify-around self-center">
           {answered ? (
-            <View className="items-center">
+            <View key="answered-controls" className="items-center">
               <Pressable
+                key="end-call-button"
                 onPress={onDecline}
                 accessibilityRole="button"
                 accessibilityLabel={t('emergency.endCall')}
@@ -153,9 +154,10 @@ export function IncomingCallOverlay({
               <Text variant="caption" tKey="emergency.endCall" className="mt-3 text-stone-300" />
             </View>
           ) : (
-            <>
+            <View key="ringing-controls" className="w-full flex-row justify-around">
               <View className="items-center">
                 <Pressable
+                  key="decline-button"
                   onPress={onDecline}
                   accessibilityRole="button"
                   accessibilityLabel={t('emergency.decline')}
@@ -169,6 +171,7 @@ export function IncomingCallOverlay({
               </View>
               <View className="items-center">
                 <Pressable
+                  key="answer-button"
                   onPress={handleAnswer}
                   accessibilityRole="button"
                   accessibilityLabel={t('emergency.answer')}
@@ -178,7 +181,7 @@ export function IncomingCallOverlay({
                 </Pressable>
                 <Text variant="caption" tKey="emergency.answer" className="mt-3 text-stone-300" />
               </View>
-            </>
+            </View>
           )}
         </View>
       </View>
