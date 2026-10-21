@@ -7643,6 +7643,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"expo-media-library@npm:~57.0.5":
+  version: 57.0.5
+  resolution: "expo-media-library@npm:57.0.5"
+  peerDependencies:
+    expo: "*"
+    react-native: "*"
+  checksum: 10c0/43edf8da5d6dfad8c94b2d00c1f7c17d7400b4f78cf19e4c5d86f6452be885e612863cb9c5821314a5da83c175a3fbde7ff0293e6d634aed7e259408757d26fe
+  languageName: node
+  linkType: hard
+
 "expo-modules-autolinking@npm:~57.0.12":
   version: 57.0.12
   resolution: "expo-modules-autolinking@npm:57.0.12"
@@ -14510,6 +14520,7 @@ __metadata:
     expo-linking: "npm:~57.0.9"
     expo-localization: "npm:~57.0.1"
     expo-location: "npm:~57.0.16"
+    expo-media-library: "npm:~57.0.5"
     expo-modules-core: "npm:~57.0.17"
     expo-notifications: "npm:~57.0.17"
     expo-router: "npm:~57.0.20"

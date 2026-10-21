@@ -11,6 +11,7 @@
  * silently passing. `jest.mock` calls are hoisted above it by babel-jest, so
  * the mocks below still apply.
  */
+import 'react-native-gesture-handler/jestSetup';
 import * as mockReact from 'react';
 
 import '@/i18n';
@@ -60,10 +61,14 @@ jest.mock('expo-file-system', () => {
   class MockFile {
     exists = false;
     size = 1024;
+    uri = 'file:///mock/file.jpg';
     text = jest.fn(() => Promise.resolve('{}'));
     write = jest.fn();
     create = jest.fn();
     delete = jest.fn();
+    static downloadFileAsync = jest.fn((_url: string, destination: { uri?: string }) =>
+      Promise.resolve({ uri: destination.uri ?? 'file:///mock/downloaded.jpg' }),
+    );
   }
   class MockDirectory {
     exists = true;
@@ -99,6 +104,13 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 
 jest.mock('expo-image-picker', () => ({
   launchImageLibraryAsync: jest.fn(() => Promise.resolve({ canceled: true })),
+}));
+
+jest.mock('expo-media-library', () => ({
+  requestPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted', granted: true })),
+  getPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted', granted: true })),
+  saveToLibraryAsync: jest.fn(() => Promise.resolve()),
+  createAssetAsync: jest.fn((uri: string) => Promise.resolve({ uri })),
 }));
 
 // Native permission modules pulled in transitively by `@/utils/permissions.utils`.
