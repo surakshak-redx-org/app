@@ -20,6 +20,7 @@ import { Text } from '@/components/ui/Text';
 import { captureException } from '@/config/sentry';
 import { COLORS } from '@/constants/colors';
 import { APP_CONFIG, SAFE_JOURNEY_ETA_PRESETS_MINUTES } from '@/constants/config';
+import { ROUTES } from '@/constants/routes';
 import { ICON_SIZE, TIMING } from '@/constants/ui';
 import { trackSafeJourneyArrived, trackSafeJourneyStarted } from '@/services/analytics.service';
 import {
@@ -68,6 +69,7 @@ export default function SafeJourneyScreen(): React.JSX.Element {
   const surakshakUser = useAuthStore((state) => state.surakshakUser);
   const rawUser = useAuthStore((state) => state.user);
   const isGuest = useAuthStore((state) => state.isGuest);
+  const setGuestSigningIn = useAuthStore((state) => state.setGuestSigningIn);
   const userId = surakshakUser?.userId ?? rawUser?.uid ?? null;
 
   const emergencyContacts = useUserStore((state) => state.emergencyContacts);
@@ -596,7 +598,22 @@ export default function SafeJourneyScreen(): React.JSX.Element {
                 selectedContactIds.length === 0 ||
                 isLoading
               }
-              onPress={() => void handleSubmit(handleStart)()}
+              onPress={() => {
+                if (isGuest) {
+                  Alert.alert(t('home.guestFeatureLockedTitle'), t('home.guestFeatureLockedBody'), [
+                    { text: t('common.cancel'), style: 'cancel' },
+                    {
+                      text: t('profile.signInNow'),
+                      onPress: (): void => {
+                        setGuestSigningIn(true);
+                        router.push(ROUTES.WELCOME);
+                      },
+                    },
+                  ]);
+                  return;
+                }
+                void handleSubmit(handleStart)();
+              }}
             />
           </View>
         )}

@@ -129,4 +129,23 @@ describe('EmergencyContactsScreen', () => {
       expect(alertSpy).toHaveBeenCalledWith('Could not delete the contact. Please try again.');
     });
   });
+
+  it('renders guest banner and prompts sign-in when guest taps Add Contact (BUG-141)', async () => {
+    useAuthStore.setState({ isGuest: true });
+    const alertSpy = jest.spyOn(Alert, 'alert');
+    const { getByText } = await render(<EmergencyContactsScreen />);
+
+    expect(getByText(/sign in to access all features/i)).toBeTruthy();
+
+    const addBtn = getByText('Add Contact');
+    await fireEvent.press(addBtn);
+
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Sign in required',
+      expect.stringContaining(
+        "This feature saves data to your account, so guest mode can't use it.",
+      ),
+      expect.any(Array),
+    );
+  });
 });
