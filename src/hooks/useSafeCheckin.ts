@@ -24,6 +24,9 @@ const NOTIFICATION_ID = 'surakshak_checkin';
 const REMINDER_DELAY_SECONDS = 5 * 60;
 const MS_PER_MINUTE = 60_000;
 
+const listeners = new Map<string, () => void>();
+let nextInstanceId = 0;
+
 export interface UseSafeCheckinResult {
   isActive: boolean;
   intervalMinutes: number;
@@ -55,8 +58,30 @@ export function useSafeCheckin(): UseSafeCheckinResult {
   const [nextCheckInAt, setNextCheckInAt] = useState<Date | null>(null);
   const [missedCount, setMissedCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [revision, setRevision] = useState(0);
 
   const checkingRef = useRef(false);
+  const instanceIdRef = useRef<string | null>(null);
+  if (instanceIdRef.current == null) {
+    instanceIdRef.current = String(++nextInstanceId);
+  }
+
+  const notifyOtherInstances = useCallback((): void => {
+    for (const [id, listener] of listeners) {
+      if (id !== instanceIdRef.current) {
+        listener();
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const id = instanceIdRef.current;
+    if (id == null) return;
+    listeners.set(id, () => setRevision((r) => r + 1));
+    return (): void => {
+      listeners.delete(id);
+    };
+  }, []);
 
   const stop = useCallback(async (): Promise<void> => {
     setIsActive(false);
@@ -70,7 +95,8 @@ export function useSafeCheckin(): UseSafeCheckinResult {
       STORAGE_KEYS.CHECKIN_MISSED_COUNT,
     ]);
     await cancelLocalNotification(NOTIFICATION_ID).catch(() => undefined);
-  }, []);
+    notifyOtherInstances();
+  }, [notifyOtherInstances]);
 
   const sendMissedAlert = useCallback(async (): Promise<void> => {
     try {
@@ -135,15 +161,18 @@ export function useSafeCheckin(): UseSafeCheckinResult {
         i18n.t('safeCheckin.notificationBody'),
         REMINDER_DELAY_SECONDS,
         { type: 'safe_checkin' },
-      );
+        NOTIFICATION_ID,
+      ).catch(() => undefined);
+      notifyOtherInstances();
     } catch (error) {
       captureException(error);
     } finally {
       checkingRef.current = false;
     }
-  }, [sendMissedAlert, stop]);
+  }, [sendMissedAlert, stop, notifyOtherInstances]);
 
-  // Restore persisted state on mount, then reconcile against the clock.
+  // Restore persisted state on mount or when another screen updates safe-checkin,
+  // then reconcile against the clock.
   useEffect(() => {
     async function restore(): Promise<void> {
       try {
@@ -172,6 +201,8 @@ export function useSafeCheckin(): UseSafeCheckinResult {
         const storedNextAt = stored.get(STORAGE_KEYS.CHECKIN_NEXT_AT);
         if (active && storedNextAt !== null && storedNextAt !== undefined) {
           setNextCheckInAt(new Date(storedNextAt));
+        } else if (!active) {
+          setNextCheckInAt(null);
         }
 
         const storedMissed = stored.get(STORAGE_KEYS.CHECKIN_MISSED_COUNT);
@@ -186,7 +217,7 @@ export function useSafeCheckin(): UseSafeCheckinResult {
     }
 
     void restore();
-  }, []);
+  }, [revision]);
 
   // Reconcile against the clock once restore has finished, then again every
   // time the app returns to foreground — this is how a missed check-in is
@@ -232,9 +263,11 @@ export function useSafeCheckin(): UseSafeCheckinResult {
       i18n.t('safeCheckin.notificationBody'),
       intervalMinutes * 60,
       { type: 'safe_checkin' },
-    );
+      NOTIFICATION_ID,
+    ).catch(() => undefined);
     trackSafeCheckinStarted(intervalMinutes);
-  }, [intervalMinutes, selectedContactIds]);
+    notifyOtherInstances();
+  }, [intervalMinutes, selectedContactIds, notifyOtherInstances]);
 
   const checkIn = useCallback(async (): Promise<void> => {
     const nextAt = new Date(Date.now() + intervalMinutes * MS_PER_MINUTE);
@@ -248,8 +281,10 @@ export function useSafeCheckin(): UseSafeCheckinResult {
       i18n.t('safeCheckin.notificationBody'),
       intervalMinutes * 60,
       { type: 'safe_checkin' },
-    );
-  }, [intervalMinutes]);
+      NOTIFICATION_ID,
+    ).catch(() => undefined);
+    notifyOtherInstances();
+  }, [intervalMinutes, notifyOtherInstances]);
 
   return {
     isActive,

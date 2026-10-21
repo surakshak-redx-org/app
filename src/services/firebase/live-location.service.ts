@@ -40,10 +40,26 @@ export async function createLiveLocationSession(
   durationHours: number,
   initialLat: number,
   initialLng: number,
+  deviceId?: string,
 ): Promise<string> {
   try {
+    // BUG-136: Deactivate any other active live location sessions for this user
+    // to prevent dual-device logins or multiple concurrent sessions from overwriting each other.
+    try {
+      const activeExisting = await getDocs(
+        query(sessionsCollection(), where('userId', '==', userId), where('isActive', '==', true)),
+      );
+      await Promise.all(
+        activeExisting.docs.map((docSnap) =>
+          updateDoc(docSnap.ref, { isActive: false }).catch(() => undefined),
+        ),
+      );
+    } catch (cleanupError) {
+      console.warn('createLiveLocationSession: could not cleanup old sessions:', cleanupError);
+    }
+
     const expiresAt = new Date(Date.now() + durationHours * MS_PER_HOUR);
-    const created = await addDoc(sessionsCollection(), {
+    const sessionPayload: Record<string, unknown> = {
       userId,
       latitude: initialLat,
       longitude: initialLng,
@@ -52,7 +68,12 @@ export async function createLiveLocationSession(
       startedAt: serverTimestamp(),
       expiresAt: Timestamp.fromDate(expiresAt),
       isActive: true,
-    });
+    };
+    if (deviceId !== undefined) {
+      sessionPayload.deviceId = deviceId;
+    }
+
+    const created = await addDoc(sessionsCollection(), sessionPayload);
     return created.id;
   } catch (error) {
     console.error('createLiveLocationSession failed:', error);
@@ -69,6 +90,7 @@ export async function updateLiveLocation(
   latitude: number,
   longitude: number,
   expectedUserId?: string,
+  expectedDeviceId?: string,
 ): Promise<void> {
   try {
     const snapshot = await getDoc(sessionDoc(sessionId));
@@ -84,6 +106,14 @@ export async function updateLiveLocation(
 
     if (expectedUserId !== undefined && data.userId !== expectedUserId) {
       throw new Error('Live-location session belongs to another user');
+    }
+
+    if (
+      expectedDeviceId !== undefined &&
+      data.deviceId !== undefined &&
+      data.deviceId !== expectedDeviceId
+    ) {
+      throw new Error('Live-location session belongs to another device');
     }
 
     await updateDoc(sessionDoc(sessionId), {

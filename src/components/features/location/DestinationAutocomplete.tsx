@@ -64,9 +64,17 @@ export function DestinationAutocomplete({
       justPickedRef.current = true;
       setDismissed(true);
       setSuggestions([]);
-      onChangeText(suggestion.primaryText);
+      const fallbackText = suggestion.primaryText.trim() || suggestion.secondaryText.trim();
+      onChangeText(fallbackText);
       getPlaceLocation(suggestion.placeId)
-        .then((place) => onSelectPlace(place))
+        .then((place) => {
+          const finalName =
+            place.name && place.name.trim().length >= 2 ? place.name.trim() : fallbackText;
+          onSelectPlace({
+            ...place,
+            name: finalName,
+          });
+        })
         .catch((detailsError: unknown) => captureException(detailsError));
     },
     [onChangeText, onSelectPlace],

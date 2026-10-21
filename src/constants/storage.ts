@@ -20,18 +20,23 @@ export const STORAGE_KEYS = {
   EMERGENCY_CONTACTS_CACHE: 'surakshak_emergency_contacts_cache',
   /** `JSON.stringify`'d `OfflineUserCache` (name + language), same fallback use. */
   USER_INFO_CACHE: 'surakshak_user_info_cache',
-  /**
-   * Id of the currently active live-location session. Read by the background
-   * location task (which has no access to the Zustand store) to know which
-   * Firestore document to push coordinates into.
-   */
+  /** Persistent unique identifier for this app installation/device. */
+  DEVICE_ID: 'surakshak_device_id',
+  /** Id of the currently active live-location session. */
   LIVE_LOCATION_SESSION_ID: 'surakshak_live_session_id',
   LIVE_LOCATION_USER_ID: 'surakshak_live_session_user_id',
+  LIVE_LOCATION_DEVICE_ID: 'surakshak_live_session_device_id',
   /**
    * Timestamp in milliseconds (as string) when the currently active live-location
    * session expires. Used by the background location task to self-terminate.
    */
   LIVE_LOCATION_EXPIRES_AT: 'surakshak_live_session_expires_at',
+  /** Safe Journey persistent session state to prevent watchdog orphaning across OTA/reloads (BUG-137). */
+  SAFE_JOURNEY_SESSION_ID: 'surakshak_safe_journey_session_id',
+  SAFE_JOURNEY_DEADLINE: 'surakshak_safe_journey_deadline',
+  SAFE_JOURNEY_USER_ID: 'surakshak_safe_journey_user_id',
+  /** Timestamp in milliseconds until which OTP resend is throttled across restarts (BUG-139 / BUG-150). */
+  OTP_RESEND_DEADLINE: 'surakshak_otp_resend_deadline',
   /** `'false'` disables the suspicious-follow alert; absent means enabled. */
   FOLLOW_DETECTION_ENABLED: 'surakshak_follow_detection_enabled',
   /** `'true'` while a Safe Check-In session is running. */

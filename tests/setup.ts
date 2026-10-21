@@ -42,6 +42,17 @@ jest.mock('@react-native-firebase/firestore', () => ({
   setDoc: jest.fn(() => Promise.resolve()),
   updateDoc: jest.fn(() => Promise.resolve()),
   deleteDoc: jest.fn(() => Promise.resolve()),
+  runTransaction: jest.fn(
+    (_firestore: unknown, updateFunction: (transaction: unknown) => Promise<unknown>) =>
+      updateFunction({
+        get: jest.fn(() =>
+          Promise.resolve({ exists: () => false, id: 'test-uid', data: () => undefined }),
+        ),
+        update: jest.fn(() => Promise.resolve()),
+        set: jest.fn(() => Promise.resolve()),
+        delete: jest.fn(() => Promise.resolve()),
+      }),
+  ),
   serverTimestamp: jest.fn(() => ({ __serverTimestamp: true })),
 }));
 
@@ -266,6 +277,7 @@ jest.mock('surakshak-native', () => ({
     Promise.resolve(phones.map((phone) => ({ success: true, phone, method: 'direct' as const }))),
   ),
   checkSmsPermission: jest.fn(() => Promise.resolve(true)),
+  isAirplaneModeOn: jest.fn(() => Promise.resolve(false)),
   setProximityScreenOff: jest.fn(() => Promise.resolve()),
   setAppIcon: jest.fn(() => Promise.resolve()),
   placeCallDirectly: jest.fn((phone: string) =>
@@ -274,6 +286,10 @@ jest.mock('surakshak-native', () => ({
   startSiren: jest.fn(() => Promise.resolve()),
   stopSiren: jest.fn(() => Promise.resolve()),
   setSecureScreen: jest.fn(() => Promise.resolve()),
+  scheduleFakeCall: jest.fn(() => Promise.resolve()),
+  cancelScheduledFakeCall: jest.fn(() => Promise.resolve()),
+  getPendingFakeCall: jest.fn(() => Promise.resolve(null)),
+  canUseFullScreenIntent: jest.fn(() => Promise.resolve(true)),
 }));
 
 jest.mock('@expo-google-fonts/noto-sans-devanagari', () => ({

@@ -48,11 +48,29 @@ describe('DeviceContactPickerModal', () => {
     await fireEvent.press(contact);
     expect(onPick).toHaveBeenCalledWith({
       name: 'Ma',
-      phone: '98765 43210',
+      phone: '+919876543210',
       relationship: '',
     });
   });
 
+  it('does not import an Indian landline as a mobile number', async () => {
+    mockGetContactsAsync.mockResolvedValue({
+      data: [
+        { id: 'landline', name: 'Landline Contact', phoneNumbers: [{ number: '(022) 2410-1234' }] },
+      ],
+    });
+    const onPick = jest.fn();
+    const { findByText } = await render(
+      <DeviceContactPickerModal
+        visible
+        existingPhones={new Set<string>()}
+        onPick={onPick}
+        onClose={jest.fn()}
+      />,
+    );
+    await fireEvent.press(await findByText('Landline Contact'));
+    expect(onPick).not.toHaveBeenCalled();
+  });
   it('closes with a permission alert when contacts access is denied', async () => {
     jest
       .mocked(Contacts.requestPermissionsAsync)

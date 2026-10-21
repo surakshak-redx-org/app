@@ -60,6 +60,7 @@ describe('SafeCheckinScreen', () => {
       expect.any(String),
       30 * 60,
       { type: 'safe_checkin' },
+      'surakshak_checkin',
     );
     expect(getByText('Check-In Active')).toBeTruthy();
   });

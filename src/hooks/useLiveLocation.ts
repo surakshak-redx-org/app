@@ -32,6 +32,14 @@ import { requestBackgroundLocationPermission } from '@/utils/permissions.utils';
 const BACKGROUND_LOCATION_TASK = 'surakshak-live-location';
 const MS_PER_HOUR = 60 * 60 * 1000;
 
+async function getOrCreateDeviceId(): Promise<string> {
+  const existing = await AsyncStorage.getItem(STORAGE_KEYS.DEVICE_ID);
+  if (existing !== null) return existing;
+  const newId = `dev_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+  await AsyncStorage.setItem(STORAGE_KEYS.DEVICE_ID, newId);
+  return newId;
+}
+
 interface LocationTaskData {
   locations: Location.LocationObject[];
 }
@@ -81,12 +89,26 @@ export function registerLiveLocationTask(): void {
       const fix = data?.locations?.[0];
       if (fix === undefined) return;
 
+      useLocationStore.getState().setCurrentLocation({
+        latitude: fix.coords.latitude,
+        longitude: fix.coords.longitude,
+        timestamp: fix.timestamp,
+        ...(fix.coords.accuracy != null ? { accuracy: fix.coords.accuracy } : {}),
+      });
+
       const sessionId = await AsyncStorage.getItem(STORAGE_KEYS.LIVE_LOCATION_SESSION_ID);
       const sessionUserId = await AsyncStorage.getItem(STORAGE_KEYS.LIVE_LOCATION_USER_ID);
+      const sessionDeviceId = await AsyncStorage.getItem(STORAGE_KEYS.LIVE_LOCATION_DEVICE_ID);
 
       if (sessionId === null || sessionUserId === null) return;
 
-      await updateLiveLocation(sessionId, fix.coords.latitude, fix.coords.longitude, sessionUserId);
+      await updateLiveLocation(
+        sessionId,
+        fix.coords.latitude,
+        fix.coords.longitude,
+        sessionUserId,
+        sessionDeviceId ?? undefined,
+      );
     } catch (taskError) {
       captureException(taskError);
     }
@@ -126,6 +148,7 @@ export function useLiveLocation(): UseLiveLocationResult {
     await AsyncStorage.multiRemove([
       STORAGE_KEYS.LIVE_LOCATION_SESSION_ID,
       STORAGE_KEYS.LIVE_LOCATION_USER_ID,
+      STORAGE_KEYS.LIVE_LOCATION_DEVICE_ID,
       STORAGE_KEYS.LIVE_LOCATION_EXPIRES_AT,
     ]);
     setLiveLocationActive(false);
@@ -147,9 +170,22 @@ export function useLiveLocation(): UseLiveLocationResult {
     if (userId === null) return;
     let cancelled = false;
 
-    void getActiveLiveSession(userId)
-      .then((session) => {
+    const sessionPromise = getActiveLiveSession(userId);
+    const localSessionPromise = AsyncStorage.getItem(STORAGE_KEYS.LIVE_LOCATION_SESSION_ID);
+    const localDevicePromise = getOrCreateDeviceId();
+
+    void Promise.all([sessionPromise, localSessionPromise, localDevicePromise])
+      .then(([session, localSessionId, currentDeviceId]) => {
         if (cancelled || session === null || !session.isActive) return;
+        // BUG-136: If this active session in Firestore belongs to another device
+        // and was not started on this device, do not hijack or overwrite its tracking.
+        if (
+          session.deviceId &&
+          session.deviceId !== currentDeviceId &&
+          session.id !== localSessionId
+        ) {
+          return;
+        }
         const expiry = session.expiresAt.toDate();
         if (expiry > new Date()) {
           setLiveLocationActive(true, session.id);
@@ -157,12 +193,16 @@ export function useLiveLocation(): UseLiveLocationResult {
           setSharedWithCount(session.sharedWithUserIds.length);
           void AsyncStorage.multiSet([
             [STORAGE_KEYS.LIVE_LOCATION_SESSION_ID, session.id],
+            [STORAGE_KEYS.LIVE_LOCATION_USER_ID, userId],
+            [STORAGE_KEYS.LIVE_LOCATION_DEVICE_ID, session.deviceId ?? currentDeviceId],
             [STORAGE_KEYS.LIVE_LOCATION_EXPIRES_AT, String(expiry.getTime())],
           ]);
         } else {
           void stopLiveLocationSession(session.id);
           void AsyncStorage.multiRemove([
             STORAGE_KEYS.LIVE_LOCATION_SESSION_ID,
+            STORAGE_KEYS.LIVE_LOCATION_USER_ID,
+            STORAGE_KEYS.LIVE_LOCATION_DEVICE_ID,
             STORAGE_KEYS.LIVE_LOCATION_EXPIRES_AT,
           ]);
         }
@@ -188,17 +228,21 @@ export function useLiveLocation(): UseLiveLocationResult {
       if (userId === null) throw new Error('Not authenticated');
 
       const fix = await getCurrentLocation();
+      const deviceId = await getOrCreateDeviceId();
       const newSessionId = await createLiveLocationSession(
         userId,
         sharedWithUserIds,
         durationHours,
         fix.latitude,
         fix.longitude,
+        deviceId,
       );
 
       const expiryDate = new Date(Date.now() + durationHours * MS_PER_HOUR);
       await AsyncStorage.multiSet([
         [STORAGE_KEYS.LIVE_LOCATION_SESSION_ID, newSessionId],
+        [STORAGE_KEYS.LIVE_LOCATION_USER_ID, userId],
+        [STORAGE_KEYS.LIVE_LOCATION_DEVICE_ID, deviceId],
         [STORAGE_KEYS.LIVE_LOCATION_EXPIRES_AT, String(expiryDate.getTime())],
       ]);
       setLiveLocationActive(true, newSessionId);

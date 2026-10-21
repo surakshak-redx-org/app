@@ -10,6 +10,8 @@ import { captureException } from '@/config/sentry';
 import { COLORS } from '@/constants/colors';
 import { ICON_SIZE } from '@/constants/ui';
 import { useOtaUpdate } from '@/hooks/useOtaUpdate';
+import { useLocationStore } from '@/stores/location.store';
+import { useSOSStore } from '@/stores/sos.store';
 
 /**
  * Shown on the welcome (pre-auth) and profile screens when a newer OTA
@@ -19,10 +21,17 @@ import { useOtaUpdate } from '@/hooks/useOtaUpdate';
 export function OtaUpdateBanner(): React.JSX.Element | null {
   const { t } = useTranslation();
   const { isUpdateAvailable, isApplying, applyNow } = useOtaUpdate();
+  const isSafeJourneyActive = useLocationStore((state) => state.isSafeJourneyActive);
+  const isSOSActive = useSOSStore((state) => state.isActive || state.isSending);
 
   if (!isUpdateAvailable) return null;
 
   function handlePress(): void {
+    if (isSafeJourneyActive || isSOSActive) {
+      Alert.alert(t('ota.safetySessionActiveTitle'), t('ota.safetySessionActiveBody'));
+      return;
+    }
+
     Alert.alert(t('ota.confirmTitle'), t('ota.confirmBody'), [
       { text: t('common.cancel'), style: 'cancel' },
       {

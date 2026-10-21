@@ -27,6 +27,7 @@ jest.mock('expo-sms', () => ({
 jest.mock('expo-notifications', () => ({
   scheduleNotificationAsync: jest.fn(() => Promise.resolve('notification-1')),
   cancelScheduledNotificationAsync: jest.fn(() => Promise.resolve()),
+  getPermissionsAsync: jest.fn(() => Promise.resolve({ granted: true })),
   SchedulableTriggerInputTypes: { TIME_INTERVAL: 'timeInterval' },
 }));
 
@@ -174,6 +175,17 @@ describe('scheduleLocalNotification', () => {
 
   it('returns the scheduled notification id', async () => {
     await expect(scheduleLocalNotification('Title', 'Body', 60)).resolves.toBe('notification-1');
+  });
+
+  it('returns empty string and skips scheduling when notification permissions are denied', async () => {
+    jest.mocked(Notifications.getPermissionsAsync).mockResolvedValueOnce({
+      granted: false,
+      status: 'denied' as never,
+      canAskAgain: false,
+      expires: 'never',
+    });
+    await expect(scheduleLocalNotification('Title', 'Body', 60)).resolves.toBe('');
+    expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
   });
 
   it('logs and rethrows when scheduling fails', async () => {

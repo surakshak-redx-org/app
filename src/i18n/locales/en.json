@@ -70,6 +70,7 @@
     "sosResultNoContacts": "No alert was sent: add an emergency contact with a valid mobile number, or call 112.",
     "sosResultFailed": "Failed to send emergency alert. Please call 112 immediately.",
     "sosResultDraft": "SOS opened as a draft in your messaging app. Tap Send to confirm, or grant SMS permission in settings for automatic sending.",
+    "sosResultAirplaneMode": "Airplane mode is enabled. Please disable Airplane mode to send SMS alerts, or call 112 immediately.",
     "addContactsWarning": "Add"
   },
   "auth": {
@@ -449,7 +450,9 @@
     "confirmBody": "The app will restart to apply the update. Any unsaved changes will be lost.",
     "confirmAction": "Restart Now",
     "applying": "Updating…",
-    "applyFailed": "Couldn't apply the update. Please try again."
+    "applyFailed": "Couldn't apply the update. Please try again.",
+    "safetySessionActiveTitle": "Safety Session in Progress",
+    "safetySessionActiveBody": "Cannot restart to apply updates while Safe Journey or SOS is active. Please complete or cancel your active session first."
   },
   "settings": {
     "title": "Settings",

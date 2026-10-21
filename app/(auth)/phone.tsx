@@ -1,5 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { ConfirmationResult } from '@react-native-firebase/auth';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
@@ -13,12 +14,14 @@ import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { SafeScreen } from '@/components/ui/SafeScreen';
 import { Text } from '@/components/ui/Text';
 import {
+  OTP_RESEND_SECONDS,
   PHONE_DIGITS,
   PHONE_E164_PREFIX,
   PHONE_LAST_DIGITS,
   PHONE_PREFIX_LABEL,
 } from '@/constants/auth';
 import { ROUTES } from '@/constants/routes';
+import { STORAGE_KEYS } from '@/constants/storage';
 import { ICON_SIZE } from '@/constants/ui';
 import { useTheme } from '@/hooks/useTheme';
 import { ANALYTICS_EVENTS, trackEvent } from '@/services/analytics.service';
@@ -79,8 +82,25 @@ export default function PhoneScreen(): React.JSX.Element {
     setIsLoading(true);
     setSubmitError(null);
     try {
+      const storedDeadlineStr = await AsyncStorage.getItem(STORAGE_KEYS.OTP_RESEND_DEADLINE);
+      if (storedDeadlineStr !== null) {
+        const storedDeadline = Number(storedDeadlineStr);
+        if (!Number.isNaN(storedDeadline) && Date.now() < storedDeadline) {
+          // If within active cooldown, jump straight to OTP rather than hitting Firebase rate limit
+          router.push({
+            pathname: ROUTES.OTP,
+            params: { phone: `${PHONE_E164_PREFIX}${phone}` },
+          });
+          return;
+        }
+      }
+
       const confirmation = await sendOtp(phone);
       setStoredConfirmation(confirmation);
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.OTP_RESEND_DEADLINE,
+        String(Date.now() + OTP_RESEND_SECONDS * 1000),
+      );
       trackEvent(ANALYTICS_EVENTS.OTP_REQUESTED, { phone_last4: phone.slice(-PHONE_LAST_DIGITS) });
       router.push({
         pathname: ROUTES.OTP,

@@ -1,8 +1,10 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Pressable, View } from 'react-native';
 
+import { GuestBanner } from '@/components/features/auth/GuestBanner';
 import { ContactFormModal } from '@/components/features/emergency/ContactFormModal';
 import { DeviceContactPickerModal } from '@/components/features/emergency/DeviceContactPickerModal';
 import { Button } from '@/components/ui/Button';
@@ -15,6 +17,7 @@ import { Text } from '@/components/ui/Text';
 import { captureException } from '@/config/sentry';
 import { COLORS } from '@/constants/colors';
 import { PREDEFINED_EMERGENCY_NUMBERS } from '@/constants/emergency-numbers';
+import { ROUTES } from '@/constants/routes';
 import { DANGER_ROW_HITSLOP, ICON_SIZE } from '@/constants/ui';
 import {
   trackEmergencyCallPlaced,
@@ -35,7 +38,10 @@ import { formatIndianPhone, placeCall } from '@/utils/phone.utils';
 
 export default function EmergencyContactsScreen(): React.JSX.Element {
   const { t } = useTranslation();
+  const router = useRouter();
   const userId = useAuthStore((state) => state.surakshakUser?.userId ?? null);
+  const isGuest = useAuthStore((state) => state.isGuest);
+  const setGuestSigningIn = useAuthStore((state) => state.setGuestSigningIn);
   const contacts = useUserStore((state) => state.emergencyContacts);
   const setEmergencyContacts = useUserStore((state) => state.setEmergencyContacts);
 
@@ -57,6 +63,19 @@ export default function EmergencyContactsScreen(): React.JSX.Element {
     () => new Set(contacts.map((c) => formatIndianPhone(c.phone))),
     [contacts],
   );
+
+  const promptGuestSignIn = useCallback((): void => {
+    Alert.alert(t('home.guestFeatureLockedTitle'), t('home.guestFeatureLockedBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('profile.signInNow'),
+        onPress: (): void => {
+          setGuestSigningIn(true);
+          router.push(ROUTES.WELCOME);
+        },
+      },
+    ]);
+  }, [t, setGuestSigningIn, router]);
 
   const refresh = useCallback(async (): Promise<void> => {
     if (userId === null) return;
@@ -88,6 +107,10 @@ export default function EmergencyContactsScreen(): React.JSX.Element {
   }
 
   function openAdd(): void {
+    if (isGuest) {
+      promptGuestSignIn();
+      return;
+    }
     setEditing(null);
     setPrefill(null);
     setFormVisible(true);
@@ -228,6 +251,12 @@ export default function EmergencyContactsScreen(): React.JSX.Element {
           ))}
         </Card>
 
+        {isGuest && (
+          <View className="mt-4">
+            <GuestBanner />
+          </View>
+        )}
+
         <Text variant="label" tKey="emergency.myContacts" className="mb-2 mt-6" />
         {contacts.length === 0 ? (
           <EmptyState
@@ -287,7 +316,13 @@ export default function EmergencyContactsScreen(): React.JSX.Element {
           fullWidth
           className="mt-4"
           label={t('emergency.importFromContacts')}
-          onPress={() => setPickerVisible(true)}
+          onPress={() => {
+            if (isGuest) {
+              promptGuestSignIn();
+              return;
+            }
+            setPickerVisible(true);
+          }}
         />
         <Button
           variant="primary"

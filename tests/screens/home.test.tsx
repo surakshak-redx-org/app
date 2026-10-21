@@ -144,6 +144,22 @@ describe('HomeScreen', () => {
     );
   });
 
+  it('shows airplane mode alert with 112 helpline when error is airplane_mode (BUG-147)', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    useSOSStore.getState().setLastOutcome({ sent: 0, failed: 1, error: 'airplane_mode' });
+
+    await render(<HomeScreen />);
+
+    expect(alertSpy).toHaveBeenCalledWith(
+      'SOS alert',
+      'Airplane mode is enabled. Please disable Airplane mode to send SMS alerts, or call 112 immediately.',
+      expect.arrayContaining([
+        expect.objectContaining({ text: 'OK' }),
+        expect.objectContaining({ text: 'Call 112 (Emergency Helpline)' }),
+      ]),
+    );
+  });
+
   it('locks write-requiring cards for a guest and prompts to sign in instead of navigating', async () => {
     useAuthStore.getState().setGuest(true);
     const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);

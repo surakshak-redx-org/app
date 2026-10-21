@@ -1,6 +1,13 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export interface BottomSheetProps {
@@ -53,9 +60,12 @@ export function BottomSheet({
           accessibilityLabel={t('common.close')}
         />
         <ScrollView
-          className="max-h-full w-full max-w-lg self-center rounded-t-3xl bg-off-white dark:bg-charcoal"
+          bounces={false}
+          showsVerticalScrollIndicator={false}
+          style={styles.scrollView}
+          className="w-full max-w-lg self-center rounded-t-3xl bg-off-white dark:bg-charcoal"
           contentContainerClassName="px-4 pt-6"
-          contentContainerStyle={{ paddingBottom: 32 + insets.bottom }}
+          contentContainerStyle={[styles.contentContainer, { paddingBottom: 32 + insets.bottom }]}
           keyboardShouldPersistTaps="handled"
         >
           {children}
@@ -64,3 +74,13 @@ export function BottomSheet({
     </Modal>
   );
 }
+
+const styles = StyleSheet.create({
+  scrollView: {
+    maxHeight: '85%',
+    flexGrow: 0,
+  },
+  contentContainer: {
+    flexGrow: 0,
+  },
+});

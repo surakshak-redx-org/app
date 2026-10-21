@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/Input';
 import { Text } from '@/components/ui/Text';
 import type { EmergencyContactFormValues } from '@/types/emergency.types';
 import type { EmergencyContact } from '@/types/user.types';
-import { sanitizePhoneInput, validateIndianPhone } from '@/utils/phone.utils';
+import { formatIndianPhone, sanitizePhoneInput, validateIndianPhone } from '@/utils/phone.utils';
 
 export interface ContactFormModalProps {
   visible: boolean;
@@ -63,19 +63,31 @@ export function ContactFormModal({
     defaultValues: EMPTY,
   });
 
+  const prevVisibleRef = useRef(false);
+  const prevInitialRef = useRef<EmergencyContact | null | undefined>(undefined);
+
   useEffect(() => {
+    const wasVisible = prevVisibleRef.current;
+    const prevInitial = prevInitialRef.current;
+    prevVisibleRef.current = visible;
+    prevInitialRef.current = initial;
+
     if (!visible) return;
-    reset(
-      initial
-        ? { name: initial.name, phone: initial.phone, relationship: initial.relationship }
-        : EMPTY,
-    );
+    // Only reset when modal transitions from closed to open, or when the initial contact changes (BUG-140).
+    if (!wasVisible || initial !== prevInitial) {
+      reset(
+        initial
+          ? { name: initial.name, phone: initial.phone, relationship: initial.relationship }
+          : EMPTY,
+      );
+    }
   }, [visible, initial, reset]);
 
   function submit(values: EmergencyContactFormValues): void {
+    // Normalise to E.164 (stripping raw leading zeroes, country code formatting) (BUG-144).
     onSubmit({
       name: values.name.trim(),
-      phone: values.phone.trim(),
+      phone: formatIndianPhone(values.phone),
       relationship: values.relationship.trim(),
     });
   }

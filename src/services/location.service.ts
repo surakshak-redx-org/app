@@ -5,6 +5,7 @@ import { Platform } from 'react-native';
 import { ENV } from '@/config/env';
 import { ANDROID_CERT_SHA1_BY_ENV, APP_CONFIG } from '@/constants/config';
 import { HELP_PLACES_TYPE } from '@/constants/map';
+import { useLocationStore } from '@/stores/location.store';
 import type {
   HelpCategory,
   LocationData,
@@ -54,7 +55,9 @@ export async function getCurrentLocation(timeoutMs: number = 6000): Promise<Loca
         timeout,
       ]);
       if (position !== null) {
-        return toLocationData(position);
+        const data = toLocationData(position);
+        useLocationStore.getState().setCurrentLocation(data);
+        return data;
       }
     } finally {
       clearTimeout(timer);
@@ -62,7 +65,9 @@ export async function getCurrentLocation(timeoutMs: number = 6000): Promise<Loca
 
     const lastKnown = await Location.getLastKnownPositionAsync();
     if (lastKnown !== null) {
-      return toLocationData(lastKnown);
+      const data = toLocationData(lastKnown);
+      useLocationStore.getState().setCurrentLocation(data);
+      return data;
     }
 
     throw new Error('errors.locationUnavailable');
@@ -96,6 +101,13 @@ export async function getLocationWithTimeout(
     throw new Error('errors.locationPermissionDenied');
   }
 
+  // Fast path: if a fresh position (<30s old) was recorded by background updates
+  // or an active monitor, return it immediately without contending for GPS radio lock (BUG-134).
+  const cached = useLocationStore.getState().currentLocation;
+  if (cached !== null && Date.now() - cached.timestamp < 30_000) {
+    return cached;
+  }
+
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<null>((resolve) => {
     timer = setTimeout(() => resolve(null), timeoutMs);
@@ -106,7 +118,11 @@ export async function getLocationWithTimeout(
       Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
       timeout,
     ]);
-    if (fresh !== null) return toLocationData(fresh);
+    if (fresh !== null) {
+      const data = toLocationData(fresh);
+      useLocationStore.getState().setCurrentLocation(data);
+      return data;
+    }
   } catch (error) {
     console.warn('getLocationWithTimeout: fresh fix failed:', error);
   } finally {
@@ -114,10 +130,17 @@ export async function getLocationWithTimeout(
   }
 
   const lastKnown = await Location.getLastKnownPositionAsync();
-  if (lastKnown === null) {
-    throw new Error('errors.locationUnavailable');
+  if (lastKnown !== null) {
+    const data = toLocationData(lastKnown);
+    useLocationStore.getState().setCurrentLocation(data);
+    return data;
   }
-  return toLocationData(lastKnown);
+
+  if (cached !== null) {
+    return cached;
+  }
+
+  throw new Error('errors.locationUnavailable');
 }
 
 /**
@@ -351,18 +374,24 @@ export async function getPlaceLocation(placeId: string): Promise<PlaceLocation> 
     const response = await fetch(`${PLACES_BASE_URL}/places/${placeId}`, {
       method: 'GET',
       signal: AbortSignal.timeout(8000),
-      headers: placesHeaders('id,displayName,location'),
+      headers: placesHeaders('id,displayName,location,formattedAddress'),
     });
 
     const data = (await response.json()) as PlacesNewPlace & {
       error?: { message: string };
+      formattedAddress?: string;
     };
     if (!response.ok || data.error !== undefined || data.location === undefined) {
       throw new Error(data.error?.message ?? 'errors.networkError');
     }
 
+    const resolvedName =
+      data.displayName?.text?.trim() ||
+      data.formattedAddress?.trim() ||
+      `Location (${data.location.latitude.toFixed(4)}, ${data.location.longitude.toFixed(4)})`;
+
     return {
-      name: data.displayName?.text ?? '',
+      name: resolvedName,
       latitude: data.location.latitude,
       longitude: data.location.longitude,
     };

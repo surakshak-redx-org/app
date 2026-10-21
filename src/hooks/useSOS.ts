@@ -149,19 +149,22 @@ export function useSOS(): UseSOSResult {
         contactsFailed: result.failed,
       });
       trackSmsAlertSent('sos', result.sent.length, result.failed.length);
+      const isAirplane = result.isAirplaneMode === true;
       const isDraft = result.isDraftFallback === true;
       const isFailed = result.sent.length === 0 && result.failed.length > 0;
       const isNoContacts = result.sent.length === 0 && result.failed.length === 0;
       setLastOutcome({
         sent: result.sent.length,
         failed: result.failed.length,
-        error: isDraft
-          ? 'draft_fallback'
-          : isFailed
-            ? 'failed'
-            : isNoContacts
-              ? 'no_contacts'
-              : null,
+        error: isAirplane
+          ? 'airplane_mode'
+          : isDraft
+            ? 'draft_fallback'
+            : isFailed
+              ? 'failed'
+              : isNoContacts
+                ? 'no_contacts'
+                : null,
       });
     } catch (error) {
       metroLogger.error('SOS alert dispatch failed', {
