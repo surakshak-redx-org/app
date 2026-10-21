@@ -450,7 +450,9 @@
     "confirmBody": "The app will restart to apply the update. Any unsaved changes will be lost.",
     "confirmAction": "Restart Now",
     "applying": "Updating…",
-    "applyFailed": "Couldn't apply the update. Please try again."
+    "applyFailed": "Couldn't apply the update. Please try again.",
+    "safetySessionActiveTitle": "Safety Session in Progress",
+    "safetySessionActiveBody": "Cannot restart to apply updates while Safe Journey or SOS is active. Please complete or cancel your active session first."
   },
   "settings": {
     "title": "Settings",

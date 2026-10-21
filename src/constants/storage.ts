@@ -31,6 +31,10 @@ export const STORAGE_KEYS = {
    * session expires. Used by the background location task to self-terminate.
    */
   LIVE_LOCATION_EXPIRES_AT: 'surakshak_live_session_expires_at',
+  /** Safe Journey persistent session state to prevent watchdog orphaning across OTA/reloads (BUG-137). */
+  SAFE_JOURNEY_SESSION_ID: 'surakshak_safe_journey_session_id',
+  SAFE_JOURNEY_DEADLINE: 'surakshak_safe_journey_deadline',
+  SAFE_JOURNEY_USER_ID: 'surakshak_safe_journey_user_id',
   /** `'false'` disables the suspicious-follow alert; absent means enabled. */
   FOLLOW_DETECTION_ENABLED: 'surakshak_follow_detection_enabled',
   /** `'true'` while a Safe Check-In session is running. */
