@@ -68,14 +68,14 @@ export function ImageViewer({
                 event.stopPropagation?.();
                 setCurrentIndex((idx) => Math.max(0, idx - 1));
               }}
-              className={`rounded-full bg-white/20 p-3 ${
+              className={`rounded-full border border-white/20 bg-near-black/75 p-3 active:bg-near-black ${
                 currentIndex === 0 ? 'opacity-30' : 'opacity-100'
               }`}
             >
               <MaterialIcons name="chevron-left" size={28} color={COLORS.WHITE} />
             </Pressable>
 
-            <View className="rounded-full bg-black/60 px-4 py-1.5">
+            <View className="rounded-full border border-white/20 bg-near-black/75 px-4 py-1.5">
               <Text className="text-sm font-medium text-white">
                 {`${currentIndex + 1} / ${imageList.length}`}
               </Text>
@@ -89,7 +89,7 @@ export function ImageViewer({
                 event.stopPropagation?.();
                 setCurrentIndex((idx) => Math.min(imageList.length - 1, idx + 1));
               }}
-              className={`rounded-full bg-white/20 p-3 ${
+              className={`rounded-full border border-white/20 bg-near-black/75 p-3 active:bg-near-black ${
                 currentIndex === imageList.length - 1 ? 'opacity-30' : 'opacity-100'
               }`}
             >
@@ -99,7 +99,7 @@ export function ImageViewer({
         )}
 
         <View
-          className="absolute right-5 rounded-full bg-white/20 p-2"
+          className="absolute right-5 rounded-full border border-white/20 bg-near-black/75 p-2"
           style={{ top: Math.max(insets.top, 16) + 12 }}
         >
           <MaterialIcons name="close" size={ICON_SIZE.BACK} color={COLORS.WHITE} />
