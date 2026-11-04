@@ -76,7 +76,7 @@ describe('HomeScreen', () => {
     const { getByText, getByLabelText } = await render(<HomeScreen />);
 
     expect(getByLabelText('SOS Emergency Button')).toBeTruthy();
-    expect(getByText('Live Location')).toBeTruthy();
+    expect(getByText('Live Tracking & Journeys')).toBeTruthy();
     expect(getByText('Siren')).toBeTruthy();
     expect(getByText('Fake Call')).toBeTruthy();
   });
@@ -183,10 +183,30 @@ describe('HomeScreen', () => {
     });
 
     const { getByText } = await render(<HomeScreen />);
-    await fireEvent.press(getByText('Live Location'));
+    await fireEvent.press(getByText('Live Tracking & Journeys'));
 
     expect(useAuthStore.getState().isGuestSigningIn).toBe(true);
     expect(mockPush).toHaveBeenCalledWith(ROUTES.WELCOME);
+  });
+
+  it('opens tracking mode selection sheet and navigates to Safe Journey or Live Location', async () => {
+    const { getByText, getByLabelText } = await render(<HomeScreen />);
+
+    // Open unified tracking card
+    await fireEvent.press(getByText('Live Tracking & Journeys'));
+
+    // Check modal contents
+    expect(getByLabelText('Point-to-Point Journey')).toBeTruthy();
+    expect(getByLabelText('Continuous Live Location')).toBeTruthy();
+
+    // Tap Safe Journey
+    await fireEvent.press(getByLabelText('Point-to-Point Journey'));
+    expect(mockPush).toHaveBeenCalledWith(ROUTES.SAFE_JOURNEY);
+
+    // Reopen and tap Live Location
+    await fireEvent.press(getByText('Live Tracking & Journeys'));
+    await fireEvent.press(getByLabelText('Continuous Live Location'));
+    expect(mockPush).toHaveBeenCalledWith(ROUTES.LIVE_LOCATION);
   });
 
   it('does not lock a card that does not need a real sign-in', async () => {
