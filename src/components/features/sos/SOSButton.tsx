@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import React, { useEffect } from 'react';
-import { Pressable } from 'react-native';
+import { Pressable, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -21,9 +21,14 @@ const PULSE_DURATION_MS = 900;
 export interface SOSButtonProps {
   onTrigger: () => void;
   disabled?: boolean;
+  tapCount?: number;
 }
 
-export function SOSButton({ onTrigger, disabled = false }: SOSButtonProps): React.JSX.Element {
+export function SOSButton({
+  onTrigger,
+  disabled = false,
+  tapCount = 0,
+}: SOSButtonProps): React.JSX.Element {
   const scale = useSharedValue(PULSE_MIN_SCALE);
 
   useEffect(() => {
@@ -57,7 +62,7 @@ export function SOSButton({ onTrigger, disabled = false }: SOSButtonProps): Reac
   return (
     <AnimatedPressable
       style={animatedStyle}
-      className="h-[120px] w-[120px] items-center justify-center rounded-full bg-primary-red shadow-lg"
+      className="h-[128px] w-[128px] items-center justify-center rounded-full bg-primary-red shadow-lg"
       onPress={handlePress}
       disabled={disabled}
       accessibilityRole="button"
@@ -66,6 +71,11 @@ export function SOSButton({ onTrigger, disabled = false }: SOSButtonProps): Reac
       accessibilityState={{ disabled }}
     >
       <Text variant="h1" tKey="home.sos" className="text-white" />
+      <View className="mt-1 flex-row items-center gap-1.5" testID="sos-tap-pips">
+        <View className={`h-2 w-2 rounded-full ${tapCount >= 1 ? 'bg-white' : 'bg-white/30'}`} />
+        <View className={`h-2 w-2 rounded-full ${tapCount >= 2 ? 'bg-white' : 'bg-white/30'}`} />
+        <View className={`h-2 w-2 rounded-full ${tapCount >= 3 ? 'bg-white' : 'bg-white/30'}`} />
+      </View>
     </AnimatedPressable>
   );
 }

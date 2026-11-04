@@ -82,7 +82,21 @@
     "sosResultFailed": "आपत्कालीन अलर्ट पाठवण्यात अयशस्वी. कृपया त्वरित 112 वर कॉल करा.",
     "sosResultDraft": "SOS संदेश तुमच्या मेसेजिंग ॲपमध्ये मसुदा (ड्राफ्ट) म्हणून उघडला आहे. पाठवण्यासाठी Send दाबा, किंवा सेटिंग्समध्ये SMS परवानगी द्या.",
     "sosResultAirplaneMode": "विमान मोड (Airplane mode) सुरू आहे. SMS अलर्ट पाठवण्यासाठी कृपया विमान मोड बंद करा, किंवा त्वरित 112 वर कॉल करा.",
-    "addContactsWarning": "जोडा"
+    "addContactsWarning": "जोडा",
+    "setupContacts": "सेट अप करा",
+    "safeCheckin": "सुरक्षित चेक-इन",
+    "checkinActiveSubtitle": "चेक-इन सुरू आहे",
+    "shieldActive": "सुरक्षक शील्ड सक्रिय",
+    "shieldSubtitle": "{{count}} आपत्कालीन संपर्क • शेक SOS सज्ज",
+    "shieldWarningNoContacts": "SOS अलर्ट सक्षम करण्यासाठी आपत्कालीन संपर्क जोडा",
+    "shieldWarningGuest": "गेस्ट मोड — संपूर्ण क्लाउड सुरक्षेसाठी साइन इन करा",
+    "quickDial": "आपत्कालीन हेल्पलाइन",
+    "sosTap1": "आणखी २ वेळा दाबा!",
+    "sosTap2": "आणखी १ वेळ दाबा!",
+    "disguiseModeShortcut": "कॅल्क्युलेटर डिस्गाइझ उघडा",
+    "activeJourneyBannerTitle": "सुरक्षित प्रवास सुरू आहे",
+    "activeLocationBannerTitle": "थेट स्थान शेअरिंग सुरू आहे",
+    "manageTracking": "व्यवस्थापित करा"
   },
   "auth": {
     "welcome": "Surakshak मध्ये आपले स्वागत आहे",

@@ -1,5 +1,5 @@
 import * as Haptics from 'expo-haptics';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 import { checkSmsPermission } from 'surakshak-native';
 
@@ -28,6 +28,8 @@ export interface UseSOSResult {
   /** The countdown has elapsed and alerts are going out; cancel no longer applies. */
   isSending: boolean;
   triggerMethod: SOSTriggerMethod | null;
+  /** Number of taps registered inside the current tap window (0, 1, or 2). */
+  tapCount: number;
   /** Every SOS-button press goes here; a triple-tap inside the window fires SOS. */
   handleTap: () => void;
   /** Starts the countdown immediately (used by shake-to-SOS and tests). */
@@ -86,6 +88,8 @@ export function useSOS(): UseSOSResult {
   const reset = useSOSStore((state) => state.reset);
 
   const tapTimestampsRef = useRef<number[]>([]);
+  const tapWindowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [tapCount, setTapCount] = useState(0);
 
   /**
    * Android's silent send needs a runtime `SEND_SMS` grant. Ask while the
@@ -248,9 +252,24 @@ export function useSOS(): UseSOSResult {
       ...tapTimestampsRef.current.filter((at) => now - at < APP_CONFIG.SOS_TAP_WINDOW_MS),
       now,
     ];
-    if (tapTimestampsRef.current.length >= APP_CONFIG.SOS_TAP_COUNT) {
+    const count = tapTimestampsRef.current.length;
+    if (count >= APP_CONFIG.SOS_TAP_COUNT) {
       tapTimestampsRef.current = [];
+      setTapCount(0);
+      if (tapWindowTimerRef.current !== null) {
+        clearTimeout(tapWindowTimerRef.current);
+        tapWindowTimerRef.current = null;
+      }
       trigger('button');
+    } else {
+      setTapCount(count);
+      if (tapWindowTimerRef.current !== null) {
+        clearTimeout(tapWindowTimerRef.current);
+      }
+      tapWindowTimerRef.current = setTimeout(() => {
+        tapTimestampsRef.current = [];
+        setTapCount(0);
+      }, APP_CONFIG.SOS_TAP_WINDOW_MS);
     }
   }, [trigger]);
 
@@ -282,11 +301,14 @@ export function useSOS(): UseSOSResult {
 
   useEffect(() => {
     return (): void => {
+      if (tapWindowTimerRef.current !== null) {
+        clearTimeout(tapWindowTimerRef.current);
+      }
       if (!useSOSStore.getState().isActive) {
         clearActiveTimer();
       }
     };
   }, []);
 
-  return { isActive, countdown, isSending, triggerMethod, handleTap, trigger, cancel };
+  return { isActive, countdown, isSending, triggerMethod, tapCount, handleTap, trigger, cancel };
 }

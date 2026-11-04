@@ -225,6 +225,20 @@ describe('HomeScreen', () => {
     expect(mockPush).toHaveBeenCalledWith(ROUTES.EMERGENCY_CONTACTS);
   });
 
+  it('navigates to safe check-in for a signed-in user', async () => {
+    const { getByText } = await render(<HomeScreen />);
+    await fireEvent.press(getByText('Safe Check-in'));
+
+    expect(mockPush).toHaveBeenCalledWith(ROUTES.SAFE_CHECKIN);
+  });
+
+  it('navigates to calculator disguise mode when shortcut is pressed', async () => {
+    const { getByLabelText } = await render(<HomeScreen />);
+    await fireEvent.press(getByLabelText('Open Calculator Disguise'));
+
+    expect(mockPush).toHaveBeenCalledWith(ROUTES.CALCULATOR);
+  });
+
   describe('iOS one-tap hint banner', () => {
     afterEach(() => {
       jest.mocked(AsyncStorage.getItem).mockImplementation(() => Promise.resolve(null));

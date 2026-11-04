@@ -85,6 +85,27 @@ describe('useSOS', () => {
     expect(result.current.isActive).toBe(false);
   });
 
+  it('tracks tapCount and resets it after the tap window expires', async () => {
+    const { result } = await renderHook(() => useSOS());
+
+    expect(result.current.tapCount).toBe(0);
+
+    await act(() => {
+      result.current.handleTap();
+    });
+    expect(result.current.tapCount).toBe(1);
+
+    await act(() => {
+      result.current.handleTap();
+    });
+    expect(result.current.tapCount).toBe(2);
+
+    await act(() => {
+      jest.advanceTimersByTime(APP_CONFIG.SOS_TAP_WINDOW_MS);
+    });
+    expect(result.current.tapCount).toBe(0);
+  });
+
   it('decrements the countdown once per second', async () => {
     const { result } = await renderHook(() => useSOS());
 

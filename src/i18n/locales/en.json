@@ -82,7 +82,21 @@
     "sosResultFailed": "Failed to send emergency alert. Please call 112 immediately.",
     "sosResultDraft": "SOS opened as a draft in your messaging app. Tap Send to confirm, or grant SMS permission in settings for automatic sending.",
     "sosResultAirplaneMode": "Airplane mode is enabled. Please disable Airplane mode to send SMS alerts, or call 112 immediately.",
-    "addContactsWarning": "Add"
+    "addContactsWarning": "Add",
+    "setupContacts": "Set up",
+    "safeCheckin": "Safe Check-in",
+    "checkinActiveSubtitle": "Check-in active",
+    "shieldActive": "Surakshak Shield Active",
+    "shieldSubtitle": "{{count}} Emergency Contacts • Shake SOS Ready",
+    "shieldWarningNoContacts": "Add emergency contacts to enable SOS alerts",
+    "shieldWarningGuest": "Guest mode — sign in for full cloud protection",
+    "quickDial": "Emergency Helplines",
+    "sosTap1": "Tap 2 more times!",
+    "sosTap2": "Tap 1 more time!",
+    "disguiseModeShortcut": "Open Calculator Disguise",
+    "activeJourneyBannerTitle": "Safe Journey in progress",
+    "activeLocationBannerTitle": "Live location sharing active",
+    "manageTracking": "Manage"
   },
   "auth": {
     "welcome": "Welcome to Surakshak",
