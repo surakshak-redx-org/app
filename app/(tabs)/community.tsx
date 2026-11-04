@@ -1,8 +1,9 @@
 import { MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Alert,
@@ -29,6 +30,7 @@ import { captureException } from '@/config/sentry';
 import { COLORS } from '@/constants/colors';
 import { APP_CONFIG, COMMUNITY_IMAGE_ASPECT } from '@/constants/config';
 import { ROUTES } from '@/constants/routes';
+import { STORAGE_FLAG_ON, STORAGE_KEYS } from '@/constants/storage';
 import { ICON_SIZE } from '@/constants/ui';
 import { useCommunity } from '@/hooks/useCommunity';
 import { useTheme } from '@/hooks/useTheme';
@@ -115,6 +117,24 @@ export default function CommunityScreen(): React.JSX.Element {
   const [isUploading, setIsUploading] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
   const [viewerUri, setViewerUri] = useState<string | null>(null);
+  const [isDisclaimerDismissed, setIsDisclaimerDismissed] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem(STORAGE_KEYS.COMMUNITY_DISCLAIMER_DISMISSED)
+      .then((val) => {
+        if (val === STORAGE_FLAG_ON) {
+          setIsDisclaimerDismissed(true);
+        }
+      })
+      .catch((err: unknown) => captureException(err));
+  }, []);
+
+  const dismissDisclaimer = useCallback((): void => {
+    setIsDisclaimerDismissed(true);
+    AsyncStorage.setItem(STORAGE_KEYS.COMMUNITY_DISCLAIMER_DISMISSED, STORAGE_FLAG_ON).catch(
+      (err: unknown) => captureException(err),
+    );
+  }, []);
 
   const filteredPosts = useMemo(() => {
     if (topicFilter === 'all') {
@@ -348,42 +368,53 @@ export default function CommunityScreen(): React.JSX.Element {
       <SafeScreen>
         <View className="border-b border-stone/20 pb-2">
           {/* Emergency Sticky Disclaimer Banner */}
-          <View
-            accessibilityRole="alert"
-            className="mb-2 flex-row items-center justify-between rounded-xl border border-primary-red/30 bg-primary-red/10 p-2.5"
-          >
-            <MaterialIcons name="warning" size={ICON_SIZE.ROW} color={COLORS.PRIMARY_RED} />
-            <Text variant="caption" className="mx-2 flex-1 font-medium text-primary-red">
-              {t('community.emergencyDisclaimer')}
-            </Text>
-            <View className="flex-row items-center gap-1.5">
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="SOS"
-                onPress={() => router.push(ROUTES.HOME)}
-                className="rounded-md bg-shakti-purple px-2 py-1"
-              >
-                <Text variant="caption" className="font-bold text-white">
-                  {t('community.tapSos')}
-                </Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('community.call112')}
-                onPress={() => {
-                  void placeCall('112').catch((e: unknown) => {
-                    captureException(e);
-                    Alert.alert(t('errors.generic'));
-                  });
-                }}
-                className="rounded-md bg-primary-red px-2 py-1"
-              >
-                <Text variant="caption" className="font-bold text-white">
-                  {t('community.call112')}
-                </Text>
-              </Pressable>
+          {!isDisclaimerDismissed && (
+            <View
+              accessibilityRole="alert"
+              className="mb-2 flex-row items-center justify-between rounded-xl border border-primary-red/30 bg-primary-red/10 p-2.5"
+            >
+              <MaterialIcons name="warning" size={ICON_SIZE.ROW} color={COLORS.PRIMARY_RED} />
+              <Text variant="caption" className="mx-2 flex-1 font-medium text-primary-red">
+                {t('community.emergencyDisclaimer')}
+              </Text>
+              <View className="flex-row items-center gap-1.5">
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="SOS"
+                  onPress={() => router.push(ROUTES.HOME)}
+                  className="rounded-md bg-shakti-purple px-2 py-1"
+                >
+                  <Text variant="caption" className="font-bold text-white">
+                    {t('community.tapSos')}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('community.call112')}
+                  onPress={() => {
+                    void placeCall('112').catch((e: unknown) => {
+                      captureException(e);
+                      Alert.alert(t('errors.generic'));
+                    });
+                  }}
+                  className="rounded-md bg-primary-red px-2 py-1"
+                >
+                  <Text variant="caption" className="font-bold text-white">
+                    {t('community.call112')}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('community.dismissDisclaimer')}
+                  onPress={dismissDisclaimer}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  className="ml-0.5 p-1"
+                >
+                  <MaterialIcons name="close" size={ICON_SIZE.DISMISS} color={COLORS.PRIMARY_RED} />
+                </Pressable>
+              </View>
             </View>
-          </View>
+          )}
 
           <Text variant="h2" tKey="community.title" className="mt-1" />
           {city.length > 0 && <Text variant="caption">{city}</Text>}

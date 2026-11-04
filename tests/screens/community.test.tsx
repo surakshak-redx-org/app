@@ -1,6 +1,8 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fireEvent, render } from '@testing-library/react-native';
 import React from 'react';
 
+import { STORAGE_FLAG_ON, STORAGE_KEYS } from '@/constants/storage';
 import { useAuthStore } from '@/stores/auth.store';
 import type { CommunityPost } from '@/types/community.types';
 import CommunityScreen from '@app/(tabs)/community';
@@ -239,5 +241,19 @@ describe('CommunityScreen', () => {
     await fireEvent.press(getByText('🚨 Safety Alerts'));
     expect(queryByText('post p-text')).toBeNull();
     expect(getByText('No posts found for this filter')).toBeTruthy();
+  });
+
+  it('allows dismissing the emergency disclaimer banner and persists state', async () => {
+    const { getByLabelText, queryByText } = await render(<CommunityScreen />);
+
+    expect(queryByText(/In immediate danger\?/)).toBeTruthy();
+    const dismissBtn = getByLabelText('Dismiss emergency notice');
+    await fireEvent.press(dismissBtn);
+
+    expect(queryByText(/In immediate danger\?/)).toBeNull();
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+      STORAGE_KEYS.COMMUNITY_DISCLAIMER_DISMISSED,
+      STORAGE_FLAG_ON,
+    );
   });
 });

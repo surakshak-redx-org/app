@@ -106,6 +106,43 @@ describe('useSOS', () => {
     expect(result.current.tapCount).toBe(0);
   });
 
+  it('expires taps individually based on the sliding window', async () => {
+    const { result } = await renderHook(() => useSOS());
+
+    expect(result.current.tapCount).toBe(0);
+
+    // Tap 1 at t = 0
+    await act(() => {
+      result.current.handleTap();
+    });
+    expect(result.current.tapCount).toBe(1);
+
+    // Advance 1000ms (window is 1500ms)
+    await act(() => {
+      jest.advanceTimersByTime(1000);
+    });
+    expect(result.current.tapCount).toBe(1);
+
+    // Tap 2 at t = 1000ms
+    await act(() => {
+      result.current.handleTap();
+    });
+    expect(result.current.tapCount).toBe(2);
+
+    // Advance 500ms to t = 1500ms (Tap 1 expires now!)
+    await act(() => {
+      jest.advanceTimersByTime(500);
+    });
+    // Tap 1 has expired, only Tap 2 remains valid
+    expect(result.current.tapCount).toBe(1);
+
+    // Advance another 1000ms to t = 2500ms (Tap 2 expires now!)
+    await act(() => {
+      jest.advanceTimersByTime(1000);
+    });
+    expect(result.current.tapCount).toBe(0);
+  });
+
   it('decrements the countdown once per second', async () => {
     const { result } = await renderHook(() => useSOS());
 

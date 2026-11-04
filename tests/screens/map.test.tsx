@@ -9,6 +9,8 @@ import MapScreen from '@app/(tabs)/map';
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, replace: jest.fn(), back: jest.fn() }),
+  useLocalSearchParams: () => ({}),
+  useGlobalSearchParams: () => ({}),
   useFocusEffect: (cb: () => void | (() => void)): void => {
     mockReact.useEffect(() => {
       return cb();

@@ -327,7 +327,13 @@ jest.mock('@gorhom/bottom-sheet', () => {
   const { ScrollView, View } = jest.requireActual<typeof import('react-native')>('react-native');
 
   const MockBottomSheet = React.forwardRef(
-    ({ children }: { children?: React.ReactNode }, _ref: unknown) => {
+    ({ children }: { children?: React.ReactNode }, ref: React.Ref<unknown>) => {
+      React.useImperativeHandle(ref, () => ({
+        snapToIndex: jest.fn(),
+        collapse: jest.fn(),
+        close: jest.fn(),
+        expand: jest.fn(),
+      }));
       return React.createElement(View, null, children);
     },
   );

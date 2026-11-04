@@ -1,7 +1,12 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import GorhomBottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useFocusEffect, useRouter } from 'expo-router';
+import {
+  useFocusEffect,
+  useGlobalSearchParams,
+  useLocalSearchParams,
+  useRouter,
+} from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -135,14 +140,26 @@ export default function MapScreen(): React.JSX.Element {
   const [isReportModalVisible, setReportModalVisible] = useState(false);
   const [isSubmitting, setSubmitting] = useState(false);
 
+  const localParams = useLocalSearchParams<{ openHelp?: string }>();
+  const globalParams = useGlobalSearchParams<{ openHelp?: string }>();
+  const openHelp = localParams.openHelp ?? globalParams.openHelp;
   const [isFocused, setIsFocused] = useState(true);
   useFocusEffect(
     useCallback(() => {
       setIsFocused(true);
+      if (openHelp === '1') {
+        const timer = setTimeout(() => {
+          bottomSheetRef.current?.snapToIndex(1);
+        }, 300);
+        return (): void => {
+          clearTimeout(timer);
+          setIsFocused(false);
+        };
+      }
       return (): void => {
         setIsFocused(false);
       };
-    }, []),
+    }, [openHelp]),
   );
 
   const [nearbyPlaces, setNearbyPlaces] = useState<PlacesByCategory>(EMPTY_PLACES);
@@ -151,6 +168,16 @@ export default function MapScreen(): React.JSX.Element {
   const [sheetIndex, setSheetIndex] = useState(0);
   const bottomSheetRef = useRef<GorhomBottomSheet>(null);
   const snapPoints = useMemo(() => ['12%', '50%', '88%'], []);
+
+  useEffect(() => {
+    if (openHelp === '1') {
+      const timer = setTimeout(() => {
+        bottomSheetRef.current?.snapToIndex(1);
+      }, 300);
+      return (): void => clearTimeout(timer);
+    }
+    return undefined;
+  }, [openHelp]);
 
   const mapRef = useRef<MapView | null>(null);
   const hasCenteredOnUserRef = useRef(false);
@@ -540,7 +567,7 @@ export default function MapScreen(): React.JSX.Element {
         {selectedArea === null && (
           <GorhomBottomSheet
             ref={bottomSheetRef}
-            index={0}
+            index={openHelp === '1' ? 1 : 0}
             snapPoints={snapPoints}
             onChange={setSheetIndex}
             backgroundStyle={[

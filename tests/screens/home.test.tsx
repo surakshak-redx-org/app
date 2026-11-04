@@ -215,7 +215,10 @@ describe('HomeScreen', () => {
     const { getByText } = await render(<HomeScreen />);
     await fireEvent.press(getByText('Nearby Help'));
 
-    expect(mockPush).toHaveBeenCalledWith(ROUTES.NEARBY_HELP);
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: ROUTES.MAP,
+      params: { openHelp: '1' },
+    });
   });
 
   it('navigates straight through for a signed-in user', async () => {
