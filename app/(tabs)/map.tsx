@@ -143,14 +143,19 @@ export default function MapScreen(): React.JSX.Element {
   const localParams = useLocalSearchParams<{ openHelp?: string }>();
   const globalParams = useGlobalSearchParams<{ openHelp?: string }>();
   const openHelp = localParams.openHelp ?? globalParams.openHelp;
+  const consumedParamRef = useRef<string | null>(null);
   const [isFocused, setIsFocused] = useState(true);
   useFocusEffect(
     useCallback(() => {
       setIsFocused(true);
-      if (openHelp === '1') {
+      const isDeepLinkHelp = openHelp === '1' && consumedParamRef.current !== openHelp;
+      const isRequested = useLocationStore.getState().isNearbyHelpRequested || isDeepLinkHelp;
+      if (isRequested) {
+        consumedParamRef.current = openHelp ?? null;
+        useLocationStore.getState().clearNearbyHelpRequest();
         const timer = setTimeout(() => {
           bottomSheetRef.current?.snapToIndex(1);
-        }, 300);
+        }, 150);
         return (): void => {
           clearTimeout(timer);
           setIsFocused(false);
@@ -168,16 +173,6 @@ export default function MapScreen(): React.JSX.Element {
   const [sheetIndex, setSheetIndex] = useState(0);
   const bottomSheetRef = useRef<GorhomBottomSheet>(null);
   const snapPoints = useMemo(() => ['12%', '50%', '88%'], []);
-
-  useEffect(() => {
-    if (openHelp === '1') {
-      const timer = setTimeout(() => {
-        bottomSheetRef.current?.snapToIndex(1);
-      }, 300);
-      return (): void => clearTimeout(timer);
-    }
-    return undefined;
-  }, [openHelp]);
 
   const mapRef = useRef<MapView | null>(null);
   const hasCenteredOnUserRef = useRef(false);
@@ -567,8 +562,9 @@ export default function MapScreen(): React.JSX.Element {
         {selectedArea === null && (
           <GorhomBottomSheet
             ref={bottomSheetRef}
-            index={openHelp === '1' ? 1 : 0}
+            index={0}
             snapPoints={snapPoints}
+            enableDynamicSizing={false}
             onChange={setSheetIndex}
             backgroundStyle={[
               styles.nearbyPanelBg,

@@ -311,7 +311,10 @@ export default function HomeScreen(): React.JSX.Element {
             icon="medkit"
             labelKey="home.nearbyHelp"
             iconColor="#0D9488"
-            onPress={() => router.push({ pathname: ROUTES.MAP, params: { openHelp: '1' } })}
+            onPress={() => {
+              useLocationStore.getState().requestNearbyHelp();
+              router.push({ pathname: ROUTES.MAP, params: { openHelp: '1' } });
+            }}
           />
           <QuickActionCard
             icon="mic"
