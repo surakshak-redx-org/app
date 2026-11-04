@@ -6,7 +6,7 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Alert, FlatList, Pressable, Switch, View } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, Switch, View } from 'react-native';
 import { z } from 'zod';
 
 import { ImageViewer } from '@/components/features/community/ImageViewer';
@@ -54,6 +54,18 @@ const STATUS_BADGE: Record<IncidentReport['status'], BadgeVariant> = {
 
 const DESCRIPTION_LINES = 4;
 const BYTES_PER_MB = 1024 * 1024;
+
+const styles = StyleSheet.create({
+  thumbnail: {
+    borderRadius: 12,
+    height: 64,
+    width: 64,
+  },
+  thumbnailContainer: {
+    height: 64,
+    width: 64,
+  },
+});
 
 export default function IncidentReportScreen(): React.JSX.Element {
   const { t } = useTranslation();
@@ -383,8 +395,9 @@ export default function IncidentReportScreen(): React.JSX.Element {
 
             <View className="flex-row flex-wrap gap-2">
               {photoUris.map((uri) => (
-                <View key={uri} className="h-16 w-16">
+                <View key={uri} style={styles.thumbnailContainer} className="h-16 w-16">
                   <Pressable
+                    style={styles.thumbnail}
                     onPress={() => {
                       setViewerImages([uri]);
                       setViewerIndex(0);
@@ -394,6 +407,7 @@ export default function IncidentReportScreen(): React.JSX.Element {
                   >
                     <Image
                       source={{ uri }}
+                      style={styles.thumbnail}
                       className="h-16 w-16 rounded-xl border border-stone/20 dark:border-dark-border"
                       contentFit="cover"
                       transition={200}
@@ -509,6 +523,7 @@ export default function IncidentReportScreen(): React.JSX.Element {
                     {item.photoUrls.map((url, index) => (
                       <Pressable
                         key={url}
+                        style={styles.thumbnail}
                         onPress={() => {
                           setViewerImages(item.photoUrls);
                           setViewerIndex(index);
@@ -521,6 +536,7 @@ export default function IncidentReportScreen(): React.JSX.Element {
                       >
                         <Image
                           source={{ uri: url }}
+                          style={styles.thumbnail}
                           className="h-16 w-16 rounded-xl border border-stone/20 dark:border-dark-border"
                           contentFit="cover"
                           cachePolicy="memory-disk"

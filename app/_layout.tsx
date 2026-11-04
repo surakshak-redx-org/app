@@ -6,9 +6,11 @@ import {
 } from '@expo-google-fonts/noto-sans-devanagari';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Sentry from '@sentry/react-native';
+import { Image } from 'expo-image';
 import * as Notifications from 'expo-notifications';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { cssInterop } from 'nativewind';
 import React, { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, AppState, LogBox } from 'react-native';
@@ -50,6 +52,9 @@ import {
 const AUTH_SEGMENT = '(auth)';
 const ONBOARDING_SEGMENT = 'onboarding';
 const DISGUISE_SEGMENT = '(disguise)';
+
+// Register expo-image with NativeWind's cssInterop so className props map to style
+cssInterop(Image, { className: 'style' });
 
 // The background location task must be defined before the first tick so the
 // OS can hand a relaunch back to it — see `useLiveLocation`.
