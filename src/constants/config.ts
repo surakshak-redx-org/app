@@ -34,7 +34,7 @@ export const APP_CONFIG = {
   SHAKE_THRESHOLD: 2.5,
   SHAKE_COUNT_REQUIRED: 3,
   SHAKE_WINDOW_MS: 2000,
-  SHAKE_SAMPLE_INTERVAL_MS: 50,
+  SHAKE_SAMPLE_INTERVAL_MS: 100,
   LOW_BATTERY_THRESHOLD_PERCENT: 20,
   FAKE_CALL_DEFAULT_DELAY_SECONDS: 15,
   FAKE_CALL_RING_SECONDS: 30,
@@ -102,6 +102,10 @@ export const APP_CONFIG = {
   FOLLOW_DURATION_MINUTES: 10,
   /** How often `useSuspiciousFollow` samples the device's position. */
   FOLLOW_CHECK_INTERVAL_SECONDS: 60,
+  /** Interval extended when device is stationary to save battery. */
+  FOLLOW_STATIONARY_INTERVAL_SECONDS: 120,
+  /** Movement threshold below which device is considered stationary. */
+  FOLLOW_STATIONARY_THRESHOLD_METERS: 10,
   /** The user must have moved at least this much to count as "in transit". */
   FOLLOW_MIN_MOVEMENT_METERS: 50,
   /** Incident report field lengths. */

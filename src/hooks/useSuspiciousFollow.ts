@@ -57,13 +57,50 @@ export function useSuspiciousFollow(enabled: boolean): void {
 
     alertFiredRef.current = false;
     historyRef.current = [];
+    let isCancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const scheduleCheck = (delayMs: number): void => {
+      if (isCancelled) return;
+      timer = setTimeout(() => {
+        void checkForFollow();
+      }, delayMs);
+    };
 
     async function checkForFollow(): Promise<void> {
-      if (alertFiredRef.current) return;
-      if (!(await isFollowDetectionEnabled())) return;
+      if (isCancelled || alertFiredRef.current) return;
+      if (!(await isFollowDetectionEnabled())) {
+        scheduleCheck(APP_CONFIG.FOLLOW_CHECK_INTERVAL_SECONDS * 1000);
+        return;
+      }
 
       const permission = await Location.getForegroundPermissionsAsync();
-      if (!permission.granted) return;
+      if (!permission.granted) {
+        scheduleCheck(APP_CONFIG.FOLLOW_CHECK_INTERVAL_SECONDS * 1000);
+        return;
+      }
+
+      // Verify movement threshold before firing GPS fix; extend interval to 120s if stationary.
+      if (
+        typeof Location.getLastKnownPositionAsync === 'function' &&
+        historyRef.current.length > 0
+      ) {
+        try {
+          const lastKnown = await Location.getLastKnownPositionAsync();
+          if (lastKnown) {
+            const lastSnapshot = historyRef.current[historyRef.current.length - 1];
+            if (lastSnapshot) {
+              const movement = metersBetween(lastSnapshot, lastKnown.coords);
+              if (movement < APP_CONFIG.FOLLOW_STATIONARY_THRESHOLD_METERS) {
+                scheduleCheck(APP_CONFIG.FOLLOW_STATIONARY_INTERVAL_SECONDS * 1000);
+                return;
+              }
+            }
+          }
+        } catch {
+          // If reading last known position fails, proceed to fresh GPS fix
+        }
+      }
 
       try {
         const position = await Location.getCurrentPositionAsync({
@@ -81,34 +118,42 @@ export function useSuspiciousFollow(enabled: boolean): void {
           snapshot,
         ];
 
-        if (historyRef.current.length < MIN_SNAPSHOTS_FOR_MOVEMENT_CHECK) return;
-
-        const oldest = historyRef.current[0];
-        if (oldest === undefined) return;
-        const totalMovement = metersBetween(oldest, snapshot);
-        if (totalMovement < APP_CONFIG.FOLLOW_MIN_MOVEMENT_METERS) return;
-
-        const followCutoff = Date.now() - APP_CONFIG.FOLLOW_DURATION_MINUTES * MS_PER_MINUTE;
-        const recentHistory = historyRef.current.filter((entry) => entry.timestamp > followCutoff);
-        if (recentHistory.length < MIN_SNAPSHOTS_FOR_FOLLOW_CHECK) return;
-
-        const allWithinRadius = recentHistory.every(
-          (entry) => metersBetween(entry, snapshot) <= APP_CONFIG.FOLLOW_RADIUS_METERS,
-        );
-        if (!allWithinRadius) return;
-
-        alertFiredRef.current = true;
-        await triggerFollowAlert();
+        if (historyRef.current.length >= MIN_SNAPSHOTS_FOR_MOVEMENT_CHECK) {
+          const oldest = historyRef.current[0];
+          if (oldest !== undefined) {
+            const totalMovement = metersBetween(oldest, snapshot);
+            if (totalMovement >= APP_CONFIG.FOLLOW_MIN_MOVEMENT_METERS) {
+              const followCutoff = Date.now() - APP_CONFIG.FOLLOW_DURATION_MINUTES * MS_PER_MINUTE;
+              const recentHistory = historyRef.current.filter(
+                (entry) => entry.timestamp > followCutoff,
+              );
+              if (recentHistory.length >= MIN_SNAPSHOTS_FOR_FOLLOW_CHECK) {
+                const allWithinRadius = recentHistory.every(
+                  (entry) => metersBetween(entry, snapshot) <= APP_CONFIG.FOLLOW_RADIUS_METERS,
+                );
+                if (allWithinRadius) {
+                  alertFiredRef.current = true;
+                  await triggerFollowAlert();
+                  return;
+                }
+              }
+            }
+          }
+        }
       } catch (error) {
         console.warn('useSuspiciousFollow: could not get position fix:', error);
       }
+
+      scheduleCheck(APP_CONFIG.FOLLOW_CHECK_INTERVAL_SECONDS * 1000);
     }
 
-    const interval = setInterval(
-      () => void checkForFollow(),
-      APP_CONFIG.FOLLOW_CHECK_INTERVAL_SECONDS * 1000,
-    );
+    scheduleCheck(APP_CONFIG.FOLLOW_CHECK_INTERVAL_SECONDS * 1000);
 
-    return (): void => clearInterval(interval);
+    return (): void => {
+      isCancelled = true;
+      if (timer !== undefined) {
+        clearTimeout(timer);
+      }
+    };
   }, [enabled]);
 }

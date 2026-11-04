@@ -1,6 +1,6 @@
-import { renderHook } from '@testing-library/react-native';
+import { act, renderHook } from '@testing-library/react-native';
 import * as Notifications from 'expo-notifications';
-import { Platform } from 'react-native';
+import { AppState, type AppStateStatus, Platform } from 'react-native';
 
 import { useShakeDetection } from '@/hooks/useShakeDetection';
 import { useSOSStore } from '@/stores/sos.store';
@@ -91,6 +91,34 @@ describe('useShakeDetection', () => {
     await view.unmount();
 
     expect(mockRemove).toHaveBeenCalled();
+  });
+
+  describe('on iOS', () => {
+    const originalOS = Platform.OS;
+    afterEach(() => {
+      Platform.OS = originalOS;
+      jest.restoreAllMocks();
+    });
+
+    it('pauses sensor updates when app is suspended to background', async () => {
+      Platform.OS = 'ios';
+      let appStateListener: ((state: AppStateStatus) => void) | undefined;
+      jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, listener) => {
+        appStateListener = listener;
+        return { remove: jest.fn() };
+      });
+
+      await renderHook(() => useShakeDetection(jest.fn(), true));
+      expect(mockAddListenerCount).toBe(1);
+
+      // App transitions to background
+      await act(() => {
+        appStateListener?.('background');
+      });
+
+      // Subscription should be removed
+      expect(mockRemove).toHaveBeenCalled();
+    });
   });
 
   describe('on Android', () => {
