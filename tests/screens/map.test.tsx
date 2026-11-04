@@ -1,12 +1,60 @@
 import { act, fireEvent, render } from '@testing-library/react-native';
+import * as mockReact from 'react';
 import React from 'react';
 
 import { useAuthStore } from '@/stores/auth.store';
 import { useLocationStore } from '@/stores/location.store';
 import MapScreen from '@app/(tabs)/map';
 
+const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
+  useRouter: () => ({ push: mockPush, replace: jest.fn(), back: jest.fn() }),
+  useFocusEffect: (cb: () => void | (() => void)): void => {
+    mockReact.useEffect(() => {
+      return cb();
+    }, [cb]);
+  },
+}));
+
+const mockPlaceCall = jest.fn((_phone: string) => Promise.resolve());
+jest.mock('@/utils/phone.utils', () => ({
+  placeCall: (phone: string) => mockPlaceCall(phone),
+}));
+
+const MOCK_NEARBY_PLACES = [
+  {
+    id: 'p1',
+    name: 'Central Police Station',
+    address: '123 Police Road',
+    latitude: 19.01,
+    longitude: 72.01,
+    isOpen: true,
+    distanceKm: 0.45,
+    phoneNumber: '0221234567',
+  },
+  {
+    id: 'h1',
+    name: 'City Care Hospital',
+    address: '456 Hospital Lane',
+    latitude: 19.02,
+    longitude: 72.02,
+    isOpen: true,
+    distanceKm: 1.2,
+    phoneNumber: '0227654321',
+  },
+];
+
+const mockFetchNearbyPlaces = jest.fn((_lat: number, _lon: number, category: string) => {
+  if (category === 'police') return Promise.resolve([MOCK_NEARBY_PLACES[0]]);
+  if (category === 'hospital') return Promise.resolve([MOCK_NEARBY_PLACES[1]]);
+  return Promise.resolve([]);
+});
+
+jest.mock('@/services/location.service', () => ({
+  fetchNearbyPlaces: (lat: number, lon: number, cat: string) =>
+    mockFetchNearbyPlaces(lat, lon, cat),
+  getFreshLocation: jest.fn(() => Promise.resolve({ latitude: 19, longitude: 72 })),
+  getCurrentLocation: jest.fn(() => Promise.resolve({ latitude: 19, longitude: 72 })),
 }));
 
 const mockSubscribe = jest.fn((_cb: (areas: unknown[]) => void) => jest.fn());
@@ -120,5 +168,53 @@ describe('MapScreen', () => {
     });
     const { getByText } = await render(<MapScreen />);
     expect(getByText('Safety Map')).toBeTruthy();
+  });
+
+  it('renders nearby help bottom sheet with facility summary and Call 112 button', async () => {
+    useLocationStore.getState().setCurrentLocation({
+      latitude: 19.0,
+      longitude: 72.0,
+      timestamp: 123456,
+    });
+    const { findByText, getByLabelText } = await render(<MapScreen />);
+
+    expect(await findByText('Nearest: 450m Police • 1.2km Hospital')).toBeTruthy();
+
+    await fireEvent.press(getByLabelText('Call 112'));
+    expect(mockPlaceCall).toHaveBeenCalledWith('112');
+  });
+
+  it('switches nearby help categories and renders places with Call and Directions', async () => {
+    const { Linking } = jest.requireActual<typeof import('react-native')>('react-native');
+    const openURLSpy = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
+
+    useLocationStore.getState().setCurrentLocation({
+      latitude: 19.0,
+      longitude: 72.0,
+      timestamp: 123456,
+    });
+
+    const { findByText, getByLabelText, getByTestId } = await render(<MapScreen />);
+
+    // Initial police category
+    expect(await findByText('Central Police Station')).toBeTruthy();
+    expect(getByTestId('nearby-marker-p1')).toBeTruthy();
+
+    // Call Central Police Station
+    await fireEvent.press(getByLabelText('Call Central Police Station'));
+    expect(mockPlaceCall).toHaveBeenCalledWith('0221234567');
+
+    // Directions to Central Police Station
+    await fireEvent.press(getByLabelText('Directions Central Police Station'));
+    expect(openURLSpy).toHaveBeenCalledWith(
+      'https://www.google.com/maps/dir/?api=1&destination=19.01,72.01',
+    );
+
+    // Switch to Hospitals
+    await fireEvent.press(getByLabelText('Hospitals'));
+    expect(await findByText('City Care Hospital')).toBeTruthy();
+    expect(getByTestId('nearby-marker-h1')).toBeTruthy();
+
+    openURLSpy.mockRestore();
   });
 });

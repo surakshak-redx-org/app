@@ -321,3 +321,22 @@ jest.mock('expo-router', () => ({
     }, [cb]);
   },
 }));
+
+jest.mock('@gorhom/bottom-sheet', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  const { ScrollView, View } = jest.requireActual<typeof import('react-native')>('react-native');
+
+  const MockBottomSheet = React.forwardRef(
+    ({ children }: { children?: React.ReactNode }, _ref: unknown) => {
+      return React.createElement(View, null, children);
+    },
+  );
+  MockBottomSheet.displayName = 'MockBottomSheet';
+
+  return {
+    __esModule: true,
+    default: MockBottomSheet,
+    BottomSheetScrollView: ScrollView,
+    BottomSheetView: View,
+  };
+});
