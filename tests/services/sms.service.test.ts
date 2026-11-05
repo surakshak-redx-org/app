@@ -123,6 +123,88 @@ describe('sms.service', () => {
       expect(pending.length).toBe(1);
     });
 
+    it('enqueues ONLY failed recipients when partial failure has airplane error', async () => {
+      mockedSendSmsToContacts.mockResolvedValueOnce([
+        {
+          success: true,
+          phone: '+919876543210',
+          method: 'direct',
+        },
+        {
+          success: false,
+          phone: '+918765432109',
+          error: 'AIRPLANE_MODE_ON: Airplane mode',
+          method: 'direct',
+        },
+      ]);
+
+      const result = await sendSOSAlert(
+        [contact(), contact({ id: 'c2', phone: '8765432109' })],
+        'https://maps.example/1',
+        'Asha',
+        'en',
+      );
+
+      expect(result).toEqual({
+        sent: ['+919876543210'],
+        failed: ['+918765432109'],
+        isAirplaneMode: true,
+      });
+      const pending = await getPendingOutbox();
+      expect(pending.length).toBe(1);
+      expect(pending[0]?.recipients).toEqual(['+918765432109']);
+    });
+
+    it('survives AsyncStorage failure during template retrieval', async () => {
+      jest.mocked(AsyncStorage.getItem).mockRejectedValueOnce(new Error('Storage failure'));
+      mockedSendSmsToContacts.mockResolvedValueOnce([
+        { success: true, phone: '+919876543210', method: 'direct' },
+      ]);
+
+      const result = await sendSOSAlert([contact()], 'https://maps.example/1', 'Asha', 'en');
+      expect(result.sent).toEqual(['+919876543210']);
+    });
+
+    it('bails on flush if airplane mode is still on and preserves outbox', async () => {
+      jest.mocked(checkSmsPermission).mockResolvedValueOnce(false);
+      await sendSOSAlert([contact()], 'https://maps.example/1', 'Asha', 'en');
+
+      // Now permission granted, but airplane mode is ON
+      jest.mocked(checkSmsPermission).mockResolvedValue(true);
+      jest.mocked(isAirplaneModeOn).mockResolvedValueOnce(true);
+
+      const flushed = await flushPendingOutbox();
+      expect(flushed.dispatched).toBe(0);
+      expect(mockedSendSmsToContacts).not.toHaveBeenCalled();
+
+      const remaining = await getPendingOutbox();
+      expect(remaining.length).toBe(1);
+    });
+
+    it('retains partially failed items in outbox during flush', async () => {
+      jest.mocked(checkSmsPermission).mockResolvedValueOnce(false);
+      await sendSOSAlert(
+        [contact(), contact({ id: 'c2', phone: '8765432109' })],
+        'https://maps.example/1',
+        'Asha',
+        'en',
+      );
+
+      jest.mocked(checkSmsPermission).mockResolvedValue(true);
+      jest.mocked(isAirplaneModeOn).mockResolvedValue(false);
+      mockedSendSmsToContacts.mockResolvedValueOnce([
+        { success: true, phone: '+919876543210', method: 'direct' },
+        { success: false, phone: '+918765432109', method: 'direct', error: 'RADIO_NOT_AVAILABLE' },
+      ]);
+
+      const flushed = await flushPendingOutbox();
+      expect(flushed.dispatched).toBe(1);
+
+      const remaining = await getPendingOutbox();
+      expect(remaining.length).toBe(1);
+      expect(remaining[0]?.recipients).toEqual(['+918765432109']);
+    });
+
     it('falls back to the compose sheet when SEND_SMS has not been granted and enqueues to outbox', async () => {
       jest.mocked(checkSmsPermission).mockResolvedValueOnce(false);
 

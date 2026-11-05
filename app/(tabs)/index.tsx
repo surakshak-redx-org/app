@@ -20,7 +20,7 @@ import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { SafeScreen } from '@/components/ui/SafeScreen';
 import { Text } from '@/components/ui/Text';
 import { captureException } from '@/config/sentry';
-import { COLORS } from '@/constants/colors';
+import { ACTION_COLORS, COLORS } from '@/constants/colors';
 import { ROUTES } from '@/constants/routes';
 import { STORAGE_FLAG_OFF, STORAGE_FLAG_ON, STORAGE_KEYS } from '@/constants/storage';
 import { ICON_SIZE } from '@/constants/ui';
@@ -272,7 +272,7 @@ export default function HomeScreen(): React.JSX.Element {
           <QuickActionCard
             icon="people"
             labelKey="home.emergencyContacts"
-            iconColor="#6366F1"
+            iconColor={ACTION_COLORS.CONTACTS}
             warning={!isGuest && contactCount === 0 ? t('home.addContactsWarning') : undefined}
             locked={isGuest}
             onPress={() => openFeatureForGuest(() => router.push(ROUTES.EMERGENCY_CONTACTS))}
@@ -280,7 +280,7 @@ export default function HomeScreen(): React.JSX.Element {
           <QuickActionCard
             icon="navigate"
             labelKey="home.trackingAndJourneys"
-            iconColor="#7C3AED"
+            iconColor={ACTION_COLORS.TRACKING}
             active={isLiveLocationActive || isSafeJourneyActive}
             subtitle={
               isLiveLocationActive && isSafeJourneyActive
@@ -297,20 +297,20 @@ export default function HomeScreen(): React.JSX.Element {
           <QuickActionCard
             icon="call"
             labelKey="home.fakeCall"
-            iconColor="#059669"
+            iconColor={ACTION_COLORS.FAKE_CALL}
             onPress={() => setFakeCallModalVisible(true)}
           />
           <QuickActionCard
             icon="megaphone"
             labelKey="home.siren"
-            iconColor="#E11D48"
+            iconColor={ACTION_COLORS.SIREN}
             active={siren.isActive}
             onPress={siren.toggle}
           />
           <QuickActionCard
             icon="medkit"
             labelKey="home.nearbyHelp"
-            iconColor="#0D9488"
+            iconColor={ACTION_COLORS.NEARBY_HELP}
             onPress={() => {
               useLocationStore.getState().requestNearbyHelp();
               router.push({ pathname: ROUTES.MAP, params: { openHelp: '1' } });
@@ -319,14 +319,14 @@ export default function HomeScreen(): React.JSX.Element {
           <QuickActionCard
             icon="mic"
             labelKey="home.silentRecording"
-            iconColor="#BE123C"
+            iconColor={ACTION_COLORS.SILENT_RECORDING}
             locked={isGuest}
             onPress={() => openFeatureForGuest(() => router.push(ROUTES.SILENT_RECORDING))}
           />
           <QuickActionCard
             icon="time"
             labelKey="home.safeCheckin"
-            iconColor="#0284C7"
+            iconColor={ACTION_COLORS.SAFE_CHECKIN}
             active={safeCheckin.isActive}
             subtitle={safeCheckin.isActive ? t('home.checkinActiveSubtitle') : undefined}
             locked={isGuest}
@@ -335,7 +335,7 @@ export default function HomeScreen(): React.JSX.Element {
           <QuickActionCard
             icon="document-text"
             labelKey="home.incidentReport"
-            iconColor="#D97706"
+            iconColor={ACTION_COLORS.INCIDENT_REPORT}
             locked={isGuest}
             onPress={() => openFeatureForGuest(() => router.push(ROUTES.INCIDENT_REPORT))}
           />

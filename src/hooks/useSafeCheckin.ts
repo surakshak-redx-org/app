@@ -26,6 +26,7 @@ const MS_PER_MINUTE = 60_000;
 
 const listeners = new Map<string, () => void>();
 let nextInstanceId = 0;
+let isCheckingGlobal = false;
 
 export interface UseSafeCheckinResult {
   isActive: boolean;
@@ -60,7 +61,6 @@ export function useSafeCheckin(): UseSafeCheckinResult {
   const [isLoading, setIsLoading] = useState(true);
   const [revision, setRevision] = useState(0);
 
-  const checkingRef = useRef(false);
   const instanceIdRef = useRef<string | null>(null);
   if (instanceIdRef.current == null) {
     instanceIdRef.current = String(++nextInstanceId);
@@ -130,8 +130,8 @@ export function useSafeCheckin(): UseSafeCheckinResult {
 
   /** Compares the persisted deadline against now; escalates or reminds. */
   const checkForMissed = useCallback(async (): Promise<void> => {
-    if (checkingRef.current) return;
-    checkingRef.current = true;
+    if (isCheckingGlobal) return;
+    isCheckingGlobal = true;
     try {
       const active = await AsyncStorage.getItem(STORAGE_KEYS.CHECKIN_ACTIVE);
       if (active !== 'true') return;
@@ -167,7 +167,7 @@ export function useSafeCheckin(): UseSafeCheckinResult {
     } catch (error) {
       captureException(error);
     } finally {
-      checkingRef.current = false;
+      isCheckingGlobal = false;
     }
   }, [sendMissedAlert, stop, notifyOtherInstances]);
 
@@ -299,4 +299,31 @@ export function useSafeCheckin(): UseSafeCheckinResult {
     checkIn,
     stop,
   };
+}
+
+/** Lightweight selector hook to observe whether Safe Check-in is active without mounting timers or AppState listeners. */
+export function useSafeCheckinActive(): boolean {
+  const [active, setActive] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    const checkActive = (): void => {
+      void AsyncStorage.getItem(STORAGE_KEYS.CHECKIN_ACTIVE)
+        .then((val) => {
+          if (mounted) setActive(val === 'true');
+        })
+        .catch(() => undefined);
+    };
+    checkActive();
+
+    const id = String(++nextInstanceId);
+    listeners.set(id, checkActive);
+
+    return (): void => {
+      mounted = false;
+      listeners.delete(id);
+    };
+  }, []);
+
+  return active;
 }

@@ -2,8 +2,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { useEffect, useRef } from 'react';
 
+import { captureException } from '@/config/sentry';
 import { APP_CONFIG } from '@/constants/config';
 import { STORAGE_FLAG_OFF, STORAGE_KEYS } from '@/constants/storage';
+import { TIMING } from '@/constants/ui';
 import { trackSuspiciousFollowDetected } from '@/services/analytics.service';
 import { scheduleLocalNotification } from '@/services/notification.service';
 import { getDistanceKm } from '@/utils/location.utils';
@@ -63,38 +65,40 @@ export function useSuspiciousFollow(enabled: boolean): void {
     const scheduleCheck = (delayMs: number): void => {
       if (isCancelled) return;
       timer = setTimeout(() => {
-        void checkForFollow();
+        checkForFollow().catch((error: unknown) => {
+          captureException(error);
+          scheduleCheck(APP_CONFIG.FOLLOW_CHECK_INTERVAL_SECONDS * TIMING.SECOND_MS);
+        });
       }, delayMs);
     };
 
     async function checkForFollow(): Promise<void> {
       if (isCancelled || alertFiredRef.current) return;
       if (!(await isFollowDetectionEnabled())) {
-        scheduleCheck(APP_CONFIG.FOLLOW_CHECK_INTERVAL_SECONDS * 1000);
+        scheduleCheck(APP_CONFIG.FOLLOW_CHECK_INTERVAL_SECONDS * TIMING.SECOND_MS);
         return;
       }
 
       const permission = await Location.getForegroundPermissionsAsync();
       if (!permission.granted) {
-        scheduleCheck(APP_CONFIG.FOLLOW_CHECK_INTERVAL_SECONDS * 1000);
+        scheduleCheck(APP_CONFIG.FOLLOW_CHECK_INTERVAL_SECONDS * TIMING.SECOND_MS);
         return;
       }
 
       // Verify movement threshold before firing GPS fix; extend interval to 120s if stationary.
+      // Only trust cached fix if it is newer than our last snapshot to prevent freezing GPS requests.
       if (
         typeof Location.getLastKnownPositionAsync === 'function' &&
         historyRef.current.length > 0
       ) {
         try {
           const lastKnown = await Location.getLastKnownPositionAsync();
-          if (lastKnown) {
-            const lastSnapshot = historyRef.current[historyRef.current.length - 1];
-            if (lastSnapshot) {
-              const movement = metersBetween(lastSnapshot, lastKnown.coords);
-              if (movement < APP_CONFIG.FOLLOW_STATIONARY_THRESHOLD_METERS) {
-                scheduleCheck(APP_CONFIG.FOLLOW_STATIONARY_INTERVAL_SECONDS * 1000);
-                return;
-              }
+          const lastSnapshot = historyRef.current[historyRef.current.length - 1];
+          if (lastKnown && lastSnapshot && lastKnown.timestamp > lastSnapshot.timestamp) {
+            const movement = metersBetween(lastSnapshot, lastKnown.coords);
+            if (movement < APP_CONFIG.FOLLOW_STATIONARY_THRESHOLD_METERS) {
+              scheduleCheck(APP_CONFIG.FOLLOW_STATIONARY_INTERVAL_SECONDS * TIMING.SECOND_MS);
+              return;
             }
           }
         } catch {
@@ -144,10 +148,10 @@ export function useSuspiciousFollow(enabled: boolean): void {
         console.warn('useSuspiciousFollow: could not get position fix:', error);
       }
 
-      scheduleCheck(APP_CONFIG.FOLLOW_CHECK_INTERVAL_SECONDS * 1000);
+      scheduleCheck(APP_CONFIG.FOLLOW_CHECK_INTERVAL_SECONDS * TIMING.SECOND_MS);
     }
 
-    scheduleCheck(APP_CONFIG.FOLLOW_CHECK_INTERVAL_SECONDS * 1000);
+    scheduleCheck(APP_CONFIG.FOLLOW_CHECK_INTERVAL_SECONDS * TIMING.SECOND_MS);
 
     return (): void => {
       isCancelled = true;

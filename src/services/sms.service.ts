@@ -135,22 +135,42 @@ export async function flushPendingOutbox(): Promise<{ dispatched: number }> {
     return { dispatched: 0 };
   }
 
+  if (await isAirplaneModeOn()) {
+    return { dispatched: 0 };
+  }
+
   const items = await getPendingOutbox();
   if (items.length === 0) {
     return { dispatched: 0 };
   }
 
   let count = 0;
+  const remaining: PendingOutboxItem[] = [];
+
   for (const item of items) {
     try {
-      await sendSmsToContacts(item.recipients, item.message);
-      count += item.recipients.length;
+      const results = await sendSmsToContacts(item.recipients, item.message);
+      const failed = results.filter((r) => !r.success).map((r) => r.phone);
+      count += item.recipients.length - failed.length;
+      if (failed.length > 0) {
+        remaining.push({ ...item, recipients: failed });
+      }
     } catch (error) {
       console.warn('sms: failed to flush outbox item:', error);
+      remaining.push(item);
     }
   }
 
-  await clearPendingOutbox();
+  if (remaining.length === 0) {
+    await clearPendingOutbox();
+  } else {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.EMERGENCY_OUTBOX, JSON.stringify(remaining));
+    } catch (error) {
+      console.warn('sms: failed to update pending outbox:', error);
+    }
+  }
+
   return { dispatched: count };
 }
 
@@ -176,8 +196,16 @@ async function dispatch(recipients: string[], message: string): Promise<SMSAlert
             sendResult.error.toLowerCase().includes('airplane mode')),
       );
       if (hasAirplaneError) {
-        await enqueuePendingOutbox(recipients, message);
-        return { sent: [], failed: recipients, isAirplaneMode: true };
+        const failedPhones = results.filter((r) => !r.success).map((r) => r.phone);
+        const sentPhones = results.filter((r) => r.success).map((r) => r.phone);
+        if (failedPhones.length > 0) {
+          await enqueuePendingOutbox(failedPhones, message);
+        }
+        return {
+          sent: sentPhones,
+          failed: failedPhones,
+          isAirplaneMode: true,
+        };
       }
       return {
         sent: results
@@ -225,7 +253,12 @@ export async function sendSOSAlert(
   userName: string,
   language: Language,
 ): Promise<SMSAlertResult> {
-  const customTemplate = await AsyncStorage.getItem(STORAGE_KEYS.CUSTOM_SOS_MESSAGE_TEMPLATE);
+  let customTemplate: string | null = null;
+  try {
+    customTemplate = await AsyncStorage.getItem(STORAGE_KEYS.CUSTOM_SOS_MESSAGE_TEMPLATE);
+  } catch {
+    // Template read optional, fallback to default template
+  }
   let batteryLevel: number | null = null;
   try {
     batteryLevel = await Battery.getBatteryLevelAsync();

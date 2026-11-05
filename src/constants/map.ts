@@ -70,3 +70,17 @@ export const HELP_CATEGORY_LABEL_KEY: Record<HelpCategory, string> = {
   fire_station: 'location.fireStations',
   pharmacy: 'location.pharmacies',
 };
+
+/** Marker tint per help category on the map. */
+export const HELP_CATEGORY_COLORS: Record<HelpCategory, string> = {
+  police: COLORS.POLICE_BLUE,
+  hospital: COLORS.HOSPITAL_RED,
+  fire_station: COLORS.SAFFRON,
+  pharmacy: COLORS.PHARMACY_GREEN,
+};
+
+/** Minimum distance moved (in meters) before triggering a fresh nearby places search. */
+export const NEARBY_REFETCH_METERS = 100;
+
+/** Minimum time elapsed (in milliseconds) before re-querying nearby places for the same area. */
+export const NEARBY_REFETCH_MS = 60_000;

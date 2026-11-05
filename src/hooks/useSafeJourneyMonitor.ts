@@ -170,10 +170,9 @@ export function useSafeJourneyMonitor(userId: string | null): void {
           [STORAGE_KEYS.SAFE_JOURNEY_USER_ID, session.userId],
           [STORAGE_KEYS.SAFE_JOURNEY_DEADLINE, String(deadline)],
         ]).catch(() => undefined);
-        // Clamp timeout delay to at most 30s: if the user or OS changes the
-        // device clock backward or across timezones, the watchdog re-evaluates
-        // within 30 seconds rather than locking the timer for hours.
-        const delayMs = Math.min(Math.max(deadline - now + DEADLINE_GRACE_MS, 0), 30_000);
+        // Timer fires exactly at the expected arrival deadline (plus grace window).
+        const delayMs = Math.max(deadline - now + DEADLINE_GRACE_MS, 0);
+        clearTimer();
         timerRef.current = setTimeout(() => void checkRef.current(), delayMs);
         return;
       }
@@ -222,14 +221,24 @@ export function useSafeJourneyMonitor(userId: string | null): void {
 
   // BUG-137: Rehydrate in-memory watchdog immediately from local storage on app reload / OTA update
   useEffect(() => {
+    if (userId === null) return;
     let cancelled = false;
     async function restoreWatchdog(): Promise<void> {
       try {
-        const [cachedId, cachedDeadlineStr] = await Promise.all([
+        const [cachedId, cachedDeadlineStr, cachedUserId] = await Promise.all([
           AsyncStorage.getItem(STORAGE_KEYS.SAFE_JOURNEY_SESSION_ID),
           AsyncStorage.getItem(STORAGE_KEYS.SAFE_JOURNEY_DEADLINE),
+          AsyncStorage.getItem(STORAGE_KEYS.SAFE_JOURNEY_USER_ID),
         ]);
-        if (cancelled || cachedId === null || cachedDeadlineStr === null) return;
+        if (
+          cancelled ||
+          cachedId === null ||
+          cachedDeadlineStr === null ||
+          cachedUserId === null ||
+          cachedUserId !== userId
+        ) {
+          return;
+        }
         const cachedDeadline = Number(cachedDeadlineStr);
         if (Number.isNaN(cachedDeadline)) return;
 
@@ -237,7 +246,8 @@ export function useSafeJourneyMonitor(userId: string | null): void {
         if (cachedDeadline > now) {
           setSafeJourneyActive(true, cachedId);
           await scheduleJourneyNotifications(cachedDeadline, now);
-          const delayMs = Math.min(Math.max(cachedDeadline - now + DEADLINE_GRACE_MS, 0), 30_000);
+          const delayMs = Math.max(cachedDeadline - now + DEADLINE_GRACE_MS, 0);
+          clearTimer();
           timerRef.current = setTimeout(() => void checkRef.current(), delayMs);
         }
       } catch (error) {
@@ -248,7 +258,7 @@ export function useSafeJourneyMonitor(userId: string | null): void {
     return (): void => {
       cancelled = true;
     };
-  }, [setSafeJourneyActive]);
+  }, [userId, setSafeJourneyActive, clearTimer]);
 
   useEffect(() => clearTimer, [clearTimer]);
 }

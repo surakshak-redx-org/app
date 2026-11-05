@@ -28,8 +28,11 @@ import { COLORS } from '@/constants/colors';
 import { APP_CONFIG } from '@/constants/config';
 import {
   HELP_CATEGORIES,
+  HELP_CATEGORY_COLORS,
   HELP_CATEGORY_ICON,
   HELP_CATEGORY_LABEL_KEY,
+  NEARBY_REFETCH_METERS,
+  NEARBY_REFETCH_MS,
   PIN_CIRCLE_FILL,
   PIN_CIRCLE_STROKE,
   PIN_HEX,
@@ -61,7 +64,7 @@ import type {
   UnsafeArea,
   UnsafeAreaCategory,
 } from '@/types/location.types';
-import { locationErrorKey } from '@/utils/location.utils';
+import { getDistanceKm, locationErrorKey } from '@/utils/location.utils';
 import { placeCall } from '@/utils/phone.utils';
 
 interface ReportFormValues {
@@ -79,17 +82,11 @@ const EMPTY_PLACES: PlacesByCategory = {
   pharmacy: [],
 };
 
-const HELP_CATEGORY_COLORS: Record<HelpCategory, string> = {
-  police: '#1890FF',
-  hospital: '#F5222D',
-  fire_station: '#FA8C16',
-  pharmacy: '#52C41A',
-};
-
 const TITLE_MIN = 3;
 const TITLE_MAX = 100;
 const DESCRIPTION_MIN = 10;
 const DESCRIPTION_MAX = 500;
+const METERS_PER_KM = 1000;
 
 function directionsUrl(latitude: number, longitude: number): string {
   return `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
@@ -97,7 +94,7 @@ function directionsUrl(latitude: number, longitude: number): string {
 
 function formatDistance(distanceKm: number): string {
   if (distanceKm < 1) {
-    return `${Math.round(distanceKm * 1000)}m`;
+    return `${Math.round(distanceKm * METERS_PER_KM)}m`;
   }
   return `${distanceKm.toFixed(1)}km`;
 }
@@ -176,10 +173,12 @@ export default function MapScreen(): React.JSX.Element {
 
   const mapRef = useRef<MapView | null>(null);
   const hasCenteredOnUserRef = useRef(false);
+  const lastFetchRef = useRef<{ lat: number; lon: number; at: number } | null>(null);
 
   const fetchNearbyCallback = useCallback((lat: number, lon: number): (() => void) => {
     let isCancelled = false;
     const doFetch = async (): Promise<void> => {
+      setIsFetchingPlaces(true);
       try {
         const [police, hospital, fire_station, pharmacy] = await Promise.all([
           fetchNearbyPlaces(lat, lon, 'police').catch((): NearbyPlace[] => []),
@@ -206,6 +205,20 @@ export default function MapScreen(): React.JSX.Element {
 
   useEffect(() => {
     if (!currentLocation) return;
+    const last = lastFetchRef.current;
+    if (last) {
+      const movedMeters =
+        getDistanceKm(last.lat, last.lon, currentLocation.latitude, currentLocation.longitude) *
+        METERS_PER_KM;
+      if (movedMeters < NEARBY_REFETCH_METERS && Date.now() - last.at < NEARBY_REFETCH_MS) {
+        return;
+      }
+    }
+    lastFetchRef.current = {
+      lat: currentLocation.latitude,
+      lon: currentLocation.longitude,
+      at: Date.now(),
+    };
     return fetchNearbyCallback(currentLocation.latitude, currentLocation.longitude);
   }, [currentLocation, fetchNearbyCallback]);
 
@@ -500,7 +513,12 @@ export default function MapScreen(): React.JSX.Element {
             onPress={openReport}
             accessibilityRole="button"
             accessibilityLabel={t('map.reportArea')}
-            style={{ bottom: APP_CONFIG.MAP_FAB_OFFSET + insets.bottom + 70 }}
+            style={{
+              bottom:
+                APP_CONFIG.MAP_FAB_OFFSET +
+                insets.bottom +
+                APP_CONFIG.MAP_BOTTOM_SHEET_COLLAPSED_CLEARANCE,
+            }}
             className="absolute right-5 h-14 flex-row items-center gap-2 rounded-full bg-primary-red px-5 shadow-lg"
           >
             <MaterialIcons name="add-location" size={ICON_SIZE.ROW} color={COLORS.WHITE} />

@@ -26,7 +26,8 @@
     "seeMore": "See More",
     "noResultsFound": "No results found",
     "comingSoon": "Coming Soon",
-    "openSettings": "Open Settings"
+    "openSettings": "Open Settings",
+    "user": "User"
   },
   "nav": {
     "home": "Home",
@@ -540,8 +541,11 @@
     "charCountUnicode": "{{count}} / {{limit}} chars [Unicode] ({{segments}} SMS)",
     "resetDefault": "Reset",
     "insertToken": "Insert token:",
+    "insertTokenAccessibility": "Insert {{token}}",
     "messagePreview": "Live Preview:",
-    "templateSaved": "SOS message template saved."
+    "defaultSosPlaceholder": "SOS EMERGENCY ALERT from {name}. I need help immediately.\nMy location: {location}\nBattery: {battery}",
+    "templateSaved": "SOS message template saved.",
+    "templateMissingLocation": "Your custom SOS template must include the {location} token so contacts receive your location."
   },
   "errors": {
     "networkError": "No internet connection. Please try again.",

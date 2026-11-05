@@ -27,6 +27,11 @@ export function useFakeCall(): UseFakeCallResult {
   const [isCallActive, setIsCallActive] = useState(false);
   const [callerName, setCallerName] = useState('');
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isCallActiveRef = useRef(false);
+
+  useEffect(() => {
+    isCallActiveRef.current = isCallActive;
+  }, [isCallActive]);
 
   const clearPending = useCallback((): void => {
     if (timeoutRef.current !== null) {
@@ -39,6 +44,7 @@ export function useFakeCall(): UseFakeCallResult {
     (name: string): void => {
       clearPending();
       setCallerName(name);
+      isCallActiveRef.current = true;
       setIsCallActive(true);
       trackFakeCallTriggered();
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -52,9 +58,10 @@ export function useFakeCall(): UseFakeCallResult {
     let mounted = true;
 
     const checkPending = (): void => {
+      if (isCallActiveRef.current) return;
       void getPendingFakeCall()
         .then((pendingCall) => {
-          if (mounted && pendingCall) {
+          if (mounted && pendingCall && !isCallActiveRef.current) {
             triggerCall(pendingCall.callerName);
           }
         })
@@ -102,11 +109,12 @@ export function useFakeCall(): UseFakeCallResult {
           );
         }
 
-        await scheduleNativeFakeCall(delaySeconds * TIMING.SECOND_MS, name).catch(
-          (error: unknown) => {
-            console.warn('Native alarm schedule failed, falling back to JS timer:', error);
-          },
-        );
+        try {
+          await scheduleNativeFakeCall(delaySeconds * TIMING.SECOND_MS, name);
+          return;
+        } catch (error: unknown) {
+          console.warn('Native alarm schedule failed, falling back to JS timer:', error);
+        }
       }
 
       timeoutRef.current = setTimeout((): void => {
@@ -132,6 +140,7 @@ export function useFakeCall(): UseFakeCallResult {
       void cancelScheduledFakeCall().catch(() => undefined);
     }
 
+    isCallActiveRef.current = false;
     setIsCallActive(false);
   }, [clearPending]);
 

@@ -22,7 +22,7 @@ import {
 } from '@/constants/auth';
 import { ROUTES } from '@/constants/routes';
 import { STORAGE_KEYS } from '@/constants/storage';
-import { ICON_SIZE } from '@/constants/ui';
+import { ICON_SIZE, TIMING } from '@/constants/ui';
 import { useTheme } from '@/hooks/useTheme';
 import { ANALYTICS_EVENTS, trackEvent } from '@/services/analytics.service';
 import { AuthError, sendOtp } from '@/services/firebase/auth.service';
@@ -82,11 +82,17 @@ export default function PhoneScreen(): React.JSX.Element {
     setIsLoading(true);
     setSubmitError(null);
     try {
-      const storedDeadlineStr = await AsyncStorage.getItem(STORAGE_KEYS.OTP_RESEND_DEADLINE);
+      const [storedDeadlineStr, storedPhone] = await Promise.all([
+        AsyncStorage.getItem(STORAGE_KEYS.OTP_RESEND_DEADLINE),
+        AsyncStorage.getItem(STORAGE_KEYS.OTP_RESEND_PHONE),
+      ]);
       if (storedDeadlineStr !== null) {
         const storedDeadline = Number(storedDeadlineStr);
-        if (!Number.isNaN(storedDeadline) && Date.now() < storedDeadline) {
-          // If within active cooldown, jump straight to OTP rather than hitting Firebase rate limit
+        const inCooldown = !Number.isNaN(storedDeadline) && Date.now() < storedDeadline;
+        const sameNumber = storedPhone === phone;
+
+        if (inCooldown && sameNumber && getStoredConfirmation() !== null) {
+          // If within active cooldown for the exact same number and confirmation exists, jump to OTP
           router.push({
             pathname: ROUTES.OTP,
             params: { phone: `${PHONE_E164_PREFIX}${phone}` },
@@ -97,10 +103,13 @@ export default function PhoneScreen(): React.JSX.Element {
 
       const confirmation = await sendOtp(phone);
       setStoredConfirmation(confirmation);
-      await AsyncStorage.setItem(
-        STORAGE_KEYS.OTP_RESEND_DEADLINE,
-        String(Date.now() + OTP_RESEND_SECONDS * 1000),
-      );
+      await AsyncStorage.multiSet([
+        [
+          STORAGE_KEYS.OTP_RESEND_DEADLINE,
+          String(Date.now() + OTP_RESEND_SECONDS * TIMING.SECOND_MS),
+        ],
+        [STORAGE_KEYS.OTP_RESEND_PHONE, phone],
+      ]);
       trackEvent(ANALYTICS_EVENTS.OTP_REQUESTED, { phone_last4: phone.slice(-PHONE_LAST_DIGITS) });
       router.push({
         pathname: ROUTES.OTP,

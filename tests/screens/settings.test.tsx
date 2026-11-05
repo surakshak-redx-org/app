@@ -163,4 +163,23 @@ describe('SettingsScreen', () => {
 
     expect(AsyncStorage.removeItem).toHaveBeenCalledWith('surakshak_custom_sos_message_template');
   });
+
+  it('rejects saving a custom template that omits the {location} token', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    const { getByText, getByLabelText } = await render(<SettingsScreen />);
+    const input = getByLabelText('Custom SOS Alert Message');
+    await fireEvent.changeText(input, 'Help me, I am in danger - {name}');
+
+    await fireEvent.press(getByText('Save'));
+
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Something went wrong',
+      'Your custom SOS template must include the {location} token so contacts receive your location.',
+    );
+    expect(AsyncStorage.setItem).not.toHaveBeenCalledWith(
+      'surakshak_custom_sos_message_template',
+      expect.anything(),
+    );
+    alertSpy.mockRestore();
+  });
 });

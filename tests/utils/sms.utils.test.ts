@@ -195,6 +195,16 @@ describe('interpolateSOSTemplate', () => {
 
     expect(result).toBe('ALERT: Priya at https://loc. Bat: N/A');
   });
+
+  it('preserves regex replacement patterns in variables literally', () => {
+    const template = 'ALERT: {name} at {location}';
+    const result = interpolateSOSTemplate(template, {
+      name: "$$ & $` $' $1",
+      locationUrl: 'https://maps.example/?q=1,2&$param=true',
+    });
+
+    expect(result).toBe("ALERT: $$ & $` $' $1 at https://maps.example/?q=1,2&$param=true");
+  });
 });
 
 describe('buildSOSMessage with custom template', () => {
@@ -202,6 +212,12 @@ describe('buildSOSMessage with custom template', () => {
     const custom = 'CODE RED: {name} is at {location}';
     const message = buildSOSMessage('Asha', LOCATION_URL, 'en', custom);
     expect(message).toBe(`CODE RED: Asha is at ${LOCATION_URL}`);
+  });
+
+  it('appends location link if custom template omits {location}', () => {
+    const custom = 'EMERGENCY: {name} needs help immediately!';
+    const message = buildSOSMessage('Asha', LOCATION_URL, 'en', custom);
+    expect(message).toBe(`EMERGENCY: Asha needs help immediately!\n${LOCATION_URL}`);
   });
 
   it('falls back to default template when custom template is empty or whitespace', () => {

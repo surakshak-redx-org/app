@@ -5,9 +5,7 @@ import {
   getDocs,
   onSnapshot,
   orderBy,
-  setDoc,
   startAfter,
-  updateDoc,
   where,
 } from '@react-native-firebase/firestore';
 import { deleteObject, getDownloadURL, putFile, ref } from '@react-native-firebase/storage';
@@ -24,6 +22,12 @@ import {
 } from '@/services/firebase/community.service';
 import type { CreatePostInput } from '@/types/community.types';
 
+const mockTransaction = {
+  get: jest.fn(),
+  set: jest.fn(),
+  update: jest.fn(),
+};
+
 jest.mock('@react-native-firebase/firestore', () => ({
   getFirestore: jest.fn(() => ({})),
   collection: jest.fn((...segments: string[]) => ({ path: segments.join('/') })),
@@ -34,6 +38,10 @@ jest.mock('@react-native-firebase/firestore', () => ({
   getDocs: jest.fn(() => Promise.resolve({ docs: [] })),
   setDoc: jest.fn(() => Promise.resolve()),
   updateDoc: jest.fn(() => Promise.resolve()),
+  runTransaction: jest.fn(
+    (_firestore: unknown, fn: (tx: typeof mockTransaction) => Promise<unknown>) =>
+      fn(mockTransaction),
+  ),
   query: jest.fn((ref: unknown) => ref),
   where: jest.fn((field: string, op: string, value: unknown) => ({ field, op, value })),
   orderBy: jest.fn((field: string, dir: string) => ({ orderBy: field, dir })),
@@ -57,6 +65,9 @@ describe('community.service', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockTransaction.get.mockReset();
+    mockTransaction.set.mockReset();
+    mockTransaction.update.mockReset();
     errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
   });
   afterEach(() => errorSpy.mockRestore());
@@ -103,11 +114,11 @@ describe('community.service', () => {
   });
 
   it('records a new report under subcollection and increments reportCount without mutating isHidden', async () => {
-    jest.mocked(getDoc).mockResolvedValueOnce({ exists: () => false } as never);
+    mockTransaction.get.mockResolvedValueOnce({ exists: () => false });
 
     await reportPost('post-1', 'user-1', 'harassment');
 
-    expect(setDoc).toHaveBeenCalledWith(
+    expect(mockTransaction.set).toHaveBeenCalledWith(
       expect.objectContaining({ path: expect.stringContaining('community/post-1/reports/user-1') }),
       {
         reporterId: 'user-1',
@@ -116,25 +127,25 @@ describe('community.service', () => {
         createdAt: { __serverTimestamp: true },
       },
     );
-    expect(updateDoc).toHaveBeenCalledWith(
+    expect(mockTransaction.update).toHaveBeenCalledWith(
       expect.objectContaining({ path: expect.stringContaining('community/post-1') }),
       {
         reportCount: { __increment: 1 },
       },
     );
-    expect(updateDoc).not.toHaveBeenCalledWith(
+    expect(mockTransaction.update).not.toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ isHidden: expect.anything() }),
     );
   });
 
   it('skips duplicate report and does not increment reportCount if already reported by user', async () => {
-    jest.mocked(getDoc).mockResolvedValueOnce({ exists: () => true } as never);
+    mockTransaction.get.mockResolvedValueOnce({ exists: () => true });
 
     await reportPost('post-1', 'user-1');
 
-    expect(setDoc).not.toHaveBeenCalled();
-    expect(updateDoc).not.toHaveBeenCalled();
+    expect(mockTransaction.set).not.toHaveBeenCalled();
+    expect(mockTransaction.update).not.toHaveBeenCalled();
   });
 
   it('throws when reporterId is empty or not provided', async () => {
@@ -275,6 +286,7 @@ describe('community.service', () => {
   ])('%s logs and rethrows when the backend fails', async (_name, call) => {
     jest.mocked(addDoc).mockRejectedValueOnce(new Error('offline'));
     jest.mocked(getDoc).mockRejectedValueOnce(new Error('offline'));
+    mockTransaction.get.mockRejectedValueOnce(new Error('offline'));
     jest.mocked(getDocs).mockRejectedValueOnce(new Error('offline'));
     jest.mocked(putFile).mockRejectedValueOnce(new Error('offline') as never);
 

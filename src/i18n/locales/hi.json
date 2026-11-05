@@ -26,7 +26,8 @@
     "seeMore": "और देखें",
     "noResultsFound": "कोई परिणाम नहीं मिला",
     "comingSoon": "जल्द आ रहा है",
-    "openSettings": "सेटिंग्स खोलें"
+    "openSettings": "सेटिंग्स खोलें",
+    "user": "उपयोगकर्ता"
   },
   "nav": {
     "home": "होम",
@@ -540,8 +541,11 @@
     "charCountUnicode": "{{count}} / {{limit}} अक्षर [यूनिकोड] ({{segments}} SMS)",
     "resetDefault": "रीसेट करें",
     "insertToken": "टोकन जोड़ें:",
+    "insertTokenAccessibility": "{{token}} जोड़ें",
     "messagePreview": "लाइव पूर्वावलोकन:",
-    "templateSaved": "SOS संदेश टेम्पलेट सेव हो गया।"
+    "defaultSosPlaceholder": "{name} से SOS आपातकालीन अलर्ट। मुझे तुरंत मदद चाहिए।\nमेरा स्थान: {location}\nबैटरी: {battery}",
+    "templateSaved": "SOS संदेश टेम्पलेट सेव हो गया।",
+    "templateMissingLocation": "आपके कस्टम SOS टेम्पलेट में {location} टोकन होना आवश्यक है ताकि संपर्कों को आपका स्थान मिल सके।"
   },
   "errors": {
     "networkError": "इंटरनेट नहीं है। कृपया फिर कोशिश करें।",

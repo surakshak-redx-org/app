@@ -37,6 +37,8 @@ export const STORAGE_KEYS = {
   SAFE_JOURNEY_USER_ID: 'surakshak_safe_journey_user_id',
   /** Timestamp in milliseconds until which OTP resend is throttled across restarts (BUG-139 / BUG-150). */
   OTP_RESEND_DEADLINE: 'surakshak_otp_resend_deadline',
+  /** Phone number associated with the active OTP resend deadline. */
+  OTP_RESEND_PHONE: 'surakshak_otp_resend_phone',
   /** `'false'` disables the suspicious-follow alert; absent means enabled. */
   FOLLOW_DETECTION_ENABLED: 'surakshak_follow_detection_enabled',
   /** `'true'` while a Safe Check-In session is running. */
@@ -105,6 +107,9 @@ export const SENSITIVE_STORAGE_KEYS = [
   STORAGE_KEYS.SMS_HISTORY,
   STORAGE_KEYS.EVIDENCE_RECORDING_HISTORY,
   STORAGE_KEYS.LIVE_LOCATION_SESSION_ID,
+  STORAGE_KEYS.SAFE_JOURNEY_SESSION_ID,
+  STORAGE_KEYS.SAFE_JOURNEY_DEADLINE,
+  STORAGE_KEYS.SAFE_JOURNEY_USER_ID,
   STORAGE_KEYS.SAFE_JOURNEY_ARRIVED_SESSIONS,
   STORAGE_KEYS.EMERGENCY_OUTBOX,
   STORAGE_KEYS.CHECKIN_ACTIVE,
@@ -114,6 +119,8 @@ export const SENSITIVE_STORAGE_KEYS = [
   STORAGE_KEYS.CHECKIN_MISSED_COUNT,
   STORAGE_KEYS.ONBOARDING_COMPLETE,
   STORAGE_KEYS.LIVE_LOCATION_USER_ID,
+  STORAGE_KEYS.OTP_RESEND_DEADLINE,
+  STORAGE_KEYS.OTP_RESEND_PHONE,
 ] as const;
 
 export type SensitiveStorageKey = (typeof SENSITIVE_STORAGE_KEYS)[number];

@@ -3,17 +3,15 @@ import {
   collection,
   deleteDoc,
   doc,
-  getDoc,
   getDocs,
   increment,
   limit,
   onSnapshot,
   orderBy,
   query,
+  runTransaction,
   serverTimestamp,
-  setDoc,
   startAfter,
-  updateDoc,
   where,
   type Timestamp,
 } from '@react-native-firebase/firestore';
@@ -211,35 +209,23 @@ export async function reportPost(
     throw new Error('Reporter ID is required to report a post');
   }
   try {
-    let alreadyReported = false;
-    try {
-      const reportRef = doc(firestore, COMMUNITY_COLLECTION, postId, 'reports', reporterId);
-      const existing = await getDoc(reportRef);
-      if (existing?.exists?.()) {
-        alreadyReported = true;
-      } else {
-        await setDoc(reportRef, {
-          reporterId,
-          postId,
-          reason,
-          createdAt: serverTimestamp(),
-        }).catch(() => undefined);
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (msg.includes('permission-denied')) {
-        console.warn('community reports subcollection permission denied by rules:', err);
-      } else {
-        throw err;
-      }
-    }
+    const reportRef = doc(firestore, COMMUNITY_COLLECTION, postId, 'reports', reporterId);
+    const postRef = communityDoc(postId);
 
-    if (alreadyReported) {
-      return;
-    }
-
-    await updateDoc(communityDoc(postId), {
-      reportCount: increment(1),
+    await runTransaction(firestore, async (tx) => {
+      const existing = await tx.get(reportRef);
+      if (existing.exists()) {
+        return;
+      }
+      tx.set(reportRef, {
+        reporterId,
+        postId,
+        reason,
+        createdAt: serverTimestamp(),
+      });
+      tx.update(postRef, {
+        reportCount: increment(1),
+      });
     });
   } catch (error) {
     console.error('reportPost failed:', error);

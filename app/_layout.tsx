@@ -133,7 +133,11 @@ function RootLayout(): React.JSX.Element {
               getCachedEmergencyContacts(),
             ]);
 
-            if (cachedProfile !== null) {
+            if (
+              cachedProfile !== null &&
+              (cachedProfile.userId === firebaseUser.uid ||
+                (cachedProfile as { id?: string }).id === firebaseUser.uid)
+            ) {
               setSurakshakUser(cachedProfile);
               setProfileMirror(cachedProfile);
               identifyUser(firebaseUser.uid);
@@ -170,11 +174,16 @@ function RootLayout(): React.JSX.Element {
               return;
             }
 
-            // Fresh install or cleared cache: fetch profile and contacts concurrently
-            const [profile, contacts] = await Promise.all([
+            // Fresh install or cleared cache: fetch profile and contacts concurrently.
+            // Using allSettled ensures a transient network error reading contacts
+            // does not drop the successfully retrieved profile.
+            const [profileRes, contactsRes] = await Promise.allSettled([
               getUserProfile(firebaseUser.uid),
               getEmergencyContacts(firebaseUser.uid),
             ]);
+
+            const profile = profileRes.status === 'fulfilled' ? profileRes.value : null;
+            const contacts = contactsRes.status === 'fulfilled' ? contactsRes.value : [];
 
             if (profile !== null) {
               setSurakshakUser(profile);

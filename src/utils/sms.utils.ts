@@ -295,9 +295,9 @@ export function interpolateSOSTemplate(
   }
 
   return template
-    .replace(/\{name\}/gi, variables.name)
-    .replace(/\{location\}/gi, variables.locationUrl)
-    .replace(/\{battery\}/gi, batteryStr);
+    .replace(/\{name\}/gi, () => variables.name)
+    .replace(/\{location\}/gi, () => variables.locationUrl)
+    .replace(/\{battery\}/gi, () => batteryStr);
 }
 
 export function buildSOSMessage(
@@ -308,11 +308,16 @@ export function buildSOSMessage(
   batteryLevel?: number | null,
 ): string {
   if (typeof customTemplate === 'string' && customTemplate.trim().length > 0) {
-    return interpolateSOSTemplate(customTemplate.trim(), {
+    const trimmed = customTemplate.trim();
+    let message = interpolateSOSTemplate(trimmed, {
       name,
       locationUrl,
       battery: batteryLevel,
     });
+    if (!/\{location\}/i.test(trimmed)) {
+      message = `${message}\n${locationUrl}`;
+    }
+    return message;
   }
 
   // 'en-IN' keeps the timestamp in ASCII digits regardless of the app's

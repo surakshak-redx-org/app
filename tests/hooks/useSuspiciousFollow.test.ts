@@ -117,11 +117,13 @@ describe('useSuspiciousFollow', () => {
     await jest.advanceTimersByTimeAsync(CHECK_INTERVAL_MS);
     expect(Location.getCurrentPositionAsync).toHaveBeenCalledTimes(1);
 
-    // Now last known position shows user hasn't moved (< 10m)
-    jest.mocked(Location.getLastKnownPositionAsync).mockResolvedValue({
-      coords: { latitude: CLOSE_LAT, longitude: LNG, accuracy: 5 },
-      timestamp: Date.now(),
-    } as never);
+    // Now last known position is newer and shows user hasn't moved (< 10m)
+    jest.mocked(Location.getLastKnownPositionAsync).mockImplementation(() =>
+      Promise.resolve({
+        coords: { latitude: CLOSE_LAT, longitude: LNG, accuracy: 5 },
+        timestamp: Date.now() + 5_000,
+      } as never),
+    );
 
     // At 60s, it verifies movement threshold, sees stationary, skips fresh fix, and reschedules for 120s
     await jest.advanceTimersByTimeAsync(CHECK_INTERVAL_MS);
@@ -130,5 +132,22 @@ describe('useSuspiciousFollow', () => {
     // Advance 60s more (total 120s from previous check): next check fires
     await jest.advanceTimersByTimeAsync(CHECK_INTERVAL_MS);
     expect(Location.getLastKnownPositionAsync).toHaveBeenCalled();
+  });
+
+  it('reschedules next check even if permission check rejects', async () => {
+    jest
+      .mocked(Location.getForegroundPermissionsAsync)
+      .mockRejectedValueOnce(new Error('Permission check crashed'));
+
+    await renderHook(() => useSuspiciousFollow(true));
+
+    // First check crashes on permission lookup; error is caught and next check is scheduled
+    await jest.advanceTimersByTimeAsync(CHECK_INTERVAL_MS);
+
+    // Second check succeeds and takes a position fix
+    positionAt(CLOSE_LAT);
+    await jest.advanceTimersByTimeAsync(CHECK_INTERVAL_MS);
+
+    expect(Location.getCurrentPositionAsync).toHaveBeenCalledTimes(1);
   });
 });

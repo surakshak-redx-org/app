@@ -27,7 +27,7 @@ import {
   type StorageKey,
 } from '@/constants/storage';
 import { DANGER_ROW_HITSLOP, ICON_SIZE } from '@/constants/ui';
-import { useSafeCheckin } from '@/hooks/useSafeCheckin';
+import { useSafeCheckinActive } from '@/hooks/useSafeCheckin';
 import {
   ANALYTICS_EVENTS,
   resetUser as resetAnalytics,
@@ -50,7 +50,7 @@ export default function SettingsScreen(): React.JSX.Element {
   const [shakeEnabled, setShakeEnabled] = useState(true);
   const [lowBatteryEnabled, setLowBatteryEnabled] = useState(true);
   const [followDetectionEnabled, setFollowDetectionEnabled] = useState(true);
-  const { isActive: checkinActive } = useSafeCheckin();
+  const checkinActive = useSafeCheckinActive();
   const [disguiseEnabled, setDisguiseEnabled] = useState(false);
   const [disguiseModalMode, setDisguiseModalMode] = useState<DisguiseModalMode>(null);
   const [customSosTemplate, setCustomSosTemplate] = useState('');
@@ -118,6 +118,10 @@ export default function SettingsScreen(): React.JSX.Element {
         })
         .catch((error: unknown) => captureException(error));
     } else {
+      if (!/\{location\}/i.test(trimmed)) {
+        Alert.alert(t('common.error'), t('settings.templateMissingLocation'));
+        return;
+      }
       AsyncStorage.setItem(STORAGE_KEYS.CUSTOM_SOS_MESSAGE_TEMPLATE, trimmed)
         .then(() => {
           Alert.alert(t('common.save'), t('settings.templateSaved'));
@@ -135,12 +139,11 @@ export default function SettingsScreen(): React.JSX.Element {
   }
 
   const characterStats = calculateSMSCharacterCount(customSosTemplate);
-  const defaultPlaceholder =
-    'SOS EMERGENCY ALERT from {name}. I need help immediately.\nMy location: {location}\nBattery: {battery}';
+  const defaultPlaceholder = t('settings.defaultSosPlaceholder');
   const previewText = interpolateSOSTemplate(
     customSosTemplate.trim().length > 0 ? customSosTemplate : defaultPlaceholder,
     {
-      name: surakshakUser?.name ?? 'User',
+      name: surakshakUser?.name ?? t('common.user'),
       locationUrl: 'https://maps.google.com/?q=19.076,72.877',
       battery: 85,
     },
@@ -408,7 +411,7 @@ export default function SettingsScreen(): React.JSX.Element {
                 onPress={() => setCustomSosTemplate((prev) => `${prev} ${token}`.trim())}
                 className="rounded-full border border-shakti-purple/30 bg-shakti-purple/10 px-2.5 py-1"
                 accessibilityRole="button"
-                accessibilityLabel={`Insert ${token}`}
+                accessibilityLabel={t('settings.insertTokenAccessibility', { token })}
               >
                 <Text variant="caption" className="font-medium text-shakti-purple">
                   +{token}

@@ -84,6 +84,8 @@ export const APP_CONFIG = {
   MAP_FALLBACK_LONGITUDE: 72.8777,
   /** Base distance of the report FAB from the screen edge, before the safe-area inset. */
   MAP_FAB_OFFSET: 24,
+  /** Height clearance to lift the report FAB above the collapsed nearby help bottom sheet handle. */
+  MAP_BOTTOM_SHEET_COLLAPSED_CLEARANCE: 70,
   /**
    * Height of the floating title/legend header overlay, used to push the
    * native map controls (Android's My Location button defaults to top-right;

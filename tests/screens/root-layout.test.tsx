@@ -220,6 +220,48 @@ describe('RootLayout auth listener', () => {
 
     expect(mockReplace).toHaveBeenCalledWith(ROUTES.HOME);
   });
+
+  it('ignores cached profile belonging to a different user', async () => {
+    const wrongProfile = {
+      userId: 'different_user',
+      name: 'Wrong User',
+      language: 'en' as const,
+    };
+    jest.mocked(AsyncStorage.getItem).mockImplementation((key: string) => {
+      if (key === STORAGE_KEYS.USER_PROFILE_CACHE) {
+        return Promise.resolve(JSON.stringify(wrongProfile));
+      }
+      return Promise.resolve(null);
+    });
+
+    jest.mocked(getDoc).mockResolvedValueOnce({
+      exists: () => true,
+      id: 'u1',
+      data: () => ({ name: 'Real User', language: 'en' }),
+    } as never);
+    jest.mocked(getDocs).mockResolvedValueOnce({ docs: [] } as never);
+
+    await render(<RootLayout />);
+    await emitAuth({ uid: 'u1', phoneNumber: '+919876543210' });
+
+    expect(useAuthStore.getState().surakshakUser?.name).toBe('Real User');
+  });
+
+  it('keeps user profile even when emergency contacts fetch fails on first launch', async () => {
+    jest.mocked(AsyncStorage.getItem).mockResolvedValue(null);
+    jest.mocked(getDoc).mockResolvedValueOnce({
+      exists: () => true,
+      id: 'u1',
+      data: () => ({ name: 'Priya Fresh', language: 'en' }),
+    } as never);
+    jest.mocked(getDocs).mockRejectedValueOnce(new Error('Contacts collection unavailable'));
+
+    await render(<RootLayout />);
+    await emitAuth({ uid: 'u1', phoneNumber: '+919876543210' });
+
+    expect(useAuthStore.getState().surakshakUser?.name).toBe('Priya Fresh');
+    expect(useUserStore.getState().emergencyContacts).toEqual([]);
+  });
 });
 
 describe('RootLayout disguise gate', () => {
