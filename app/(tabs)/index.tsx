@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Platform, Pressable, View } from 'react-native';
 
+import { GuestBanner } from '@/components/features/auth/GuestBanner';
 import { FakeCallScheduler } from '@/components/features/emergency/FakeCallScheduler';
 import { IncomingCallOverlay } from '@/components/features/emergency/IncomingCallOverlay';
 import { QuickActionCard } from '@/components/features/emergency/QuickActionCard';
@@ -267,6 +268,12 @@ export default function HomeScreen(): React.JSX.Element {
             className="mt-3 text-center text-stone dark:text-dark-text-secondary"
           />
         </View>
+
+        {isGuest && (
+          <View className="mt-6">
+            <GuestBanner />
+          </View>
+        )}
 
         <View className="mt-6 flex-row flex-wrap">
           <QuickActionCard
