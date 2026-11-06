@@ -1,3 +1,4 @@
+import { SMS_SEGMENT_LIMITS } from '@/constants/config';
 import type { Language } from '@/types/user.types';
 
 /**
@@ -236,29 +237,9 @@ export function calculateSMSCharacterCount(text: string): SMSCharacterCount {
   const isUnicode = !isGsm7String(text);
   const charCount = Array.from(text).length;
 
-  if (isUnicode) {
-    const singleLimit = 70;
-    const multiLimit = 67;
-    const segments =
-      charCount <= singleLimit
-        ? charCount === 0
-          ? 1
-          : Math.ceil(charCount / singleLimit)
-        : Math.ceil(charCount / multiLimit);
-    const segmentLimit = charCount <= singleLimit ? singleLimit : segments * multiLimit;
-    const remainingInSegment =
-      charCount <= singleLimit ? singleLimit - charCount : segments * multiLimit - charCount;
-    return {
-      isUnicode: true,
-      charCount,
-      segmentLimit,
-      segments: Math.max(1, segments),
-      remainingInSegment,
-    };
-  }
-
-  const singleLimit = 160;
-  const multiLimit = 153;
+  const { single: singleLimit, multi: multiLimit } = isUnicode
+    ? SMS_SEGMENT_LIMITS.UCS2
+    : SMS_SEGMENT_LIMITS.GSM7;
   const segments =
     charCount <= singleLimit
       ? charCount === 0
@@ -269,7 +250,7 @@ export function calculateSMSCharacterCount(text: string): SMSCharacterCount {
   const remainingInSegment =
     charCount <= singleLimit ? singleLimit - charCount : segments * multiLimit - charCount;
   return {
-    isUnicode: false,
+    isUnicode,
     charCount,
     segmentLimit,
     segments: Math.max(1, segments),

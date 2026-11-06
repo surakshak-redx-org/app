@@ -81,6 +81,12 @@ export const HELP_CATEGORY_COLORS: Record<HelpCategory, string> = {
 
 /** Minimum distance moved (in meters) before triggering a fresh nearby places search. */
 export const NEARBY_REFETCH_METERS = 100;
+/** Nearby-help bottom sheet snap points: collapsed, half, expanded. */
+export const NEARBY_SHEET_SNAP_POINTS = ['12%', '50%', '88%'];
+/** Index of the half-open snap point used when opening nearby help from a deep link. */
+export const NEARBY_SHEET_HALF_INDEX = 1;
+/** Delay (ms) before snapping the sheet, letting the screen finish focusing first. */
+export const NEARBY_SHEET_SNAP_DELAY_MS = 150;
 /** Number of place categories fetched per nearby-help refresh. */
 export const NEARBY_CATEGORY_COUNT = 4;
 

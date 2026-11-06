@@ -33,6 +33,9 @@ import {
   HELP_CATEGORY_ICON,
   HELP_CATEGORY_LABEL_KEY,
   NEARBY_CATEGORY_COUNT,
+  NEARBY_SHEET_HALF_INDEX,
+  NEARBY_SHEET_SNAP_DELAY_MS,
+  NEARBY_SHEET_SNAP_POINTS,
   NEARBY_REFETCH_METERS,
   NEARBY_REFETCH_MS,
   PIN_CIRCLE_FILL,
@@ -149,8 +152,8 @@ export default function MapScreen(): React.JSX.Element {
         consumedParamRef.current = openHelp ?? null;
         useLocationStore.getState().clearNearbyHelpRequest();
         const timer = setTimeout(() => {
-          bottomSheetRef.current?.snapToIndex(1);
-        }, 150);
+          bottomSheetRef.current?.snapToIndex(NEARBY_SHEET_HALF_INDEX);
+        }, NEARBY_SHEET_SNAP_DELAY_MS);
         return (): void => {
           clearTimeout(timer);
           setIsFocused(false);
@@ -167,7 +170,6 @@ export default function MapScreen(): React.JSX.Element {
   const [activeHelpCategory, setActiveHelpCategory] = useState<HelpCategory>('police');
   const [sheetIndex, setSheetIndex] = useState(0);
   const bottomSheetRef = useRef<GorhomBottomSheet>(null);
-  const snapPoints = useMemo(() => ['12%', '50%', '88%'], []);
 
   const mapRef = useRef<MapView | null>(null);
   const hasCenteredOnUserRef = useRef(false);
@@ -592,7 +594,7 @@ export default function MapScreen(): React.JSX.Element {
           <GorhomBottomSheet
             ref={bottomSheetRef}
             index={0}
-            snapPoints={snapPoints}
+            snapPoints={NEARBY_SHEET_SNAP_POINTS}
             enableDynamicSizing={false}
             onChange={setSheetIndex}
             backgroundClassName="rounded-t-3xl border border-[#E5E7EB] bg-white dark:border-dark-border dark:bg-charcoal"

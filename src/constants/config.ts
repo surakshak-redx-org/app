@@ -144,6 +144,17 @@ export const LOCATION_UNAVAILABLE = 'Location unavailable';
 /** Newest-first cap on the locally persisted SMS alert history. */
 export const SMS_HISTORY_LIMIT = 50;
 
+/**
+ * Characters per SMS segment. `single` applies when the whole message fits in
+ * one segment; `multi` applies once it is split (concatenation headers take
+ * some of each segment). GSM-7 is the default alphabet; any other character
+ * forces UCS-2, which has much smaller segments.
+ */
+export const SMS_SEGMENT_LIMITS = {
+  GSM7: { single: 160, multi: 153 },
+  UCS2: { single: 70, multi: 67 },
+} as const;
+
 /** Newest-first cap on the locally persisted evidence-recording history. */
 export const EVIDENCE_RECORDING_HISTORY_LIMIT = 50;
 
