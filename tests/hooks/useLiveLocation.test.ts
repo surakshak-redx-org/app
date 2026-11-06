@@ -32,6 +32,11 @@ jest.mock('@/services/firebase/live-location.service', () => ({
   getActiveLiveSession: jest.fn(() => Promise.resolve(null)),
 }));
 
+jest.mock('@/utils/tracking.utils', () => ({
+  ...jest.requireActual<typeof import('@/utils/tracking.utils')>('@/utils/tracking.utils'),
+  generateShareToken: jest.fn(() => Promise.resolve('abcd1234')),
+}));
+
 jest.mock('@/services/location.service', () => ({
   getCurrentLocation: jest.fn(() =>
     Promise.resolve({ latitude: 19.076, longitude: 72.8777, timestamp: 1 }),
@@ -80,9 +85,17 @@ describe('useLiveLocation', () => {
       19.076,
       72.8777,
       expect.any(String),
+      'abcd1234',
     );
     expect(getCurrentLocation).toHaveBeenCalled();
-    expect(sendLiveLocationShare).toHaveBeenCalled();
+    // No tracking page is configured in tests, so the SMS falls back to a static pin.
+    expect(sendLiveLocationShare).toHaveBeenCalledWith(
+      expect.anything(),
+      'https://www.google.com/maps/place/19.076,72.8777',
+      'Asha',
+      expect.any(String),
+      'en',
+    );
     expect(useLocationStore.getState().isLiveLocationActive).toBe(true);
     expect(useLocationStore.getState().liveLocationSessionId).toBe('session-1');
   });

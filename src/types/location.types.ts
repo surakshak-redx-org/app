@@ -12,6 +12,8 @@ export interface LocationData {
   timestamp: number;
 }
 
+export type LiveLocationStatus = 'active' | 'arrived' | 'ended' | 'lost_contact';
+
 /** Mirrors Firestore `liveLocationSessions/{sessionId}`. */
 export interface LiveLocationSession {
   id: string;
@@ -24,6 +26,21 @@ export interface LiveLocationSession {
   startedAt: Timestamp;
   expiresAt: Timestamp;
   isActive: boolean;
+  /**
+   * Unguessable 128-bit token embedded in the public tracking link. Absent on
+   * sessions created before tracking links existed, and cleared when revoked.
+   */
+  shareToken?: string;
+  status?: LiveLocationStatus;
+  /** Server time of the latest fix; the viewer uses it for "updated Xs ago". */
+  lastFixAt?: Timestamp;
+}
+
+/** Mirrors Firestore `liveLocationSessions/{sessionId}/points/{pointId}` — the route trail. */
+export interface LiveLocationPoint {
+  latitude: number;
+  longitude: number;
+  recordedAt: Timestamp;
 }
 
 /** Mirrors Firestore `safeJourneySessions/{sessionId}`. */

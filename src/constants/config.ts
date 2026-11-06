@@ -56,6 +56,10 @@ export const APP_CONFIG = {
   /** Tags shown on a law list card before the rest are hidden. */
   LAW_CARD_TAG_PREVIEW_COUNT: 3,
   LIVE_LOCATION_DISTANCE_INTERVAL_METERS: 10,
+  /** Random bytes in a live-location share token (16 bytes = 128 bits of entropy). */
+  LIVE_LOCATION_SHARE_TOKEN_BYTES: 16,
+  /** A fix becomes a new route-trail point only after moving at least this far. */
+  LIVE_LOCATION_TRAIL_MIN_DISTANCE_METERS: 25,
   SAFE_JOURNEY_ETA_MIN_MINUTES: 5,
   SAFE_JOURNEY_ETA_MAX_MINUTES: 480,
   SAFE_JOURNEY_ETA_DEFAULT_MINUTES: 30,

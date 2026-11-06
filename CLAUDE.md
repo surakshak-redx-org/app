@@ -380,6 +380,15 @@ sharedWithUserIds: string[]
 startedAt: Timestamp
 expiresAt: Timestamp
 isActive: boolean
+deviceId?: string
+shareToken?: string (128-bit hex in the public tracking link; removed on revoke)
+status?: 'active' | 'arrived' | 'ended' | 'lost_contact'
+lastFixAt?: Timestamp
+
+liveLocationSessions/{sessionId}/points/{pointId}
+latitude: number
+longitude: number
+recordedAt: Timestamp
 
 safeJourneySessions/{sessionId}
 userId: string
