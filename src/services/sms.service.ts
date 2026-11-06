@@ -4,6 +4,7 @@ import * as SMS from 'expo-sms';
 import { Platform } from 'react-native';
 import { checkSmsPermission, isAirplaneModeOn, sendSmsToContacts } from 'surakshak-native';
 
+import { captureException, recordBreadcrumb } from '@/config/sentry';
 import { SMS_HISTORY_LIMIT } from '@/constants/config';
 import { STORAGE_KEYS } from '@/constants/storage';
 import type { SMSAlertRecord, SMSAlertResult } from '@/types/emergency.types';
@@ -130,6 +131,12 @@ async function enqueueUnlocked(recipients: string[], message: string): Promise<v
     );
   } catch (error) {
     console.warn('sms: could not enqueue to emergency outbox:', error);
+    // Swallowed on purpose (the SOS flow must not throw), so this is the only place it is seen.
+    captureException(error, {
+      domain: 'SOS',
+      operation: 'outboxEnqueue',
+      extra: { recipientCount: recipients.length },
+    });
   }
 }
 
@@ -184,6 +191,11 @@ async function flushUnlocked(): Promise<{ dispatched: number }> {
       }
     } catch (error) {
       console.warn('sms: failed to flush outbox item:', error);
+      captureException(error, {
+        domain: 'SOS',
+        operation: 'outboxFlush',
+        extra: { recipientCount: item.recipients.length },
+      });
       remaining.push(item);
     }
   }
@@ -203,6 +215,7 @@ async function flushUnlocked(): Promise<{ dispatched: number }> {
       }
     } catch (error) {
       console.warn('sms: failed to update pending outbox:', error);
+      captureException(error, { domain: 'SOS', operation: 'outboxUpdate' });
     }
   });
 
@@ -223,6 +236,13 @@ async function dispatch(recipients: string[], message: string): Promise<SMSAlert
   if (await canSendSilently()) {
     try {
       const results = await sendSmsToContacts(recipients, message);
+      recordBreadcrumb('sms dispatch result', {
+        domain: 'SOS',
+        data: {
+          sent: results.filter((sendResult) => sendResult.success).length,
+          failed: results.filter((sendResult) => !sendResult.success).length,
+        },
+      });
       const hasAirplaneError = results.some(
         (sendResult) =>
           !sendResult.success &&
@@ -254,6 +274,11 @@ async function dispatch(recipients: string[], message: string): Promise<SMSAlert
       // A fan-out must never throw back into the SOS flow — record the
       // failure and let the caller persist / surface it.
       console.error('sms dispatch failed:', error);
+      captureException(error, {
+        domain: 'SOS',
+        operation: 'smsDispatchNative',
+        extra: { recipientCount: recipients.length },
+      });
       return { sent: [], failed: recipients };
     }
   }
@@ -278,6 +303,11 @@ async function dispatch(recipients: string[], message: string): Promise<SMSAlert
     return { sent: recipients, failed: [] };
   } catch (error) {
     console.error('sms dispatch failed:', error);
+    captureException(error, {
+      domain: 'SOS',
+      operation: 'smsDispatchCompose',
+      extra: { recipientCount: recipients.length },
+    });
     return { sent: [], failed: recipients };
   }
 }

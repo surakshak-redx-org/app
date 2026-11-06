@@ -174,3 +174,15 @@ export const COMMUNITY_IMAGE_ASPECT: [number, number] = [4, 3];
 /** Sample coordinates (Mumbai) used only for the SOS message preview in settings. */
 export const SOS_PREVIEW_LATITUDE = 19.076;
 export const SOS_PREVIEW_LONGITUDE = 72.877;
+
+/**
+ * Fraction of sessions Sentry records performance traces for, per APP_ENV.
+ * Staging is traced fully because it is a handful of testers; production is
+ * sampled so trace volume (and quota) stays proportional to real usage. Dev
+ * never initialises Sentry, so its 0 is only for completeness.
+ */
+export const SENTRY_TRACES_SAMPLE_RATE_BY_ENV: Record<AppEnv, number> = {
+  dev: 0,
+  staging: 1,
+  prod: 0.1,
+};
