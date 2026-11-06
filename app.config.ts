@@ -106,7 +106,7 @@ const config: ExpoConfig = {
   // Bumped for Sprint 1 (v1.4.0): adds expo-media-library, @gorhom/bottom-sheet,
   // and isAirplaneModeOn in modules/surakshak-native. runtimeVersion's "appVersion"
   // policy keys compatibility off this exact string.
-  version: '1.4.0',
+  version: '1.4.1',
   orientation: 'portrait',
   scheme: `surakshak-${APP_ENV}`,
   userInterfaceStyle: 'automatic',
