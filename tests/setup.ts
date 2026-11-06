@@ -282,6 +282,13 @@ jest.mock('@sentry/react-native', () => ({
   wrap: jest.fn((component: unknown) => component),
   captureException: jest.fn(),
   captureMessage: jest.fn(),
+  setUser: jest.fn(),
+  setTags: jest.fn(),
+  addBreadcrumb: jest.fn(),
+  reactNavigationIntegration: jest.fn(() => ({
+    name: 'ReactNavigation',
+    registerNavigationContainer: jest.fn(),
+  })),
 }));
 
 jest.mock('expo-localization', () => ({

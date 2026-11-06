@@ -3,6 +3,7 @@ import * as SMS from 'expo-sms';
 import { Platform } from 'react-native';
 import { checkSmsPermission, isAirplaneModeOn, sendSmsToContacts } from 'surakshak-native';
 
+import { captureException, recordBreadcrumb } from '@/config/sentry';
 import {
   clearPendingOutbox,
   flushPendingOutbox,
@@ -17,6 +18,11 @@ import type { EmergencyContact } from '@/types/user.types';
 jest.mock('expo-sms', () => ({
   isAvailableAsync: jest.fn(() => Promise.resolve(true)),
   sendSMSAsync: jest.fn(() => Promise.resolve({ result: 'sent' })),
+}));
+
+jest.mock('@/config/sentry', () => ({
+  captureException: jest.fn(),
+  recordBreadcrumb: jest.fn(),
 }));
 
 const mockedSendSmsToContacts = jest.mocked(sendSmsToContacts);
@@ -299,7 +305,32 @@ describe('sms.service', () => {
 
       expect(result).toEqual({ sent: [], failed: ['+919876543210'] });
       expect(errorSpy).toHaveBeenCalled();
+      // The failure is swallowed, so this capture is the only way it surfaces.
+      expect(captureException).toHaveBeenCalledWith(
+        expect.objectContaining({ message: 'native module crashed' }),
+        { domain: 'SOS', operation: 'smsDispatchNative', extra: { recipientCount: 1 } },
+      );
       errorSpy.mockRestore();
+    });
+
+    it('records a breadcrumb with counts only, never recipients', async () => {
+      mockedSendSmsToContacts.mockResolvedValueOnce([
+        { success: true, phone: '+919876543210', method: 'direct' },
+        { success: false, phone: '+918765432109', method: 'direct', error: 'no signal' },
+      ]);
+
+      await sendSOSAlert(
+        [contact(), contact({ id: 'c2', phone: '8765432109' })],
+        'https://maps.example/1',
+        'Asha',
+        'en',
+      );
+
+      expect(recordBreadcrumb).toHaveBeenCalledWith('sms dispatch result', {
+        domain: 'SOS',
+        data: { sent: 1, failed: 1 },
+      });
+      expect(captureException).not.toHaveBeenCalled();
     });
 
     it('sendLowBatteryAlert uses the low-battery message template', async () => {

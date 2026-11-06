@@ -3,6 +3,7 @@ import * as Location from 'expo-location';
 import { Platform } from 'react-native';
 
 import { ENV } from '@/config/env';
+import { recordBreadcrumb } from '@/config/sentry';
 import { ANDROID_CERT_SHA1_BY_ENV, APP_CONFIG } from '@/constants/config';
 import { HELP_PLACES_TYPE } from '@/constants/map';
 import { useLocationStore } from '@/stores/location.store';
@@ -98,6 +99,7 @@ export async function getLocationWithTimeout(
 ): Promise<LocationData> {
   const { granted } = await Location.getForegroundPermissionsAsync();
   if (!granted) {
+    recordBreadcrumb('location permission not granted for alert fix', { domain: 'LOCATION' });
     throw new Error('errors.locationPermissionDenied');
   }
 
@@ -125,6 +127,8 @@ export async function getLocationWithTimeout(
     }
   } catch (error) {
     console.warn('getLocationWithTimeout: fresh fix failed:', error);
+    // Not captured: the caller falls back to the last known position below.
+    recordBreadcrumb('fresh location fix failed, using last known', { domain: 'LOCATION' });
   } finally {
     clearTimeout(timer);
   }

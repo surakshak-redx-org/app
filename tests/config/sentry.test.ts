@@ -1,6 +1,15 @@
 import * as Sentry from '@sentry/react-native';
 
-import { captureException, initSentry, scrubPhoneNumbers } from '@/config/sentry';
+import {
+  captureException,
+  initSentry,
+  recordBreadcrumb,
+  scrubBreadcrumb,
+  scrubPhoneNumbers,
+  scrubTransaction,
+  setSentryTags,
+  setSentryUser,
+} from '@/config/sentry';
 
 function event(extra: Record<string, unknown>): Sentry.ErrorEvent {
   return { message: '', ...extra } as Sentry.ErrorEvent;
@@ -39,6 +48,33 @@ describe('scrubPhoneNumbers', () => {
   });
 });
 
+describe('scrubBreadcrumb / scrubTransaction', () => {
+  it('redacts phone numbers in a console breadcrumb', () => {
+    const result = scrubBreadcrumb({
+      category: 'console',
+      message: 'sending to 9876543210',
+      data: { arguments: ['+919876543210'] },
+    });
+    expect(JSON.stringify(result)).not.toContain('9876543210');
+    expect(JSON.stringify(result)).toContain('[PHONE_REDACTED]');
+  });
+
+  it('redacts coordinates held under a sensitive key', () => {
+    const result = scrubBreadcrumb({ message: 'fix', data: { latitude: 19.07, longitude: 72.87 } });
+    expect(result.data).toEqual({ latitude: '[REDACTED]', longitude: '[REDACTED]' });
+  });
+
+  it('redacts phone numbers in a transaction name and span data', () => {
+    const transaction = {
+      type: 'transaction',
+      transaction: '/share/9876543210',
+      spans: [{ description: 'GET /u/9876543210' }],
+    } as unknown as Parameters<typeof scrubTransaction>[0];
+    const result = scrubTransaction(transaction);
+    expect(JSON.stringify(result)).not.toContain('9876543210');
+  });
+});
+
 // Jest always runs with EXPO_PUBLIC_APP_ENV=dev (see jest.config.js), so
 // `IS_TELEMETRY_ENABLED` is false unless a test overrides `@/config/env`.
 describe('telemetry gating (APP_ENV=dev, the real Jest environment)', () => {
@@ -50,6 +86,15 @@ describe('telemetry gating (APP_ENV=dev, the real Jest environment)', () => {
   it('captureException is a no-op', () => {
     captureException(new Error('should not report'));
     expect(Sentry.captureException).not.toHaveBeenCalled();
+  });
+
+  it('user, tag and breadcrumb helpers are no-ops', () => {
+    setSentryUser('uid-1');
+    setSentryTags({ language: 'en' });
+    recordBreadcrumb('something happened', { domain: 'SOS' });
+    expect(Sentry.setUser).not.toHaveBeenCalled();
+    expect(Sentry.setTags).not.toHaveBeenCalled();
+    expect(Sentry.addBreadcrumb).not.toHaveBeenCalled();
   });
 });
 
@@ -121,6 +166,86 @@ describe('telemetry gating (APP_ENV=staging, simulated)', () => {
     sentryStaging.captureMessage('queued offline', { domain: 'SOS', operation: 'queue' });
     expect(SentryStaging.captureMessage).toHaveBeenCalledWith('queued offline', {
       tags: { domain: 'SOS', operation: 'queue' },
+    });
+  });
+
+  function loadStaging(): {
+    sentry: typeof import('@/config/sentry');
+    sdk: typeof import('@sentry/react-native');
+  } {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const sentry = require('@/config/sentry') as typeof import('@/config/sentry');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const sdk = require('@sentry/react-native') as typeof import('@sentry/react-native');
+    return { sentry, sdk };
+  }
+
+  it('initSentry enables tracing, the navigation integration and the scrub hooks', () => {
+    const { sentry, sdk } = loadStaging();
+    sentry.initSentry();
+    expect(sdk.init).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tracesSampleRate: 1,
+        enableNativeFramesTracking: true,
+        integrations: [expect.objectContaining({ name: 'ReactNavigation' })],
+        beforeSend: sentry.scrubPhoneNumbers,
+        beforeSendTransaction: sentry.scrubTransaction,
+        beforeBreadcrumb: sentry.scrubBreadcrumb,
+      }),
+    );
+  });
+
+  it('does not turn on user-interaction tracing (the disguise keypad is a touch target)', () => {
+    const { sentry, sdk } = loadStaging();
+    sentry.initSentry();
+    const options = jest.mocked(sdk.init).mock.calls[0]?.[0];
+    expect(options?.enableUserInteractionTracing).toBeUndefined();
+  });
+
+  it('registerNavigationContainer forwards the ref to the integration after init', () => {
+    const { sentry, sdk } = loadStaging();
+    sentry.initSentry();
+    const integration = jest.mocked(sdk.reactNavigationIntegration).mock.results[0]?.value as {
+      registerNavigationContainer: jest.Mock;
+    };
+    const ref = { current: {} };
+    sentry.registerNavigationContainer(ref);
+    expect(integration.registerNavigationContainer).toHaveBeenCalledWith(ref);
+  });
+
+  it('registerNavigationContainer is safe before init', () => {
+    const { sentry } = loadStaging();
+    expect(() => sentry.registerNavigationContainer({})).not.toThrow();
+  });
+
+  it('setSentryUser sets an id-only user and clears with null', () => {
+    const { sentry, sdk } = loadStaging();
+    sentry.setSentryUser('uid-1');
+    sentry.setSentryUser(null);
+    expect(sdk.setUser).toHaveBeenNthCalledWith(1, { id: 'uid-1' });
+    expect(sdk.setUser).toHaveBeenNthCalledWith(2, null);
+  });
+
+  it('setSentryTags forwards tags', () => {
+    const { sentry, sdk } = loadStaging();
+    sentry.setSentryTags({ is_guest: 'false', language: 'hi' });
+    expect(sdk.setTags).toHaveBeenCalledWith({ is_guest: 'false', language: 'hi' });
+  });
+
+  it('recordBreadcrumb categorises by domain and omits data when absent', () => {
+    const { sentry, sdk } = loadStaging();
+    sentry.recordBreadcrumb('sos triggered', { domain: 'SOS', data: { method: 'button' } });
+    sentry.recordBreadcrumb('plain');
+    expect(sdk.addBreadcrumb).toHaveBeenNthCalledWith(1, {
+      category: 'sos',
+      message: 'sos triggered',
+      level: 'info',
+      data: { method: 'button' },
+    });
+    expect(sdk.addBreadcrumb).toHaveBeenNthCalledWith(2, {
+      category: 'system',
+      message: 'plain',
+      level: 'info',
     });
   });
 });
