@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { act, renderHook } from '@testing-library/react-native';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
 import * as Location from 'expo-location';
 
 import { STORAGE_KEYS } from '@/constants/storage';
@@ -86,6 +86,7 @@ describe('useLiveLocation', () => {
       72.8777,
       expect.any(String),
       'abcd1234',
+      undefined,
     );
     expect(getCurrentLocation).toHaveBeenCalled();
     // No tracking page is configured in tests, so the SMS falls back to a static pin.
@@ -190,6 +191,79 @@ describe('useLiveLocation', () => {
       'surakshak-live-location',
       expect.objectContaining({ timeInterval: 20_000, distanceInterval: 15 }),
     );
+  });
+
+  it('startSharing saves the destination for arrival detection', async () => {
+    const { result } = await renderHook(() => useLiveLocation());
+    const destination = { name: 'Home', latitude: 19.1, longitude: 72.9 };
+
+    await act(async () => {
+      await result.current.startSharing(['c1'], 1, destination);
+    });
+
+    expect(createLiveLocationSession).toHaveBeenCalledWith(
+      'u1',
+      ['c1'],
+      1,
+      19.076,
+      72.8777,
+      expect.any(String),
+      'abcd1234',
+      destination,
+    );
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+      STORAGE_KEYS.LIVE_LOCATION_DESTINATION,
+      JSON.stringify(destination),
+    );
+    expect(result.current.destination).toEqual(destination);
+  });
+
+  it('startSharing without a destination clears any leftover one', async () => {
+    const { result } = await renderHook(() => useLiveLocation());
+
+    await act(async () => {
+      await result.current.startSharing(['c1'], 1);
+    });
+
+    expect(AsyncStorage.removeItem).toHaveBeenCalledWith(STORAGE_KEYS.LIVE_LOCATION_DESTINATION);
+    expect(result.current.destination).toBeNull();
+  });
+
+  it('restores the destination of a running session', async () => {
+    jest.mocked(getActiveLiveSession).mockResolvedValueOnce({
+      id: 'session-9',
+      userId: 'u1',
+      isActive: true,
+      expiresAt: { toDate: () => new Date(Date.now() + 3_600_000) },
+      sharedWithUserIds: ['c1'],
+      destination: { name: 'Office', latitude: 19.2, longitude: 72.95 },
+    } as never);
+
+    const { result } = await renderHook(() => useLiveLocation());
+
+    await waitFor(() => expect(result.current.destination?.name).toBe('Office'));
+    expect(AsyncStorage.multiSet).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        [
+          STORAGE_KEYS.LIVE_LOCATION_DESTINATION,
+          JSON.stringify({ name: 'Office', latitude: 19.2, longitude: 72.95 }),
+        ],
+      ]),
+    );
+  });
+
+  it('stopSharing forgets the destination', async () => {
+    useLocationStore.getState().setLiveLocationActive(true, 'session-1');
+    const { result } = await renderHook(() => useLiveLocation());
+    await act(async () => {
+      await result.current.startSharing(['c1'], 1, { name: 'Home', latitude: 1, longitude: 2 });
+    });
+
+    await act(async () => {
+      await result.current.stopSharing();
+    });
+
+    expect(result.current.destination).toBeNull();
   });
 
   it('stopSharing clears the persisted tracking state', async () => {

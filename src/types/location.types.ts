@@ -54,6 +54,10 @@ export interface LiveLocationSession extends LiveLocationTelemetry {
   status?: LiveLocationStatus;
   /** Server time of the latest fix; the viewer uses it for "updated Xs ago". */
   lastFixAt?: Timestamp;
+  /** Where the sender is heading. The share ends automatically on arrival. */
+  destination?: PlaceLocation;
+  /** Computed server-side and read by the web viewer; the app never writes it. */
+  eta?: { minutes: number; computedAt: Timestamp };
 }
 
 /** Mirrors Firestore `liveLocationSessions/{sessionId}/points/{pointId}` — the route trail. */

@@ -63,6 +63,8 @@ Nothing deploys from `develop` in any repo. Deploys happen when you promote `dev
 - [ ] Drive or ride: update rate speeds up. Stand still for 2+ minutes: it slows down. Check Firestore: `trackingProfile` on the session changes.
 - [ ] Airplane mode on A for 6+ minutes: the page turns to "lost contact"; turn it off: the page recovers by itself.
 - [ ] Deny "Always" location on A: the orange "Keep Surakshak open" card appears, and updates only flow while the app is open.
+- [ ] Arrival: start sharing with a destination about 1 km away, walk or ride there. Sharing should stop on its own within a minute of arriving, you get an "You've arrived" notification, and the page shows the arrived state with no map. Check the Firestore session: `isActive: false`, `status: 'arrived'`. (Allow notifications for the app, or the notice is skipped; sharing still stops.)
+- [ ] Arrival edge cases: start sharing while standing at the destination, which must **not** end the share; and pick a destination, then drive past it without stopping, which should end it only if the fixes land within about 100 m of the pin.
 - [ ] Stop sharing on A: the page shows "ended" and no coordinates. Re-open the old link a minute later: still "ended".
 - [ ] Open `.../track/00000000000000000000000000000000` and a malformed token: both show the invalid-link state, not an error page.
 - [ ] Check the Firestore usage graph for a few minutes of tracking and confirm write volume matches expectations (about one batched write per fix).
@@ -76,6 +78,7 @@ Nothing deploys from `develop` in any repo. Deploys happen when you promote `dev
 ## 9. Product decisions still open
 
 - [ ] **How are contacts alerted when contact is lost?** v1 only turns the web page red. Options (functions spec §2): an SMS provider (needs DLT registration), or push to contacts who are Surakshak users (needs phone numbers stored). Decide before building escalation.
+- [ ] **ETA is not computed anywhere yet.** The app stores the destination and the web page can show `eta` when present, but nothing writes `eta`. It needs a function (spec: `functions-spec.md` §3, using a server-side Directions key) that was deliberately left out of the first functions PR. Without it the page shows the destination but no "about 14 min away".
 - [ ] Per-contact links with view receipts, and other ideas in the plan file, if wanted later.
 
 ## 10. Housekeeping

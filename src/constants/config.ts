@@ -68,6 +68,17 @@ export const APP_CONFIG = {
   LIVE_LOCATION_STATIONARY_AFTER_SECONDS: 120,
   /** At or below this battery % (and not charging) sampling drops to the battery-saver profile. */
   LIVE_LOCATION_LOW_BATTERY_PERCENT: 15,
+  /** Within this distance of the destination the sender counts as arrived. */
+  LIVE_LOCATION_ARRIVAL_RADIUS_METERS: 100,
+  /**
+   * Arrival is only armed once the sender has been this far from the destination,
+   * so starting a share right next to it does not end the share immediately.
+   */
+  LIVE_LOCATION_ARRIVAL_ARM_METERS: 250,
+  /** Consecutive fixes inside the radius needed to confirm arrival (filters GPS jumps). */
+  LIVE_LOCATION_ARRIVAL_CONFIRM_FIXES: 2,
+  /** Fixes less precise than this (metres) neither arm nor confirm arrival. */
+  LIVE_LOCATION_ARRIVAL_MAX_ACCURACY_METERS: 100,
   SAFE_JOURNEY_ETA_MIN_MINUTES: 5,
   SAFE_JOURNEY_ETA_MAX_MINUTES: 480,
   SAFE_JOURNEY_ETA_DEFAULT_MINUTES: 30,

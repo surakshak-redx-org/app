@@ -5,6 +5,7 @@ import { Alert, Linking, Pressable, View } from 'react-native';
 
 import { GuestBanner } from '@/components/features/auth/GuestBanner';
 import { ContactMultiSelect } from '@/components/features/location/ContactMultiSelect';
+import { DestinationAutocomplete } from '@/components/features/location/DestinationAutocomplete';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
@@ -17,7 +18,9 @@ import { APP_CONFIG, LIVE_LOCATION_DURATION_OPTIONS_HOURS } from '@/constants/co
 import { ICON_SIZE, TIMING } from '@/constants/ui';
 import { useLiveLocation } from '@/hooks/useLiveLocation';
 import { useAuthStore } from '@/stores/auth.store';
+import { useLocationStore } from '@/stores/location.store';
 import { useUserStore } from '@/stores/user.store';
+import type { PlaceLocation } from '@/types/location.types';
 import { formatDuration } from '@/utils/date.utils';
 
 const MS_PER_MINUTE = 60_000;
@@ -48,10 +51,24 @@ export default function LiveLocationScreen(): React.JSX.Element {
     foregroundOnly,
     trackingProfile,
     batteryLevel,
+    destination,
     startSharing,
     stopSharing,
     extendTime,
   } = useLiveLocation();
+
+  const currentLocation = useLocationStore((state) => state.currentLocation);
+  // Memoised so the autocomplete's effect does not re-run on every render.
+  const biasCoords = useMemo(
+    () =>
+      currentLocation === null
+        ? undefined
+        : { latitude: currentLocation.latitude, longitude: currentLocation.longitude },
+    [currentLocation],
+  );
+
+  const [destinationText, setDestinationText] = useState('');
+  const [destinationPlace, setDestinationPlace] = useState<PlaceLocation | null>(null);
 
   const [selectedContactIds, setSelectedContactIds] = useState<string[]>([]);
   const [selectedDuration, setSelectedDuration] = useState<number>(
@@ -75,14 +92,14 @@ export default function LiveLocationScreen(): React.JSX.Element {
   const handleStart = useCallback(async (): Promise<void> => {
     try {
       setIsLoading(true);
-      await startSharing(selectedContactIds, selectedDuration);
+      await startSharing(selectedContactIds, selectedDuration, destinationPlace);
     } catch (error) {
       captureException(error);
       Alert.alert(t('errors.generic'));
     } finally {
       setIsLoading(false);
     }
-  }, [startSharing, selectedContactIds, selectedDuration, t]);
+  }, [startSharing, selectedContactIds, selectedDuration, destinationPlace, t]);
 
   const handleStop = useCallback((): void => {
     Alert.alert(t('location.stopSharingConfirm'), undefined, [
@@ -149,6 +166,15 @@ export default function LiveLocationScreen(): React.JSX.Element {
               <MaterialIcons name="timer" size={ICON_SIZE.STATUS} color={COLORS.STONE} />
               <Text variant="h3">{formatDuration(remainingMinutes)}</Text>
             </View>
+
+            {destination !== null && (
+              <View className="mt-3 flex-row items-center gap-2">
+                <MaterialIcons name="flag" size={ICON_SIZE.STATUS} color={COLORS.STONE} />
+                <Text variant="caption" numberOfLines={1} className="flex-1">
+                  {t('location.headingTo', { name: destination.name })}
+                </Text>
+              </View>
+            )}
 
             {currentLocationUrl !== null && (
               <Pressable
@@ -227,6 +253,32 @@ export default function LiveLocationScreen(): React.JSX.Element {
                   </Pressable>
                 );
               })}
+            </View>
+
+            <View className="mt-6">
+              <DestinationAutocomplete
+                value={destinationText}
+                onChangeText={(text) => {
+                  setDestinationText(text);
+                  setDestinationPlace(null);
+                }}
+                onSelectPlace={(place) => {
+                  setDestinationText(place.name);
+                  setDestinationPlace(place);
+                }}
+                bias={biasCoords}
+              />
+              <Text variant="caption" className="-mt-2 text-stone">
+                {t('location.destinationOptionalHint')}
+              </Text>
+              {destinationPlace === null &&
+                destinationText.trim().length >= APP_CONFIG.PLACE_AUTOCOMPLETE_MIN_CHARS && (
+                  <Text
+                    variant="caption"
+                    tKey="location.destinationNotPickedLive"
+                    className="mt-1 text-saffron"
+                  />
+                )}
             </View>
 
             <Button

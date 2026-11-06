@@ -84,6 +84,57 @@ export function selectTrackingProfile(input: TrackingProfileInput): LiveTracking
     : 'walking';
 }
 
+/** Arrival detection state, persisted between fixes. */
+export interface ArrivalState {
+  /** Set once the sender has been well away from the destination. */
+  armed: boolean;
+  /** Consecutive precise fixes inside the arrival radius. */
+  insideFixes: number;
+}
+
+export const INITIAL_ARRIVAL_STATE: ArrivalState = { armed: false, insideFixes: 0 };
+
+/**
+ * Decides whether the sender has reached the destination.
+ *
+ * Built to avoid ending a share wrongly, which would leave contacts thinking
+ * the sender is safe: it only arms after the sender has been far away (so
+ * starting next to the destination does nothing), ignores imprecise fixes, and
+ * needs several consecutive fixes inside the radius (so one GPS jump can't
+ * trigger it).
+ */
+export function evaluateArrival(
+  state: ArrivalState,
+  distanceMeters: number,
+  accuracyMeters: number | undefined,
+): { state: ArrivalState; arrived: boolean } {
+  if (
+    accuracyMeters !== undefined &&
+    accuracyMeters > APP_CONFIG.LIVE_LOCATION_ARRIVAL_MAX_ACCURACY_METERS
+  ) {
+    return { state, arrived: false };
+  }
+
+  if (distanceMeters >= APP_CONFIG.LIVE_LOCATION_ARRIVAL_ARM_METERS) {
+    return { state: { armed: true, insideFixes: 0 }, arrived: false };
+  }
+
+  if (!state.armed || distanceMeters > APP_CONFIG.LIVE_LOCATION_ARRIVAL_RADIUS_METERS) {
+    return { state: { armed: state.armed, insideFixes: 0 }, arrived: false };
+  }
+
+  const insideFixes = state.insideFixes + 1;
+  return {
+    state: { armed: true, insideFixes },
+    arrived: insideFixes >= APP_CONFIG.LIVE_LOCATION_ARRIVAL_CONFIRM_FIXES,
+  };
+}
+
+/** Straight-line distance in metres between two coordinates. */
+export function distanceMeters(from: Coordinate, to: Coordinate): number {
+  return getDistanceKm(from.latitude, from.longitude, to.latitude, to.longitude) * METERS_PER_KM;
+}
+
 /**
  * Route-trail decimation: record a new point only once the user has moved far
  * enough from the last recorded one. Keeps Firestore writes and the viewer's
