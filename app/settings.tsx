@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/Input';
 import { SafeScreen } from '@/components/ui/SafeScreen';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { Text } from '@/components/ui/Text';
+import { setSessionReplayRecording } from '@/config/mixpanel';
 import { captureException } from '@/config/sentry';
 import { getRunningUpdateHash } from '@/config/updates';
 import { FALLBACK_APP_VERSION } from '@/constants/auth';
@@ -37,6 +38,7 @@ import {
   resetUser as resetAnalytics,
   trackDisguiseModeEnabled,
   trackEvent,
+  trackSettingChanged,
 } from '@/services/analytics.service';
 import { setDisguiseIcon } from '@/services/disguise.service';
 import { AuthError, deleteAccount } from '@/services/firebase/auth.service';
@@ -44,6 +46,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import { useDisguiseStore } from '@/stores/disguise.store';
 import { useUserStore } from '@/stores/user.store';
 import { getLocationUrl } from '@/utils/location.utils';
+import { isReplayOptedOut, setReplayOptOut } from '@/utils/replay-consent.utils';
 import { calculateSMSCharacterCount, interpolateSOSTemplate } from '@/utils/sms.utils';
 
 type DisguiseModalMode = 'enable' | 'disable' | 'change' | null;
@@ -55,6 +58,7 @@ export default function SettingsScreen(): React.JSX.Element {
   const [shakeEnabled, setShakeEnabled] = useState(true);
   const [lowBatteryEnabled, setLowBatteryEnabled] = useState(true);
   const [followDetectionEnabled, setFollowDetectionEnabled] = useState(true);
+  const [replayAllowed, setReplayAllowed] = useState(true);
   const checkinActive = useSafeCheckinActive();
   const [disguiseEnabled, setDisguiseEnabled] = useState(false);
   const [disguiseModalMode, setDisguiseModalMode] = useState<DisguiseModalMode>(null);
@@ -83,6 +87,10 @@ export default function SettingsScreen(): React.JSX.Element {
         }
       })
       .catch((error: unknown) => captureException(error));
+
+    isReplayOptedOut()
+      .then((optedOut) => setReplayAllowed(!optedOut))
+      .catch((error: unknown) => captureException(error));
   }, []);
 
   function persistToggle(
@@ -102,16 +110,32 @@ export default function SettingsScreen(): React.JSX.Element {
   function handleShakeToggle(value: boolean): void {
     setShakeEnabled(value);
     persistToggle(STORAGE_KEYS.SHAKE_ENABLED, value, setShakeEnabled);
+    trackSettingChanged('shake_to_sos', value);
   }
 
   function handleBatteryToggle(value: boolean): void {
     setLowBatteryEnabled(value);
     persistToggle(STORAGE_KEYS.LOW_BATTERY_ENABLED, value, setLowBatteryEnabled);
+    trackSettingChanged('low_battery_alert', value);
   }
 
   function handleFollowDetectionToggle(value: boolean): void {
     setFollowDetectionEnabled(value);
     persistToggle(STORAGE_KEYS.FOLLOW_DETECTION_ENABLED, value, setFollowDetectionEnabled);
+    trackSettingChanged('follow_detection', value);
+  }
+
+  // The stored flag is "opted out", the switch is "recording allowed" -- the
+  // inverse, so this cannot reuse `persistToggle`. Mixpanel stops or resumes at
+  // once; Sentry's replay is fixed at init, so it follows on the next launch.
+  function handleReplayToggle(allowed: boolean): void {
+    setReplayAllowed(allowed);
+    setReplayOptOut(!allowed)
+      .then(() => setSessionReplayRecording(allowed))
+      .catch((error: unknown) => {
+        captureException(error);
+        setReplayAllowed(!allowed);
+      });
   }
 
   function handleSaveSosTemplate(): void {
@@ -305,6 +329,18 @@ export default function SettingsScreen(): React.JSX.Element {
             <Switch
               value={followDetectionEnabled}
               onValueChange={handleFollowDetectionToggle}
+              trackColor={{ true: COLORS.SHAKTI_PURPLE, false: COLORS.STONE }}
+            />
+          </View>
+
+          <View className="flex-row items-center justify-between py-3">
+            <View className="flex-1 pr-2">
+              <Text variant="body" tKey="settings.sessionReplay" />
+              <Text variant="caption" tKey="settings.sessionReplayDesc" className="text-stone" />
+            </View>
+            <Switch
+              value={replayAllowed}
+              onValueChange={handleReplayToggle}
               trackColor={{ true: COLORS.SHAKTI_PURPLE, false: COLORS.STONE }}
             />
           </View>

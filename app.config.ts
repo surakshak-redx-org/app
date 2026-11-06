@@ -108,7 +108,7 @@ const config: ExpoConfig = {
   // policy keys compatibility off this exact string.
   // v1.4.1: re-bump so the Sprint 1 native changes get a fresh native build
   // instead of an OTA (app.config.ts changing is what triggers the build).
-  version: '1.4.1',
+  version: '1.4.2',
   orientation: 'portrait',
   scheme: `surakshak-${APP_ENV}`,
   userInterfaceStyle: 'automatic',
@@ -161,7 +161,7 @@ const config: ExpoConfig = {
       NSLocationWhenInUseUsageDescription:
         'Surakshak needs your location to share with emergency contacts.',
       NSLocationAlwaysAndWhenInUseUsageDescription:
-        'Surakshak needs background location for safe journey monitoring.',
+        'Surakshak uses your location in the background to keep sharing it with your trusted contacts and to monitor safe journeys while your screen is off.',
       NSContactsUsageDescription: 'Surakshak needs contacts access to add emergency contacts.',
       NSPhotoLibraryAddUsageDescription:
         'Surakshak needs permission to save evidence photos and recordings to your library.',
@@ -201,7 +201,7 @@ const config: ExpoConfig = {
       'expo-location',
       {
         locationAlwaysAndWhenInUsePermission:
-          'Surakshak needs background location for safe journey monitoring.',
+          'Surakshak uses your location in the background to keep sharing it with your trusted contacts and to monitor safe journeys while your screen is off.',
         isAndroidBackgroundLocationEnabled: true,
         isAndroidForegroundServiceEnabled: true,
         isIosBackgroundLocationEnabled: true,

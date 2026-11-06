@@ -1,6 +1,7 @@
 import {
   Timestamp,
   addDoc,
+  deleteField,
   collection,
   doc,
   getDoc,
@@ -11,14 +12,20 @@ import {
   serverTimestamp,
   updateDoc,
   where,
+  writeBatch,
 } from '@react-native-firebase/firestore';
 
 import { firestore } from '@/config/firebase';
 import { APP_CONFIG } from '@/constants/config';
-import type { LiveLocationSession } from '@/types/location.types';
+import type {
+  LiveLocationSession,
+  LiveLocationTelemetry,
+  PlaceLocation,
+} from '@/types/location.types';
 import { getLocationUrl } from '@/utils/location.utils';
 
 const SESSIONS_COLLECTION = 'liveLocationSessions';
+const POINTS_SUBCOLLECTION = 'points';
 const MS_PER_HOUR = 60 * 60 * 1000;
 
 function sessionsCollection(): ReturnType<typeof collection> {
@@ -27,6 +34,15 @@ function sessionsCollection(): ReturnType<typeof collection> {
 
 function sessionDoc(sessionId: string): ReturnType<typeof doc> {
   return doc(firestore, SESSIONS_COLLECTION, sessionId);
+}
+
+/** Drops `undefined` fields; Firestore rejects them. */
+function definedOnly(telemetry: LiveLocationTelemetry): Record<string, number | boolean | string> {
+  return Object.fromEntries(
+    Object.entries(telemetry).filter((entry): entry is [string, number | boolean | string] => {
+      return entry[1] !== undefined;
+    }),
+  );
 }
 
 /**
@@ -41,6 +57,8 @@ export async function createLiveLocationSession(
   initialLat: number,
   initialLng: number,
   deviceId?: string,
+  shareToken?: string,
+  destination?: PlaceLocation,
 ): Promise<string> {
   try {
     // BUG-136: Deactivate any other active live location sessions for this user
@@ -51,7 +69,7 @@ export async function createLiveLocationSession(
       );
       await Promise.all(
         activeExisting.docs.map((docSnap) =>
-          updateDoc(docSnap.ref, { isActive: false }).catch(() => undefined),
+          updateDoc(docSnap.ref, { isActive: false, status: 'ended' }).catch(() => undefined),
         ),
       );
     } catch (cleanupError) {
@@ -68,7 +86,19 @@ export async function createLiveLocationSession(
       startedAt: serverTimestamp(),
       expiresAt: Timestamp.fromDate(expiresAt),
       isActive: true,
+      status: 'active',
+      lastFixAt: serverTimestamp(),
     };
+    if (shareToken !== undefined) {
+      sessionPayload.shareToken = shareToken;
+    }
+    if (destination !== undefined) {
+      sessionPayload.destination = {
+        name: destination.name,
+        latitude: destination.latitude,
+        longitude: destination.longitude,
+      };
+    }
     if (deviceId !== undefined) {
       sessionPayload.deviceId = deviceId;
     }
@@ -82,45 +112,42 @@ export async function createLiveLocationSession(
 }
 
 /**
- * Pushes a new coordinate into an active session.
+ * Pushes a new coordinate into an active session and, when `appendPoint` is
+ * set, records it on the route trail — both in one atomic batch.
+ *
+ * There is deliberately no read-before-write: that cost a Firestore read on
+ * every fix and failed offline. Ownership is enforced by Firestore rules, and
+ * only the device that created the session holds its id locally.
  * @phase Phase 4 — Location & Maps
  */
 export async function updateLiveLocation(
   sessionId: string,
   latitude: number,
   longitude: number,
-  expectedUserId?: string,
-  expectedDeviceId?: string,
+  appendPoint: boolean,
+  telemetry: LiveLocationTelemetry = {},
 ): Promise<void> {
   try {
-    const snapshot = await getDoc(sessionDoc(sessionId));
-    if (!snapshot.exists()) {
-      throw new Error('Live-location session not found');
-    }
-
-    const data = snapshot.data() as Omit<LiveLocationSession, 'id'>;
-
-    if (!data.isActive) {
-      throw new Error('Live-location session is inactive');
-    }
-
-    if (expectedUserId !== undefined && data.userId !== expectedUserId) {
-      throw new Error('Live-location session belongs to another user');
-    }
-
-    if (
-      expectedDeviceId !== undefined &&
-      data.deviceId !== undefined &&
-      data.deviceId !== expectedDeviceId
-    ) {
-      throw new Error('Live-location session belongs to another device');
-    }
-
-    await updateDoc(sessionDoc(sessionId), {
+    const sessionRef = sessionDoc(sessionId);
+    const batch = writeBatch(firestore);
+    batch.update(sessionRef, {
       latitude,
       longitude,
       locationUrl: getLocationUrl(latitude, longitude),
+      lastFixAt: serverTimestamp(),
+      // A fix means the sender is reachable again, which clears a server-set
+      // `lost_contact`. Firestore rejects `undefined`, so absent readings are dropped.
+      status: 'active',
+      ...definedOnly(telemetry),
     });
+    if (appendPoint) {
+      batch.set(doc(collection(sessionRef, POINTS_SUBCOLLECTION)), {
+        latitude,
+        longitude,
+        recordedAt: serverTimestamp(),
+      });
+    }
+    await batch.commit();
   } catch (error) {
     console.error('updateLiveLocation failed:', error);
     throw error;
@@ -163,9 +190,37 @@ export async function extendLiveLocationSession(
  */
 export async function stopLiveLocationSession(sessionId: string): Promise<void> {
   try {
-    await updateDoc(sessionDoc(sessionId), { isActive: false });
+    await updateDoc(sessionDoc(sessionId), { isActive: false, status: 'ended' });
   } catch (error) {
     console.error('stopLiveLocationSession failed:', error);
+    throw error;
+  }
+}
+
+/**
+ * Ends a session because the sender reached the destination. Unlike a plain
+ * stop, `status: 'arrived'` lets the tracking page tell contacts they got there.
+ * @phase Phase 4 — Location & Maps
+ */
+export async function markLiveLocationArrived(sessionId: string): Promise<void> {
+  try {
+    await updateDoc(sessionDoc(sessionId), { isActive: false, status: 'arrived' });
+  } catch (error) {
+    console.error('markLiveLocationArrived failed:', error);
+    throw error;
+  }
+}
+
+/**
+ * Revokes the public tracking link: the token is removed so the web page can no
+ * longer resolve the session, while the session itself keeps running.
+ * @phase Phase 4 — Location & Maps
+ */
+export async function revokeShareToken(sessionId: string): Promise<void> {
+  try {
+    await updateDoc(sessionDoc(sessionId), { shareToken: deleteField() });
+  } catch (error) {
+    console.error('revokeShareToken failed:', error);
     throw error;
   }
 }

@@ -12,8 +12,30 @@ export interface LocationData {
   timestamp: number;
 }
 
+export type LiveLocationStatus = 'active' | 'arrived' | 'ended' | 'lost_contact';
+
+/**
+ * How often live location is sampled. Picked per fix from speed and battery:
+ * fast updates while moving, slow ones when stationary or the battery is low.
+ */
+export type LiveTrackingProfile = 'moving' | 'walking' | 'stationary' | 'low_battery';
+
+/** Device readings stored with each fix so the viewer can show battery and signal. */
+export interface LiveLocationTelemetry {
+  /** Metres. */
+  accuracy?: number;
+  /** Metres per second. */
+  speed?: number;
+  /** Degrees clockwise from north. */
+  heading?: number;
+  /** 0–1. */
+  batteryLevel?: number;
+  isCharging?: boolean;
+  trackingProfile?: LiveTrackingProfile;
+}
+
 /** Mirrors Firestore `liveLocationSessions/{sessionId}`. */
-export interface LiveLocationSession {
+export interface LiveLocationSession extends LiveLocationTelemetry {
   id: string;
   userId: string;
   deviceId?: string;
@@ -24,6 +46,25 @@ export interface LiveLocationSession {
   startedAt: Timestamp;
   expiresAt: Timestamp;
   isActive: boolean;
+  /**
+   * Unguessable 128-bit token embedded in the public tracking link. Absent on
+   * sessions created before tracking links existed, and cleared when revoked.
+   */
+  shareToken?: string;
+  status?: LiveLocationStatus;
+  /** Server time of the latest fix; the viewer uses it for "updated Xs ago". */
+  lastFixAt?: Timestamp;
+  /** Where the sender is heading. The share ends automatically on arrival. */
+  destination?: PlaceLocation;
+  /** Computed server-side and read by the web viewer; the app never writes it. */
+  eta?: { minutes: number; computedAt: Timestamp };
+}
+
+/** Mirrors Firestore `liveLocationSessions/{sessionId}/points/{pointId}` — the route trail. */
+export interface LiveLocationPoint {
+  latitude: number;
+  longitude: number;
+  recordedAt: Timestamp;
 }
 
 /** Mirrors Firestore `safeJourneySessions/{sessionId}`. */

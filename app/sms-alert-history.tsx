@@ -102,7 +102,7 @@ export default function SmsAlertHistoryScreen(): React.JSX.Element {
 
   return (
     <ErrorBoundary>
-      <SafeScreen>
+      <SafeScreen blockReplay>
         <ScreenHeader titleKey="emergency.alertHistoryTitle" />
 
         <FlatList

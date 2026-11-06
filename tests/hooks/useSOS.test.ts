@@ -30,6 +30,7 @@ jest.mock('@/services/analytics.service', () => ({
   trackSosTriggered: jest.fn(),
   trackSosCancelled: jest.fn(),
   trackSmsAlertSent: jest.fn(),
+  trackSosOutcome: jest.fn(),
 }));
 
 // RNTL 14 made `renderHook` and `act` async — both must be awaited.
@@ -173,6 +174,7 @@ describe('useSOS', () => {
       expect.objectContaining({ type: 'sos', locationUrl: 'https://maps/here' }),
     );
     expect(analytics.trackSmsAlertSent).toHaveBeenCalledWith('sos', 1, 0);
+    expect(analytics.trackSosOutcome).toHaveBeenCalledWith('sent', 1, 0);
     expect(useSOSStore.getState().isActive).toBe(false);
   });
 
@@ -240,6 +242,24 @@ describe('useSOS', () => {
     await elapseCountdown();
 
     expect(useSOSStore.getState().lastOutcome).toEqual({ sent: 1, failed: 1, error: null });
+    expect(analytics.trackSosOutcome).toHaveBeenCalledWith('partial', 1, 1);
+  });
+
+  it.each([
+    ['airplane_mode', { sent: [], failed: ['+919876543210'], isAirplaneMode: true }, 0, 1],
+    ['draft_fallback', { sent: [], failed: ['+919876543210'], isDraftFallback: true }, 0, 1],
+    ['failed', { sent: [], failed: ['+919876543210'] }, 0, 1],
+    ['no_contacts', { sent: [], failed: [] }, 0, 0],
+  ])('reports the %s outcome', async (outcome, dispatchResult, sent, failed) => {
+    jest.mocked(smsService.sendSOSAlert).mockResolvedValueOnce(dispatchResult);
+    const { result } = await renderHook(() => useSOS());
+
+    await act(() => {
+      result.current.trigger('button');
+    });
+    await elapseCountdown();
+
+    expect(analytics.trackSosOutcome).toHaveBeenCalledWith(outcome, sent, failed);
   });
 
   it('records error: failed when the dispatch throws an exception', async () => {
@@ -252,6 +272,7 @@ describe('useSOS', () => {
     await elapseCountdown();
 
     expect(useSOSStore.getState().lastOutcome).toEqual({ sent: 0, failed: 0, error: 'failed' });
+    expect(analytics.trackSosOutcome).toHaveBeenCalledWith('error', 0, 0);
   });
 
   it('multiple mounted hook instances do not run duplicate intervals', async () => {

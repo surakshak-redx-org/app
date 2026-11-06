@@ -380,6 +380,23 @@ sharedWithUserIds: string[]
 startedAt: Timestamp
 expiresAt: Timestamp
 isActive: boolean
+deviceId?: string
+shareToken?: string (128-bit hex in the public tracking link; removed on revoke)
+status?: 'active' | 'arrived' | 'ended' | 'lost_contact'
+lastFixAt?: Timestamp
+accuracy?: number (metres)
+speed?: number (m/s)
+heading?: number (degrees)
+batteryLevel?: number (0-1)
+isCharging?: boolean
+trackingProfile?: 'moving' | 'walking' | 'stationary' | 'low_battery'
+destination?: { name: string, latitude: number, longitude: number } (share ends on arrival)
+eta?: { minutes: number, computedAt: Timestamp } (written by functions only)
+
+liveLocationSessions/{sessionId}/points/{pointId}
+latitude: number
+longitude: number
+recordedAt: Timestamp
 
 safeJourneySessions/{sessionId}
 userId: string
@@ -632,8 +649,19 @@ code back to match the original text — CI will fail.
 
 ### GitHub secrets
 
-Just `EXPO_TOKEN`. (`ANTHROPIC_API_KEY` was only used by the now-removed
+`EXPO_TOKEN`, plus two Sentry tokens used by `deploy.yml` to upload OTA source
+maps: `SENTRY_AUTH_TOKEN_STAGING` and `SENTRY_AUTH_TOKEN_PRODUCTION`. They are
+separate because staging and production are separate Sentry **orgs**
+(`surakshak-staging`, `surakshak-production`) and a token only works in its own
+org. Each needs the `project:releases` and `org:read` scopes (an Org Auth Token
+covers this). If a token is missing the upload step warns and skips; it does not
+fail the deploy. (`ANTHROPIC_API_KEY` was only used by the now-removed
 `claude-review.yml`; it can be deleted from repo secrets.)
+
+Native builds upload their own debug symbols and source maps from the EAS build
+worker, so `SENTRY_AUTH_TOKEN` must also exist as an EAS Environment Variable
+(`secret` visibility) on the `preview` tier (staging org token) and the
+`production` tier (production org token).
 
 Firebase config files are **not** GitHub secrets. Native `eas build` runs on a
 remote worker that never sees a file decoded onto the CI runner, so the config

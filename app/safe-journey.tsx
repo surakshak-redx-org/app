@@ -24,7 +24,11 @@ import { APP_CONFIG, SAFE_JOURNEY_ETA_PRESETS_MINUTES } from '@/constants/config
 import { ROUTES } from '@/constants/routes';
 import { STORAGE_FLAG_OFF, STORAGE_KEYS } from '@/constants/storage';
 import { ICON_SIZE, TIMING } from '@/constants/ui';
-import { trackSafeJourneyArrived, trackSafeJourneyStarted } from '@/services/analytics.service';
+import {
+  trackSafeJourneyArrived,
+  trackSafeJourneyCancelled,
+  trackSafeJourneyStarted,
+} from '@/services/analytics.service';
 import {
   cancelSafeJourney,
   checkInSafeJourney,
@@ -193,6 +197,22 @@ export default function SafeJourneyScreen(): React.JSX.Element {
     activeSession === null
       ? 0
       : Math.max(0, Math.floor((activeSession.expectedArrivalAt.toDate().getTime() - now) / 1000));
+
+  // Past the deadline contacts are not texted until the grace period also runs
+  // out, so the overdue banner counts that down rather than claiming an alert
+  // has already gone.
+  const graceSecondsLeft =
+    activeSession === null
+      ? 0
+      : Math.max(
+          0,
+          Math.floor(
+            (activeSession.expectedArrivalAt.toDate().getTime() +
+              APP_CONFIG.SAFE_JOURNEY_OVERDUE_GRACE_SECONDS * TIMING.SECOND_MS -
+              now) /
+              TIMING.SECOND_MS,
+          ),
+        );
 
   // At zero, hand over to the app-wide monitor (useSafeJourneyMonitor), which
   // owns the overdue alert whether or not this screen is open.
@@ -421,6 +441,7 @@ export default function SafeJourneyScreen(): React.JSX.Element {
         text: t('location.cancelJourney'),
         style: 'destructive',
         onPress: (): void => {
+          trackSafeJourneyCancelled();
           setSafeJourneyActive(false);
           setActiveSession(null);
           bumpSafeJourneyRevision();
@@ -479,7 +500,7 @@ export default function SafeJourneyScreen(): React.JSX.Element {
 
   return (
     <ErrorBoundary>
-      <SafeScreen scrollable>
+      <SafeScreen blockReplay scrollable>
         <ScreenHeader titleKey="location.safeJourney" />
 
         {activeSession !== null ? (
@@ -490,7 +511,9 @@ export default function SafeJourneyScreen(): React.JSX.Element {
                   {t('location.journeyOverdue')}
                 </Text>
                 <Text variant="caption" className="mt-1 text-error-red">
-                  {t('location.journeyOverdueWarning')}
+                  {graceSecondsLeft > 0
+                    ? t('location.journeyGraceWarning', { time: formatCountdown(graceSecondsLeft) })
+                    : t('location.journeyOverdueWarning')}
                 </Text>
               </View>
             )}

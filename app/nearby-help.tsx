@@ -143,7 +143,7 @@ export default function NearbyHelpScreen(): React.JSX.Element {
 
   return (
     <ErrorBoundary>
-      <SafeScreen>
+      <SafeScreen blockReplay>
         <ScreenHeader titleKey="location.nearbyHelp" />
 
         <View className="flex-row border-b border-stone/20">

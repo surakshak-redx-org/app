@@ -1,10 +1,12 @@
 import { MaterialIcons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Linking, Pressable, View } from 'react-native';
+import { Alert, Linking, Pressable, Share, View } from 'react-native';
 
 import { GuestBanner } from '@/components/features/auth/GuestBanner';
 import { ContactMultiSelect } from '@/components/features/location/ContactMultiSelect';
+import { DestinationAutocomplete } from '@/components/features/location/DestinationAutocomplete';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
@@ -17,10 +19,20 @@ import { APP_CONFIG, LIVE_LOCATION_DURATION_OPTIONS_HOURS } from '@/constants/co
 import { ICON_SIZE, TIMING } from '@/constants/ui';
 import { useLiveLocation } from '@/hooks/useLiveLocation';
 import { useAuthStore } from '@/stores/auth.store';
+import { useLocationStore } from '@/stores/location.store';
 import { useUserStore } from '@/stores/user.store';
+import type { PlaceLocation } from '@/types/location.types';
 import { formatDuration } from '@/utils/date.utils';
 
 const MS_PER_MINUTE = 60_000;
+const PERCENT = 100;
+
+const PROFILE_LABEL_KEYS = {
+  moving: 'location.trackingMoving',
+  walking: 'location.trackingWalking',
+  stationary: 'location.trackingStationary',
+  low_battery: 'location.trackingLowBattery',
+} as const;
 
 export default function LiveLocationScreen(): React.JSX.Element {
   const { t } = useTranslation();
@@ -37,10 +49,30 @@ export default function LiveLocationScreen(): React.JSX.Element {
     expiresAt,
     sharedWithCount,
     currentLocationUrl,
+    foregroundOnly,
+    trackingProfile,
+    batteryLevel,
+    destination,
+    trackingUrl,
+    linkStatus,
+    revokeLink,
     startSharing,
     stopSharing,
     extendTime,
   } = useLiveLocation();
+
+  const currentLocation = useLocationStore((state) => state.currentLocation);
+  // Memoised so the autocomplete's effect does not re-run on every render.
+  const biasCoords = useMemo(
+    () =>
+      currentLocation === null
+        ? undefined
+        : { latitude: currentLocation.latitude, longitude: currentLocation.longitude },
+    [currentLocation],
+  );
+
+  const [destinationText, setDestinationText] = useState('');
+  const [destinationPlace, setDestinationPlace] = useState<PlaceLocation | null>(null);
 
   const [selectedContactIds, setSelectedContactIds] = useState<string[]>([]);
   const [selectedDuration, setSelectedDuration] = useState<number>(
@@ -64,14 +96,14 @@ export default function LiveLocationScreen(): React.JSX.Element {
   const handleStart = useCallback(async (): Promise<void> => {
     try {
       setIsLoading(true);
-      await startSharing(selectedContactIds, selectedDuration);
+      await startSharing(selectedContactIds, selectedDuration, destinationPlace);
     } catch (error) {
       captureException(error);
       Alert.alert(t('errors.generic'));
     } finally {
       setIsLoading(false);
     }
-  }, [startSharing, selectedContactIds, selectedDuration, t]);
+  }, [startSharing, selectedContactIds, selectedDuration, destinationPlace, t]);
 
   const handleStop = useCallback((): void => {
     Alert.alert(t('location.stopSharingConfirm'), undefined, [
@@ -96,13 +128,72 @@ export default function LiveLocationScreen(): React.JSX.Element {
     });
   }, [extendTime, t]);
 
+  const handleCopyLink = useCallback((): void => {
+    if (trackingUrl === null) return;
+    Clipboard.setStringAsync(trackingUrl)
+      .then(() => Alert.alert(t('location.linkCopied')))
+      .catch((error: unknown) => {
+        captureException(error);
+        Alert.alert(t('errors.generic'));
+      });
+  }, [trackingUrl, t]);
+
+  const handleShareLink = useCallback((): void => {
+    if (trackingUrl === null) return;
+    Share.share({ message: t('location.shareMessage', { url: trackingUrl }) }).catch(
+      (error: unknown) => {
+        captureException(error);
+        Alert.alert(t('errors.generic'));
+      },
+    );
+  }, [trackingUrl, t]);
+
+  const handleRevokeLink = useCallback((): void => {
+    Alert.alert(t('location.revokeLinkConfirm'), undefined, [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('location.revokeLink'),
+        style: 'destructive',
+        onPress: (): void => {
+          revokeLink().catch((error: unknown) => {
+            captureException(error);
+            Alert.alert(t('errors.generic'));
+          });
+        },
+      },
+    ]);
+  }, [revokeLink, t]);
+
+  const handleOpenSettings = useCallback((): void => {
+    Linking.openSettings().catch((error: unknown) => captureException(error));
+  }, []);
+
   const remainingMinutes =
     expiresAt === null ? 0 : Math.max(0, Math.round((expiresAt.getTime() - now) / MS_PER_MINUTE));
 
   return (
     <ErrorBoundary>
-      <SafeScreen scrollable>
+      <SafeScreen blockReplay scrollable>
         <ScreenHeader titleKey="location.liveLocation" />
+
+        {isActive && foregroundOnly && (
+          <Card padding="lg" className="mt-2 border-2 border-saffron">
+            <View className="flex-row items-center gap-2">
+              <MaterialIcons name="warning" size={ICON_SIZE.STATUS} color={COLORS.SAFFRON} />
+              <Text variant="label">{t('location.foregroundOnlyTitle')}</Text>
+            </View>
+            <Text variant="caption" className="mt-2">
+              {t('location.foregroundOnlyBody')}
+            </Text>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-3"
+              label={t('common.openSettings')}
+              onPress={handleOpenSettings}
+            />
+          </Card>
+        )}
 
         {isActive ? (
           <Card padding="lg" className="mt-2 border-2 border-forest-green">
@@ -115,6 +206,53 @@ export default function LiveLocationScreen(): React.JSX.Element {
               <MaterialIcons name="timer" size={ICON_SIZE.STATUS} color={COLORS.STONE} />
               <Text variant="h3">{formatDuration(remainingMinutes)}</Text>
             </View>
+
+            {destination !== null && (
+              <View className="mt-3 flex-row items-center gap-2">
+                <MaterialIcons name="flag" size={ICON_SIZE.STATUS} color={COLORS.STONE} />
+                <Text variant="caption" numberOfLines={1} className="flex-1">
+                  {t('location.headingTo', { name: destination.name })}
+                </Text>
+              </View>
+            )}
+
+            {linkStatus === 'active' && trackingUrl !== null && (
+              <View className="mt-4 rounded-xl border border-stone/30 p-3">
+                <Text variant="label">{t('location.trackingLink')}</Text>
+                <Text variant="caption" numberOfLines={1} className="mt-1 text-shakti-purple">
+                  {trackingUrl}
+                </Text>
+                <View className="mt-3 flex-row flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    label={t('location.copyLink')}
+                    onPress={handleCopyLink}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    label={t('location.shareLink')}
+                    onPress={handleShareLink}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    label={t('location.revokeLink')}
+                    onPress={handleRevokeLink}
+                  />
+                </View>
+              </View>
+            )}
+
+            {linkStatus === 'revoked' && (
+              <View className="mt-4 flex-row items-center gap-2">
+                <MaterialIcons name="link-off" size={ICON_SIZE.STATUS} color={COLORS.STONE} />
+                <Text variant="caption" className="flex-1">
+                  {t('location.linkRevokedNotice')}
+                </Text>
+              </View>
+            )}
 
             {currentLocationUrl !== null && (
               <Pressable
@@ -130,6 +268,19 @@ export default function LiveLocationScreen(): React.JSX.Element {
                   {currentLocationUrl}
                 </Text>
               </Pressable>
+            )}
+
+            {(trackingProfile !== null || batteryLevel !== null) && (
+              <View className="mt-3 flex-row flex-wrap items-center gap-x-4 gap-y-1">
+                {trackingProfile !== null && (
+                  <Text variant="caption">{t(PROFILE_LABEL_KEYS[trackingProfile])}</Text>
+                )}
+                {batteryLevel !== null && (
+                  <Text variant="caption">
+                    {t('location.batteryPercent', { percent: Math.round(batteryLevel * PERCENT) })}
+                  </Text>
+                )}
+              </View>
             )}
 
             <View className="mt-5 flex-row gap-3">
@@ -180,6 +331,32 @@ export default function LiveLocationScreen(): React.JSX.Element {
                   </Pressable>
                 );
               })}
+            </View>
+
+            <View className="mt-6">
+              <DestinationAutocomplete
+                value={destinationText}
+                onChangeText={(text) => {
+                  setDestinationText(text);
+                  setDestinationPlace(null);
+                }}
+                onSelectPlace={(place) => {
+                  setDestinationText(place.name);
+                  setDestinationPlace(place);
+                }}
+                bias={biasCoords}
+              />
+              <Text variant="caption" className="-mt-2 text-stone">
+                {t('location.destinationOptionalHint')}
+              </Text>
+              {destinationPlace === null &&
+                destinationText.trim().length >= APP_CONFIG.PLACE_AUTOCOMPLETE_MIN_CHARS && (
+                  <Text
+                    variant="caption"
+                    tKey="location.destinationNotPickedLive"
+                    className="mt-1 text-saffron"
+                  />
+                )}
             </View>
 
             <Button

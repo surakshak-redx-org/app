@@ -274,7 +274,22 @@ jest.mock('mixpanel-react-native', () => ({
     track: jest.fn(),
     identify: jest.fn(() => Promise.resolve()),
     reset: jest.fn(),
+    getDistinctId: jest.fn(() => Promise.resolve('distinct-1')),
   })),
+}));
+
+jest.mock('@mixpanel/react-native-session-replay', () => ({
+  MPSessionReplay: {
+    initialize: jest.fn(() => Promise.resolve()),
+    startRecording: jest.fn(() => Promise.resolve()),
+    stopRecording: jest.fn(() => Promise.resolve()),
+    isRecording: jest.fn(() => Promise.resolve(false)),
+    identify: jest.fn(() => Promise.resolve()),
+  },
+  MPSessionReplayConfig: jest.fn().mockImplementation((config: object) => ({ ...config })),
+  MPSessionReplayMask: { Text: 'text', Web: 'web', Map: 'map', Image: 'image' },
+  // Pass-through so blocked screens still render their children under test.
+  MPSessionReplayView: ({ children }: { children?: unknown }): unknown => children,
 }));
 
 jest.mock('@sentry/react-native', () => ({
@@ -282,6 +297,16 @@ jest.mock('@sentry/react-native', () => ({
   wrap: jest.fn((component: unknown) => component),
   captureException: jest.fn(),
   captureMessage: jest.fn(),
+  setUser: jest.fn(),
+  setTags: jest.fn(),
+  addBreadcrumb: jest.fn(),
+  mobileReplayIntegration: jest.fn(() => ({ name: 'MobileReplay' })),
+  Mask: ({ children }: { children?: unknown }): unknown => children,
+  Unmask: ({ children }: { children?: unknown }): unknown => children,
+  reactNavigationIntegration: jest.fn(() => ({
+    name: 'ReactNavigation',
+    registerNavigationContainer: jest.fn(),
+  })),
 }));
 
 jest.mock('expo-localization', () => ({

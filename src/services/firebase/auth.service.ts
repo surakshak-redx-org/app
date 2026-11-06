@@ -9,6 +9,7 @@ import {
 } from '@react-native-firebase/auth';
 
 import { auth } from '@/config/firebase';
+import { recordBreadcrumb } from '@/config/sentry';
 import { deleteUserProfile } from '@/services/firebase/user.service';
 import { formatIndianPhone, validateIndianPhone } from '@/utils/phone.utils';
 
@@ -80,6 +81,11 @@ export async function sendOtp(phoneNumber: string): Promise<ConfirmationResult> 
     return await signInWithPhoneNumber(auth, formatIndianPhone(phoneNumber));
   } catch (error) {
     console.error('sendOtp failed:', error);
+    // A breadcrumb, not a capture: bad numbers and rate limits are expected user outcomes.
+    recordBreadcrumb('send otp failed', {
+      domain: 'AUTH',
+      data: { code: firebaseErrorCode(error) },
+    });
     throw mapFirebaseAuthError(firebaseErrorCode(error));
   }
 }
@@ -101,6 +107,10 @@ export async function verifyOtp(
   } catch (error) {
     if (error instanceof AuthError) throw error;
     console.error('verifyOtp failed:', error);
+    recordBreadcrumb('verify otp failed', {
+      domain: 'AUTH',
+      data: { code: firebaseErrorCode(error) },
+    });
     throw mapFirebaseAuthError(firebaseErrorCode(error));
   }
 }

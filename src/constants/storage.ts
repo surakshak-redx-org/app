@@ -20,6 +20,12 @@ export const STORAGE_KEYS = {
   EMERGENCY_CONTACTS_CACHE: 'surakshak_emergency_contacts_cache',
   /** `JSON.stringify`'d `OfflineUserCache` (name + language), same fallback use. */
   USER_INFO_CACHE: 'surakshak_user_info_cache',
+  /**
+   * `'true'` once the user has opted out of session replay. Read before Sentry
+   * initialises, so it must stay a plain AsyncStorage flag. Deliberately not in
+   * `SENSITIVE_STORAGE_KEYS`: it is a device preference and must survive sign-out.
+   */
+  REPLAY_OPT_OUT: 'surakshak_replay_opt_out',
   /** Persistent unique identifier for this app installation/device. */
   DEVICE_ID: 'surakshak_device_id',
   /** Id of the currently active live-location session. */
@@ -31,6 +37,17 @@ export const STORAGE_KEYS = {
    * session expires. Used by the background location task to self-terminate.
    */
   LIVE_LOCATION_EXPIRES_AT: 'surakshak_live_session_expires_at',
+  /**
+   * `JSON.stringify`'d `{ profile, stationarySinceMs }`: the live-tracking
+   * profile in force and when the sender last stopped moving. Persisted because
+   * the background task can be relaunched with a fresh JS context between fixes.
+   */
+  LIVE_LOCATION_TRACKING_STATE: 'surakshak_live_session_tracking_state',
+  /**
+   * `JSON.stringify`'d `PlaceLocation` the live-location session is heading to.
+   * Read by the background task to end the share on arrival.
+   */
+  LIVE_LOCATION_DESTINATION: 'surakshak_live_session_destination',
   /** Safe Journey persistent session state to prevent watchdog orphaning across OTA/reloads (BUG-137). */
   SAFE_JOURNEY_SESSION_ID: 'surakshak_safe_journey_session_id',
   SAFE_JOURNEY_DEADLINE: 'surakshak_safe_journey_deadline',
@@ -94,6 +111,16 @@ export const STORAGE_KEYS = {
 
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];
 
+/** Every key that belongs to one running live-location session, cleared together when it ends. */
+export const LIVE_LOCATION_SESSION_STORAGE_KEYS = [
+  STORAGE_KEYS.LIVE_LOCATION_SESSION_ID,
+  STORAGE_KEYS.LIVE_LOCATION_USER_ID,
+  STORAGE_KEYS.LIVE_LOCATION_DEVICE_ID,
+  STORAGE_KEYS.LIVE_LOCATION_EXPIRES_AT,
+  STORAGE_KEYS.LIVE_LOCATION_TRACKING_STATE,
+  STORAGE_KEYS.LIVE_LOCATION_DESTINATION,
+] as const;
+
 /**
  * AsyncStorage keys that hold user-sensitive profile data, contacts, or transient
  * emergency/safety session state. Purged upon user sign-out to prevent
@@ -119,6 +146,8 @@ export const SENSITIVE_STORAGE_KEYS = [
   STORAGE_KEYS.CHECKIN_MISSED_COUNT,
   STORAGE_KEYS.ONBOARDING_COMPLETE,
   STORAGE_KEYS.LIVE_LOCATION_USER_ID,
+  STORAGE_KEYS.LIVE_LOCATION_TRACKING_STATE,
+  STORAGE_KEYS.LIVE_LOCATION_DESTINATION,
   STORAGE_KEYS.OTP_RESEND_DEADLINE,
   STORAGE_KEYS.OTP_RESEND_PHONE,
 ] as const;

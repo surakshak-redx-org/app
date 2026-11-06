@@ -1,16 +1,26 @@
-import { addDoc, getDoc, getDocs, updateDoc } from '@react-native-firebase/firestore';
+import { addDoc, getDoc, getDocs, updateDoc, writeBatch } from '@react-native-firebase/firestore';
 
 import {
   createLiveLocationSession,
   extendLiveLocationSession,
   getActiveLiveSession,
+  markLiveLocationArrived,
+  revokeShareToken,
   stopLiveLocationSession,
   updateLiveLocation,
 } from '@/services/firebase/live-location.service';
 
+const mockBatch = {
+  update: jest.fn(),
+  set: jest.fn(),
+  commit: jest.fn(() => Promise.resolve()),
+};
+
 jest.mock('@react-native-firebase/firestore', () => {
   const fromDate = (date: Date): { toDate: () => Date } => ({ toDate: () => date });
   return {
+    writeBatch: jest.fn(() => mockBatch),
+    deleteField: jest.fn(() => ({ __deleteField: true })),
     getFirestore: jest.fn(() => ({})),
     collection: jest.fn((...segments: string[]) => ({ path: segments.join('/') })),
     doc: jest.fn((...segments: string[]) => ({ path: segments.join('/') })),
@@ -58,26 +68,106 @@ describe('live-location.service', () => {
     });
   });
 
-  it('updateLiveLocation updates latitude, longitude and locationUrl', async () => {
-    jest.mocked(getDoc).mockResolvedValueOnce(
-      mockSnap({
-        userId: 'user-1',
-        isActive: true,
-      }) as never,
-    );
+  it('createLiveLocationSession stores the share token and active status', async () => {
+    await createLiveLocationSession('user-1', [], 1, 0, 0, 'dev-1', 'token-abc');
 
-    await updateLiveLocation('session-1', 1, 2, 'user-1');
+    const payload = jest.mocked(addDoc).mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(payload).toMatchObject({ shareToken: 'token-abc', status: 'active', deviceId: 'dev-1' });
+  });
 
+  it('createLiveLocationSession stores only the destination fields it needs', async () => {
+    const destination = {
+      name: 'Home',
+      latitude: 19.1,
+      longitude: 72.9,
+      extra: 'dropped',
+    };
+    await createLiveLocationSession('user-1', [], 1, 0, 0, 'dev-1', 'token-abc', destination);
+
+    const payload = jest.mocked(addDoc).mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(payload.destination).toEqual({ name: 'Home', latitude: 19.1, longitude: 72.9 });
+  });
+
+  it('createLiveLocationSession omits the destination when none is given', async () => {
+    await createLiveLocationSession('user-1', [], 1, 0, 0);
+
+    const payload = jest.mocked(addDoc).mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(payload).not.toHaveProperty('destination');
+  });
+
+  it('markLiveLocationArrived ends the session with status arrived', async () => {
+    await markLiveLocationArrived('session-1');
     expect(updateDoc).toHaveBeenCalledWith(expect.anything(), {
-      latitude: 1,
-      longitude: 2,
-      locationUrl: 'https://www.google.com/maps/place/1,2',
+      isActive: false,
+      status: 'arrived',
     });
   });
 
-  it('stopLiveLocationSession sets isActive:false', async () => {
+  it('updateLiveLocation batches the session update without reading first', async () => {
+    await updateLiveLocation('session-1', 1, 2, false);
+
+    expect(getDoc).not.toHaveBeenCalled();
+    expect(writeBatch).toHaveBeenCalledTimes(1);
+    expect(mockBatch.update).toHaveBeenCalledWith(expect.anything(), {
+      latitude: 1,
+      longitude: 2,
+      locationUrl: 'https://www.google.com/maps/place/1,2',
+      lastFixAt: { __serverTimestamp: true },
+      status: 'active',
+    });
+    expect(mockBatch.set).not.toHaveBeenCalled();
+    expect(mockBatch.commit).toHaveBeenCalledTimes(1);
+  });
+
+  it('updateLiveLocation stores telemetry and drops undefined readings defensively', async () => {
+    // The type forbids `undefined`, but Firestore throws on it, so the service
+    // strips it anyway in case a caller casts around the type.
+    await updateLiveLocation('session-1', 1, 2, false, {
+      batteryLevel: 0.4,
+      isCharging: false,
+      speed: 3,
+      trackingProfile: 'walking',
+      heading: undefined,
+    } as never);
+
+    expect(mockBatch.update).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        batteryLevel: 0.4,
+        isCharging: false,
+        speed: 3,
+        trackingProfile: 'walking',
+        status: 'active',
+      }),
+    );
+    const payload = mockBatch.update.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(payload).not.toHaveProperty('heading');
+  });
+
+  it('updateLiveLocation also records a trail point when appendPoint is set', async () => {
+    await updateLiveLocation('session-1', 1, 2, true);
+
+    expect(mockBatch.set).toHaveBeenCalledWith(expect.anything(), {
+      latitude: 1,
+      longitude: 2,
+      recordedAt: { __serverTimestamp: true },
+    });
+    expect(mockBatch.commit).toHaveBeenCalledTimes(1);
+  });
+
+  it('stopLiveLocationSession sets isActive:false and status ended', async () => {
     await stopLiveLocationSession('session-1');
-    expect(updateDoc).toHaveBeenCalledWith(expect.anything(), { isActive: false });
+    expect(updateDoc).toHaveBeenCalledWith(expect.anything(), {
+      isActive: false,
+      status: 'ended',
+    });
+  });
+
+  it('revokeShareToken deletes the token field', async () => {
+    await revokeShareToken('session-1');
+    expect(updateDoc).toHaveBeenCalledWith(expect.anything(), {
+      shareToken: { __deleteField: true },
+    });
   });
 
   it('extendLiveLocationSession never pushes expiry past the max window', async () => {
@@ -126,10 +216,12 @@ describe('live-location.service', () => {
     [
       'updateLiveLocation',
       (): Promise<unknown> => {
-        jest.mocked(getDoc).mockRejectedValueOnce(new Error('offline'));
-        return updateLiveLocation('s', 0, 0, 'u');
+        mockBatch.commit.mockRejectedValueOnce(new Error('offline'));
+        return updateLiveLocation('s', 0, 0, false);
       },
     ],
+    ['revokeShareToken', (): Promise<unknown> => revokeShareToken('s')],
+    ['markLiveLocationArrived', (): Promise<unknown> => markLiveLocationArrived('s')],
     ['stopLiveLocationSession', (): Promise<unknown> => stopLiveLocationSession('s')],
     ['getActiveLiveSession', (): Promise<unknown> => getActiveLiveSession('u')],
   ])('%s logs and rethrows when Firestore fails', async (_name, call) => {

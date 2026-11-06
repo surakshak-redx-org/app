@@ -56,11 +56,40 @@ export const APP_CONFIG = {
   /** Tags shown on a law list card before the rest are hidden. */
   LAW_CARD_TAG_PREVIEW_COUNT: 3,
   LIVE_LOCATION_DISTANCE_INTERVAL_METERS: 10,
+  /** Random bytes in a live-location share token (16 bytes = 128 bits of entropy). */
+  LIVE_LOCATION_SHARE_TOKEN_BYTES: 16,
+  /** A fix becomes a new route-trail point only after moving at least this far. */
+  LIVE_LOCATION_TRAIL_MIN_DISTANCE_METERS: 25,
+  /** At or above this speed (m/s, about 18 km/h) the sender is in a vehicle: sample fastest. */
+  LIVE_LOCATION_MOVING_SPEED_MPS: 5,
+  /** Below this speed (m/s) the sender counts as standing still. */
+  LIVE_LOCATION_WALKING_SPEED_MPS: 0.8,
+  /** Standing still this long drops sampling to the slow stationary profile. */
+  LIVE_LOCATION_STATIONARY_AFTER_SECONDS: 120,
+  /** At or below this battery % (and not charging) sampling drops to the battery-saver profile. */
+  LIVE_LOCATION_LOW_BATTERY_PERCENT: 15,
+  /** Within this distance of the destination the sender counts as arrived. */
+  LIVE_LOCATION_ARRIVAL_RADIUS_METERS: 100,
+  /**
+   * Arrival is only armed once the sender has been this far from the destination,
+   * so starting a share right next to it does not end the share immediately.
+   */
+  LIVE_LOCATION_ARRIVAL_ARM_METERS: 250,
+  /** Consecutive fixes inside the radius needed to confirm arrival (filters GPS jumps). */
+  LIVE_LOCATION_ARRIVAL_CONFIRM_FIXES: 2,
+  /** Fixes less precise than this (metres) neither arm nor confirm arrival. */
+  LIVE_LOCATION_ARRIVAL_MAX_ACCURACY_METERS: 100,
   SAFE_JOURNEY_ETA_MIN_MINUTES: 5,
   SAFE_JOURNEY_ETA_MAX_MINUTES: 480,
   SAFE_JOURNEY_ETA_DEFAULT_MINUTES: 30,
   /** Countdown turns red once the journey has this many seconds or fewer left. */
   SAFE_JOURNEY_ALERT_WARN_SECONDS: 300,
+  /**
+   * How long past the expected arrival time the user has to confirm they are
+   * safe before contacts are texted. Without it, being a couple of minutes late
+   * alarmed contacts at the same moment the "are you safe?" prompt appeared.
+   */
+  SAFE_JOURNEY_OVERDUE_GRACE_SECONDS: 300,
   /**
    * A journey found already overdue by more than this (e.g. the app was not
    * opened for hours) is closed quietly instead of texting contacts a stale
@@ -125,6 +154,17 @@ export const SAFE_CHECKIN_INTERVAL_OPTIONS_MINUTES = [15, 30, 60, 120] as const;
 /** Live-location share durations (hours) offered on the Live Location screen. */
 export const LIVE_LOCATION_DURATION_OPTIONS_HOURS = [1, 2, 4, 8] as const;
 
+/**
+ * Sampling settings per live-tracking profile. `accuracy` is a key rather than
+ * the `expo-location` enum so this file stays free of native imports.
+ */
+export const LIVE_TRACKING_PROFILES = {
+  moving: { timeIntervalSeconds: 10, distanceIntervalMeters: 30, accuracy: 'high' },
+  walking: { timeIntervalSeconds: 20, distanceIntervalMeters: 15, accuracy: 'balanced' },
+  stationary: { timeIntervalSeconds: 60, distanceIntervalMeters: 50, accuracy: 'balanced' },
+  low_battery: { timeIntervalSeconds: 120, distanceIntervalMeters: 75, accuracy: 'balanced' },
+} as const;
+
 /** ETA presets (minutes) offered on the Safe Journey form. */
 export const SAFE_JOURNEY_ETA_PRESETS_MINUTES = [15, 30, 60, 120] as const;
 
@@ -174,3 +214,43 @@ export const COMMUNITY_IMAGE_ASPECT: [number, number] = [4, 3];
 /** Sample coordinates (Mumbai) used only for the SOS message preview in settings. */
 export const SOS_PREVIEW_LATITUDE = 19.076;
 export const SOS_PREVIEW_LONGITUDE = 72.877;
+
+/**
+ * Fraction of sessions Sentry records performance traces for, per APP_ENV.
+ * Staging is traced fully because it is a handful of testers; production is
+ * sampled so trace volume (and quota) stays proportional to real usage. Dev
+ * never initialises Sentry, so its 0 is only for completeness.
+ */
+export const SENTRY_TRACES_SAMPLE_RATE_BY_ENV: Record<AppEnv, number> = {
+  dev: 0,
+  staging: 1,
+  prod: 0.1,
+};
+
+/**
+ * Fraction of sessions Sentry records a full replay for, per APP_ENV. Staging is
+ * recorded fully so masking can be verified on every tester's device; production
+ * is sampled to keep volume, battery and upload cost proportional.
+ */
+export const SENTRY_REPLAY_SESSION_SAMPLE_RATE_BY_ENV: Record<AppEnv, number> = {
+  dev: 0,
+  staging: 1,
+  prod: 0.1,
+};
+
+/**
+ * Fraction of sessions that buffer a replay and upload it only if an error
+ * occurs. Kept at 1 in every tier: error replays are the reason to have replay.
+ */
+export const SENTRY_REPLAY_ERROR_SAMPLE_RATE_BY_ENV: Record<AppEnv, number> = {
+  dev: 0,
+  staging: 1,
+  prod: 1,
+};
+
+/** Percent (0-100) of sessions Mixpanel records, per APP_ENV. Mirrors Sentry's split. */
+export const MIXPANEL_REPLAY_SESSION_PERCENT_BY_ENV: Record<AppEnv, number> = {
+  dev: 0,
+  staging: 100,
+  prod: 10,
+};

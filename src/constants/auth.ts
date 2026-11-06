@@ -9,9 +9,6 @@ export const PHONE_E164_PREFIX = '+91';
 /** Non-editable prefix shown on the phone-entry field. */
 export const PHONE_PREFIX_LABEL = '🇮🇳  +91';
 
-/** How many trailing digits identify a number in an analytics property. */
-export const PHONE_LAST_DIGITS = 4;
-
 /** Version string shown on Settings when `expoConfig.version` is unavailable. */
 export const FALLBACK_APP_VERSION = '1.4.0';
 

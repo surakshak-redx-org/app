@@ -79,7 +79,7 @@ export default function MyRecordingsScreen(): React.JSX.Element {
 
   return (
     <ErrorBoundary>
-      <SafeScreen scrollable>
+      <SafeScreen blockReplay scrollable>
         <ScreenHeader titleKey="silentRecording.recordingsTitle" />
 
         {records.length === 0 ? (
