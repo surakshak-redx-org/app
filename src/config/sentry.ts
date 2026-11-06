@@ -19,6 +19,29 @@ export function scrubPhoneNumbers(event: Sentry.ErrorEvent): Sentry.ErrorEvent {
   return sanitizeDiagnostics(event) as Sentry.ErrorEvent;
 }
 
+interface SentryCaptureContext {
+  tags: { domain: string; operation: string };
+  extra?: Record<string, unknown>;
+}
+
+/**
+ * Maps our `CaptureContext` onto Sentry's capture-context shape so `domain` and
+ * `operation` become searchable tags (dashboards/alerts group by them). `extra`
+ * is sanitised here as well as in `beforeSend` so it is safe even if that hook
+ * is ever bypassed.
+ */
+function toSentryContext(
+  domain: string,
+  operation: string,
+  extra?: Record<string, unknown>,
+): SentryCaptureContext {
+  const context: SentryCaptureContext = { tags: { domain, operation } };
+  if (extra !== undefined) {
+    context.extra = sanitizeDiagnostics(extra) as Record<string, unknown>;
+  }
+  return context;
+}
+
 export function initSentry(): void {
   if (!IS_TELEMETRY_ENABLED) {
     return;
@@ -45,7 +68,7 @@ export function captureException(error: unknown, context?: CaptureContext): void
     return;
   }
 
-  Sentry.captureException(error);
+  Sentry.captureException(error, toSentryContext(domain, operation, context?.extra));
 }
 
 export function captureMessage(message: string, context?: CaptureContext): void {
@@ -61,5 +84,5 @@ export function captureMessage(message: string, context?: CaptureContext): void 
     return;
   }
 
-  Sentry.captureMessage(message);
+  Sentry.captureMessage(message, toSentryContext(domain, operation, context?.extra));
 }

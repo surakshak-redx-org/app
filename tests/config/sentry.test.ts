@@ -91,6 +91,36 @@ describe('telemetry gating (APP_ENV=staging, simulated)', () => {
     const SentryStaging = require('@sentry/react-native') as typeof import('@sentry/react-native');
     const error = new Error('boom');
     sentryStaging.captureException(error);
-    expect(SentryStaging.captureException).toHaveBeenCalledWith(error);
+    expect(SentryStaging.captureException).toHaveBeenCalledWith(error, {
+      tags: { domain: 'SYSTEM', operation: 'unhandled' },
+    });
+  });
+
+  it('captureException forwards domain/operation as tags and sanitised extras', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const sentryStaging = require('@/config/sentry') as typeof import('@/config/sentry');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const SentryStaging = require('@sentry/react-native') as typeof import('@sentry/react-native');
+    const error = new Error('sms failed');
+    sentryStaging.captureException(error, {
+      domain: 'SOS',
+      operation: 'sendSosSms',
+      extra: { recipient: '9876543210', count: 2 },
+    });
+    expect(SentryStaging.captureException).toHaveBeenCalledWith(error, {
+      tags: { domain: 'SOS', operation: 'sendSosSms' },
+      extra: { recipient: '[PHONE_REDACTED]', count: 2 },
+    });
+  });
+
+  it('captureMessage forwards domain/operation as tags', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const sentryStaging = require('@/config/sentry') as typeof import('@/config/sentry');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const SentryStaging = require('@sentry/react-native') as typeof import('@sentry/react-native');
+    sentryStaging.captureMessage('queued offline', { domain: 'SOS', operation: 'queue' });
+    expect(SentryStaging.captureMessage).toHaveBeenCalledWith('queued offline', {
+      tags: { domain: 'SOS', operation: 'queue' },
+    });
   });
 });
