@@ -20,6 +20,12 @@ export const STORAGE_KEYS = {
   EMERGENCY_CONTACTS_CACHE: 'surakshak_emergency_contacts_cache',
   /** `JSON.stringify`'d `OfflineUserCache` (name + language), same fallback use. */
   USER_INFO_CACHE: 'surakshak_user_info_cache',
+  /**
+   * `'true'` once the user has opted out of session replay. Read before Sentry
+   * initialises, so it must stay a plain AsyncStorage flag. Deliberately not in
+   * `SENSITIVE_STORAGE_KEYS`: it is a device preference and must survive sign-out.
+   */
+  REPLAY_OPT_OUT: 'surakshak_replay_opt_out',
   /** Persistent unique identifier for this app installation/device. */
   DEVICE_ID: 'surakshak_device_id',
   /** Id of the currently active live-location session. */

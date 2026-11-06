@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { Input } from '@/components/ui/Input';
+import { ReplayBlock } from '@/components/ui/ReplayBlock';
 import { Spinner } from '@/components/ui/Spinner';
 import { Text } from '@/components/ui/Text';
 import { captureException } from '@/config/sentry';
@@ -431,370 +432,377 @@ export default function MapScreen(): React.JSX.Element {
 
   return (
     <ErrorBoundary>
-      <View className="flex-1">
-        <MapView
-          ref={mapRef}
-          provider={PROVIDER_GOOGLE}
-          className="flex-1"
-          showsUserLocation
-          showsMyLocationButton
-          initialRegion={initialRegion}
-          onPanDrag={handlePanDrag}
-          // Android's My Location button defaults to top-right (rendering
-          // under the status bar without this); iOS's defaults to
-          // bottom-right (overlapping the report FAB there). `mapPadding`
-          // insets the native controls' corners without moving the camera.
-          mapPadding={{
-            top: insets.top + APP_CONFIG.MAP_HEADER_HEIGHT,
-            right: 0,
-            bottom: insets.bottom + APP_CONFIG.MAP_CONTROL_BOTTOM_CLEARANCE,
-            left: 0,
-          }}
-        >
-          {isFocused && (
-            <>
-              {unsafeAreas.map((area) => (
-                <React.Fragment key={area.id}>
+      <ReplayBlock>
+        <View className="flex-1">
+          <MapView
+            ref={mapRef}
+            provider={PROVIDER_GOOGLE}
+            className="flex-1"
+            showsUserLocation
+            showsMyLocationButton
+            initialRegion={initialRegion}
+            onPanDrag={handlePanDrag}
+            // Android's My Location button defaults to top-right (rendering
+            // under the status bar without this); iOS's defaults to
+            // bottom-right (overlapping the report FAB there). `mapPadding`
+            // insets the native controls' corners without moving the camera.
+            mapPadding={{
+              top: insets.top + APP_CONFIG.MAP_HEADER_HEIGHT,
+              right: 0,
+              bottom: insets.bottom + APP_CONFIG.MAP_CONTROL_BOTTOM_CLEARANCE,
+              left: 0,
+            }}
+          >
+            {isFocused && (
+              <>
+                {unsafeAreas.map((area) => (
+                  <React.Fragment key={area.id}>
+                    <Marker
+                      coordinate={{ latitude: area.latitude, longitude: area.longitude }}
+                      pinColor={PIN_HEX[area.pinColor]}
+                      testID={`unsafe-area-${area.id}`}
+                      onPress={() => setSelectedAreaId(area.id)}
+                    />
+                    <Circle
+                      center={{ latitude: area.latitude, longitude: area.longitude }}
+                      radius={area.radiusMeters}
+                      strokeColor={PIN_CIRCLE_STROKE[area.pinColor]}
+                      fillColor={PIN_CIRCLE_FILL[area.pinColor]}
+                    />
+                  </React.Fragment>
+                ))}
+                {nearbyPlaces[activeHelpCategory].map((place) => (
                   <Marker
-                    coordinate={{ latitude: area.latitude, longitude: area.longitude }}
-                    pinColor={PIN_HEX[area.pinColor]}
-                    testID={`unsafe-area-${area.id}`}
-                    onPress={() => setSelectedAreaId(area.id)}
+                    key={`help-${place.id}`}
+                    coordinate={{ latitude: place.latitude, longitude: place.longitude }}
+                    pinColor={HELP_CATEGORY_COLORS[activeHelpCategory]}
+                    title={place.name}
+                    description={`${formatDistance(place.distanceKm)} • ${place.address}`}
+                    testID={`nearby-marker-${place.id}`}
                   />
-                  <Circle
-                    center={{ latitude: area.latitude, longitude: area.longitude }}
-                    radius={area.radiusMeters}
-                    strokeColor={PIN_CIRCLE_STROKE[area.pinColor]}
-                    fillColor={PIN_CIRCLE_FILL[area.pinColor]}
-                  />
-                </React.Fragment>
-              ))}
-              {nearbyPlaces[activeHelpCategory].map((place) => (
-                <Marker
-                  key={`help-${place.id}`}
-                  coordinate={{ latitude: place.latitude, longitude: place.longitude }}
-                  pinColor={HELP_CATEGORY_COLORS[activeHelpCategory]}
-                  title={place.name}
-                  description={`${formatDistance(place.distanceKm)} • ${place.address}`}
-                  testID={`nearby-marker-${place.id}`}
-                />
-              ))}
-            </>
-          )}
-        </MapView>
+                ))}
+              </>
+            )}
+          </MapView>
 
-        <SafeAreaView
-          edges={['top', 'left', 'right']}
-          pointerEvents="box-none"
-          className="absolute inset-x-0 top-0"
-        >
-          <View className="flex-row items-center justify-between px-4 py-2">
-            <Text
-              variant="h3"
-              tKey="map.title"
-              className="rounded-lg border border-stone/20 bg-white/95 px-3 py-1 shadow-sm dark:border-dark-border dark:bg-charcoal/95"
-            />
-            <Pressable
-              onPress={() => setLegendVisible((current) => !current)}
-              accessibilityRole="button"
-              accessibilityLabel={t('map.legend')}
-              className="rounded-full border border-stone/20 bg-white/95 p-2 shadow-sm dark:border-dark-border dark:bg-charcoal/95"
-            >
-              <MaterialIcons name="info-outline" size={ICON_SIZE.ROW} color={colors.textPrimary} />
-            </Pressable>
-          </View>
-
-          {legendVisible && (
-            <Card padding="sm" className="mx-4 self-end">
-              <View className="flex-row items-center gap-2 py-1">
-                <View className="h-3 w-3 rounded-full bg-saffron" />
-                <Text variant="caption" tKey="map.legendPending" />
-              </View>
-              <View className="flex-row items-center gap-2 py-1">
-                <View className="h-3 w-3 rounded-full bg-primary-red" />
-                <Text variant="caption" tKey="map.legendApproved" />
-              </View>
-            </Card>
-          )}
-        </SafeAreaView>
-
-        {/* A labelled button rather than an icon-only FAB, and hidden while
-            an area card would cover it (BUG-008). */}
-        {selectedArea === null && sheetIndex === 0 && (
           <SafeAreaView
-            edges={['bottom']}
+            edges={['top', 'left', 'right']}
             pointerEvents="box-none"
-            className="absolute inset-x-0 bottom-0 items-end pr-5"
+            className="absolute inset-x-0 top-0"
           >
-            {/* mb-map-fab = MAP_FAB_OFFSET + MAP_BOTTOM_SHEET_COLLAPSED_CLEARANCE (tailwind.config.js) */}
-            <Pressable
-              onPress={openReport}
-              accessibilityRole="button"
-              accessibilityLabel={t('map.reportArea')}
-              className="mb-map-fab h-14 flex-row items-center gap-2 rounded-full bg-primary-red px-5 shadow-lg"
-            >
-              <MaterialIcons name="add-location" size={ICON_SIZE.ROW} color={COLORS.WHITE} />
-              <Text variant="label" tKey="map.reportArea" className="text-white" />
-            </Pressable>
-          </SafeAreaView>
-        )}
-
-        {selectedArea !== null && (
-          <SafeAreaView edges={['bottom']} className="absolute inset-x-0 bottom-0">
-            <Card padding="lg" className="rounded-b-none">
-              <View className="flex-row items-center justify-between">
-                <Text variant="h3" className="flex-1">
-                  {selectedArea.title}
-                </Text>
-                <Badge
-                  variant={selectedArea.status === 'approved' ? 'error' : 'warning'}
-                  label={t(selectedArea.status === 'approved' ? 'map.approved' : 'map.pending')}
-                />
-              </View>
-
-              <Text variant="body" className="mt-2">
-                {selectedArea.description}
-              </Text>
-              <Text variant="caption" className="mt-1">
-                {t('map.reportAreaCategory')}: {t(UNSAFE_CATEGORY_LABEL_KEY[selectedArea.category])}
-              </Text>
-
-              <View className="mt-3 flex-row items-center gap-3">
-                <Text variant="label" className="flex-1">
-                  {t('map.votes', { count: selectedArea.upvotes - selectedArea.downvotes })}
-                </Text>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  label={t('map.upvote')}
-                  disabled={hasVoted || votingAreaId !== null}
-                  onPress={() => handleVote(selectedArea, 'up')}
-                />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  label={t('map.downvote')}
-                  disabled={hasVoted || votingAreaId !== null}
-                  onPress={() => handleVote(selectedArea, 'down')}
-                />
-              </View>
-
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-3 self-center"
-                label={t('common.close')}
-                onPress={() => setSelectedAreaId(null)}
+            <View className="flex-row items-center justify-between px-4 py-2">
+              <Text
+                variant="h3"
+                tKey="map.title"
+                className="rounded-lg border border-stone/20 bg-white/95 px-3 py-1 shadow-sm dark:border-dark-border dark:bg-charcoal/95"
               />
-            </Card>
-          </SafeAreaView>
-        )}
-
-        {selectedArea === null && (
-          <GorhomBottomSheet
-            ref={bottomSheetRef}
-            index={0}
-            snapPoints={NEARBY_SHEET_SNAP_POINTS}
-            enableDynamicSizing={false}
-            onChange={setSheetIndex}
-            backgroundClassName="rounded-t-3xl border border-[#E5E7EB] bg-white dark:border-dark-border dark:bg-charcoal"
-            handleIndicatorClassName="w-10 bg-stone"
-          >
-            <View className="px-4 pb-2 pt-1">
-              <View className="flex-row items-center justify-between gap-2">
-                <View className="flex-1">
-                  <Text
-                    variant="label"
-                    className="font-semibold text-ink dark:text-white"
-                    numberOfLines={1}
-                  >
-                    {nearestFacilitySummary}
-                  </Text>
-                </View>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t('location.call112')}
-                  onPress={() => {
-                    void placeCall('112').catch((e: unknown) => {
-                      captureException(e);
-                      Alert.alert(t('errors.generic'));
-                    });
-                  }}
-                  className="rounded-lg bg-primary-red px-3 py-1.5"
-                >
-                  <Text variant="caption" className="font-bold text-white">
-                    {t('location.call112')}
-                  </Text>
-                </Pressable>
-              </View>
-
-              <View className="mt-3 flex-row border-b border-stone/20 pb-2">
-                {HELP_CATEGORIES.map((category) => {
-                  const selected = category === activeHelpCategory;
-                  return (
-                    <Pressable
-                      key={category}
-                      onPress={() => selectHelpCategory(category)}
-                      accessibilityRole="tab"
-                      accessibilityState={{ selected }}
-                      accessibilityLabel={t(HELP_CATEGORY_LABEL_KEY[category])}
-                      className={`flex-1 items-center border-b-2 pb-1.5 ${
-                        selected ? 'border-shakti-purple' : 'border-transparent'
-                      }`}
-                    >
-                      <MaterialIcons
-                        name={HELP_CATEGORY_ICON[category]}
-                        size={ICON_SIZE.ROW}
-                        color={selected ? COLORS.SHAKTI_PURPLE : COLORS.STONE}
-                      />
-                      <Text
-                        variant="caption"
-                        className={`mt-0.5 text-xs ${
-                          selected
-                            ? 'font-semibold text-shakti-purple'
-                            : 'text-stone dark:text-dark-text-secondary'
-                        }`}
-                        numberOfLines={1}
-                      >
-                        {t(HELP_CATEGORY_LABEL_KEY[category])}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+              <Pressable
+                onPress={() => setLegendVisible((current) => !current)}
+                accessibilityRole="button"
+                accessibilityLabel={t('map.legend')}
+                className="rounded-full border border-stone/20 bg-white/95 p-2 shadow-sm dark:border-dark-border dark:bg-charcoal/95"
+              >
+                <MaterialIcons
+                  name="info-outline"
+                  size={ICON_SIZE.ROW}
+                  color={colors.textPrimary}
+                />
+              </Pressable>
             </View>
 
-            <BottomSheetScrollView
-              contentContainerClassName="px-4 pb-12 pt-1"
-              showsVerticalScrollIndicator={false}
+            {legendVisible && (
+              <Card padding="sm" className="mx-4 self-end">
+                <View className="flex-row items-center gap-2 py-1">
+                  <View className="h-3 w-3 rounded-full bg-saffron" />
+                  <Text variant="caption" tKey="map.legendPending" />
+                </View>
+                <View className="flex-row items-center gap-2 py-1">
+                  <View className="h-3 w-3 rounded-full bg-primary-red" />
+                  <Text variant="caption" tKey="map.legendApproved" />
+                </View>
+              </Card>
+            )}
+          </SafeAreaView>
+
+          {/* A labelled button rather than an icon-only FAB, and hidden while
+            an area card would cover it (BUG-008). */}
+          {selectedArea === null && sheetIndex === 0 && (
+            <SafeAreaView
+              edges={['bottom']}
+              pointerEvents="box-none"
+              className="absolute inset-x-0 bottom-0 items-end pr-5"
             >
-              {isFetchingPlaces && nearbyPlaces[activeHelpCategory].length === 0 ? (
-                <Spinner size="md" className="py-6" />
-              ) : nearbyPlaces[activeHelpCategory].length === 0 ? (
-                <Text variant="caption" className="py-6 text-center text-stone">
-                  {t('location.noPlacesFound')}
+              {/* mb-map-fab = MAP_FAB_OFFSET + MAP_BOTTOM_SHEET_COLLAPSED_CLEARANCE (tailwind.config.js) */}
+              <Pressable
+                onPress={openReport}
+                accessibilityRole="button"
+                accessibilityLabel={t('map.reportArea')}
+                className="mb-map-fab h-14 flex-row items-center gap-2 rounded-full bg-primary-red px-5 shadow-lg"
+              >
+                <MaterialIcons name="add-location" size={ICON_SIZE.ROW} color={COLORS.WHITE} />
+                <Text variant="label" tKey="map.reportArea" className="text-white" />
+              </Pressable>
+            </SafeAreaView>
+          )}
+
+          {selectedArea !== null && (
+            <SafeAreaView edges={['bottom']} className="absolute inset-x-0 bottom-0">
+              <Card padding="lg" className="rounded-b-none">
+                <View className="flex-row items-center justify-between">
+                  <Text variant="h3" className="flex-1">
+                    {selectedArea.title}
+                  </Text>
+                  <Badge
+                    variant={selectedArea.status === 'approved' ? 'error' : 'warning'}
+                    label={t(selectedArea.status === 'approved' ? 'map.approved' : 'map.pending')}
+                  />
+                </View>
+
+                <Text variant="body" className="mt-2">
+                  {selectedArea.description}
                 </Text>
-              ) : (
-                nearbyPlaces[activeHelpCategory].map((place) => (
-                  <View
-                    key={place.id}
-                    className="mb-2.5 flex-row items-center justify-between rounded-xl border border-stone/15 bg-white p-3 dark:border-dark-border dark:bg-charcoal"
+                <Text variant="caption" className="mt-1">
+                  {t('map.reportAreaCategory')}:{' '}
+                  {t(UNSAFE_CATEGORY_LABEL_KEY[selectedArea.category])}
+                </Text>
+
+                <View className="mt-3 flex-row items-center gap-3">
+                  <Text variant="label" className="flex-1">
+                    {t('map.votes', { count: selectedArea.upvotes - selectedArea.downvotes })}
+                  </Text>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    label={t('map.upvote')}
+                    disabled={hasVoted || votingAreaId !== null}
+                    onPress={() => handleVote(selectedArea, 'up')}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    label={t('map.downvote')}
+                    disabled={hasVoted || votingAreaId !== null}
+                    onPress={() => handleVote(selectedArea, 'down')}
+                  />
+                </View>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3 self-center"
+                  label={t('common.close')}
+                  onPress={() => setSelectedAreaId(null)}
+                />
+              </Card>
+            </SafeAreaView>
+          )}
+
+          {selectedArea === null && (
+            <GorhomBottomSheet
+              ref={bottomSheetRef}
+              index={0}
+              snapPoints={NEARBY_SHEET_SNAP_POINTS}
+              enableDynamicSizing={false}
+              onChange={setSheetIndex}
+              backgroundClassName="rounded-t-3xl border border-[#E5E7EB] bg-white dark:border-dark-border dark:bg-charcoal"
+              handleIndicatorClassName="w-10 bg-stone"
+            >
+              <View className="px-4 pb-2 pt-1">
+                <View className="flex-row items-center justify-between gap-2">
+                  <View className="flex-1">
+                    <Text
+                      variant="label"
+                      className="font-semibold text-ink dark:text-white"
+                      numberOfLines={1}
+                    >
+                      {nearestFacilitySummary}
+                    </Text>
+                  </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t('location.call112')}
+                    onPress={() => {
+                      void placeCall('112').catch((e: unknown) => {
+                        captureException(e);
+                        Alert.alert(t('errors.generic'));
+                      });
+                    }}
+                    className="rounded-lg bg-primary-red px-3 py-1.5"
                   >
-                    <View className="flex-1 pr-2">
-                      <View className="flex-row items-center gap-2">
-                        <Text variant="label" className="font-semibold" numberOfLines={1}>
-                          {place.name}
-                        </Text>
-                        <Badge variant="info" label={formatDistance(place.distanceKm)} />
-                      </View>
-                      <Text
-                        variant="caption"
-                        className="mt-0.5 text-stone dark:text-dark-text-secondary"
-                        numberOfLines={1}
-                      >
-                        {place.address}
-                      </Text>
-                    </View>
-                    <View className="flex-row items-center gap-2">
-                      {place.phoneNumber !== undefined && (
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel={`${t('location.call')} ${place.name}`}
-                          onPress={() => handleCall(place)}
-                          className="rounded-lg bg-forest-green p-2"
-                        >
-                          <MaterialIcons name="call" size={ICON_SIZE.ROW} color={COLORS.WHITE} />
-                        </Pressable>
-                      )}
+                    <Text variant="caption" className="font-bold text-white">
+                      {t('location.call112')}
+                    </Text>
+                  </Pressable>
+                </View>
+
+                <View className="mt-3 flex-row border-b border-stone/20 pb-2">
+                  {HELP_CATEGORIES.map((category) => {
+                    const selected = category === activeHelpCategory;
+                    return (
                       <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={`${t('location.directions')} ${place.name}`}
-                        onPress={() => handleDirections(place)}
-                        className="rounded-lg bg-shakti-purple p-2"
+                        key={category}
+                        onPress={() => selectHelpCategory(category)}
+                        accessibilityRole="tab"
+                        accessibilityState={{ selected }}
+                        accessibilityLabel={t(HELP_CATEGORY_LABEL_KEY[category])}
+                        className={`flex-1 items-center border-b-2 pb-1.5 ${
+                          selected ? 'border-shakti-purple' : 'border-transparent'
+                        }`}
                       >
                         <MaterialIcons
-                          name="directions"
+                          name={HELP_CATEGORY_ICON[category]}
                           size={ICON_SIZE.ROW}
-                          color={COLORS.WHITE}
+                          color={selected ? COLORS.SHAKTI_PURPLE : COLORS.STONE}
                         />
+                        <Text
+                          variant="caption"
+                          className={`mt-0.5 text-xs ${
+                            selected
+                              ? 'font-semibold text-shakti-purple'
+                              : 'text-stone dark:text-dark-text-secondary'
+                          }`}
+                          numberOfLines={1}
+                        >
+                          {t(HELP_CATEGORY_LABEL_KEY[category])}
+                        </Text>
                       </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
+              <BottomSheetScrollView
+                contentContainerClassName="px-4 pb-12 pt-1"
+                showsVerticalScrollIndicator={false}
+              >
+                {isFetchingPlaces && nearbyPlaces[activeHelpCategory].length === 0 ? (
+                  <Spinner size="md" className="py-6" />
+                ) : nearbyPlaces[activeHelpCategory].length === 0 ? (
+                  <Text variant="caption" className="py-6 text-center text-stone">
+                    {t('location.noPlacesFound')}
+                  </Text>
+                ) : (
+                  nearbyPlaces[activeHelpCategory].map((place) => (
+                    <View
+                      key={place.id}
+                      className="mb-2.5 flex-row items-center justify-between rounded-xl border border-stone/15 bg-white p-3 dark:border-dark-border dark:bg-charcoal"
+                    >
+                      <View className="flex-1 pr-2">
+                        <View className="flex-row items-center gap-2">
+                          <Text variant="label" className="font-semibold" numberOfLines={1}>
+                            {place.name}
+                          </Text>
+                          <Badge variant="info" label={formatDistance(place.distanceKm)} />
+                        </View>
+                        <Text
+                          variant="caption"
+                          className="mt-0.5 text-stone dark:text-dark-text-secondary"
+                          numberOfLines={1}
+                        >
+                          {place.address}
+                        </Text>
+                      </View>
+                      <View className="flex-row items-center gap-2">
+                        {place.phoneNumber !== undefined && (
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={`${t('location.call')} ${place.name}`}
+                            onPress={() => handleCall(place)}
+                            className="rounded-lg bg-forest-green p-2"
+                          >
+                            <MaterialIcons name="call" size={ICON_SIZE.ROW} color={COLORS.WHITE} />
+                          </Pressable>
+                        )}
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`${t('location.directions')} ${place.name}`}
+                          onPress={() => handleDirections(place)}
+                          className="rounded-lg bg-shakti-purple p-2"
+                        >
+                          <MaterialIcons
+                            name="directions"
+                            size={ICON_SIZE.ROW}
+                            color={COLORS.WHITE}
+                          />
+                        </Pressable>
+                      </View>
                     </View>
-                  </View>
-                ))
-              )}
-            </BottomSheetScrollView>
-          </GorhomBottomSheet>
-        )}
+                  ))
+                )}
+              </BottomSheetScrollView>
+            </GorhomBottomSheet>
+          )}
 
-        <BottomSheet visible={isReportModalVisible} onClose={() => setReportModalVisible(false)}>
-          <Text variant="h3" tKey="map.reportArea" />
-          <Text variant="caption" tKey="map.reportUsesCurrentLocation" className="mt-1" />
+          <BottomSheet visible={isReportModalVisible} onClose={() => setReportModalVisible(false)}>
+            <Text variant="h3" tKey="map.reportArea" />
+            <Text variant="caption" tKey="map.reportUsesCurrentLocation" className="mt-1" />
 
-          <Controller
-            control={control}
-            name="title"
-            render={({ field, fieldState }) => (
-              <Input
-                label={t('map.reportAreaTitle')}
-                value={field.value}
-                onBlur={field.onBlur}
-                onChangeText={field.onChange}
-                error={fieldState.error?.message}
-                className="mt-4"
-              />
-            )}
-          />
-
-          <Controller
-            control={control}
-            name="description"
-            render={({ field, fieldState }) => (
-              <Input
-                label={t('map.reportAreaDescription')}
-                multiline
-                value={field.value}
-                onBlur={field.onBlur}
-                onChangeText={field.onChange}
-                error={fieldState.error?.message}
-              />
-            )}
-          />
-
-          <Text variant="label" tKey="map.reportAreaCategory" className="mb-2" />
-          <View className="flex-row flex-wrap gap-2">
-            {UNSAFE_AREA_CATEGORIES.map((category) => {
-              const selected = category === selectedCategory;
-              return (
-                <Button
-                  key={category}
-                  variant={selected ? 'secondary' : 'outline'}
-                  size="sm"
-                  label={t(UNSAFE_CATEGORY_LABEL_KEY[category])}
-                  onPress={() => setValue('category', category, { shouldValidate: true })}
+            <Controller
+              control={control}
+              name="title"
+              render={({ field, fieldState }) => (
+                <Input
+                  label={t('map.reportAreaTitle')}
+                  value={field.value}
+                  onBlur={field.onBlur}
+                  onChangeText={field.onChange}
+                  error={fieldState.error?.message}
+                  className="mt-4"
                 />
-              );
-            })}
-          </View>
+              )}
+            />
 
-          <Button
-            variant="primary"
-            size="lg"
-            fullWidth
-            className="mt-6"
-            label={t('common.send')}
-            loading={isSubmitting}
-            disabled={!isValid || isSubmitting}
-            onPress={() => void handleSubmit(submitReport)()}
-          />
-          <Button
-            variant="ghost"
-            size="md"
-            className="mt-2 self-center"
-            label={t('common.cancel')}
-            onPress={() => setReportModalVisible(false)}
-          />
-        </BottomSheet>
-      </View>
+            <Controller
+              control={control}
+              name="description"
+              render={({ field, fieldState }) => (
+                <Input
+                  label={t('map.reportAreaDescription')}
+                  multiline
+                  value={field.value}
+                  onBlur={field.onBlur}
+                  onChangeText={field.onChange}
+                  error={fieldState.error?.message}
+                />
+              )}
+            />
+
+            <Text variant="label" tKey="map.reportAreaCategory" className="mb-2" />
+            <View className="flex-row flex-wrap gap-2">
+              {UNSAFE_AREA_CATEGORIES.map((category) => {
+                const selected = category === selectedCategory;
+                return (
+                  <Button
+                    key={category}
+                    variant={selected ? 'secondary' : 'outline'}
+                    size="sm"
+                    label={t(UNSAFE_CATEGORY_LABEL_KEY[category])}
+                    onPress={() => setValue('category', category, { shouldValidate: true })}
+                  />
+                );
+              })}
+            </View>
+
+            <Button
+              variant="primary"
+              size="lg"
+              fullWidth
+              className="mt-6"
+              label={t('common.send')}
+              loading={isSubmitting}
+              disabled={!isValid || isSubmitting}
+              onPress={() => void handleSubmit(submitReport)()}
+            />
+            <Button
+              variant="ghost"
+              size="md"
+              className="mt-2 self-center"
+              label={t('common.cancel')}
+              onPress={() => setReportModalVisible(false)}
+            />
+          </BottomSheet>
+        </View>
+      </ReplayBlock>
     </ErrorBoundary>
   );
 }

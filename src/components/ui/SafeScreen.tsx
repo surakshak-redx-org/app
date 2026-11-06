@@ -8,11 +8,19 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ReplayBlock } from '@/components/ui/ReplayBlock';
+
 export interface SafeScreenProps {
   children: React.ReactNode;
   scrollable?: boolean;
   className?: string;
   refreshControl?: React.ReactElement<RefreshControlProps>;
+  /**
+   * Paint this screen over in session replay (Sentry and Mixpanel) rather than
+   * just masking its text. Set it on any screen that reveals location, contacts,
+   * recordings or a phone number.
+   */
+  blockReplay?: boolean;
 }
 
 // iOS never resizes the window for the keyboard on its own — without this,
@@ -28,10 +36,11 @@ export function SafeScreen({
   scrollable = false,
   className,
   refreshControl,
+  blockReplay = false,
 }: SafeScreenProps): React.JSX.Element {
   const body = className === undefined ? 'flex-1 px-4' : `flex-1 px-4 ${className}`;
 
-  return (
+  const screen = (
     <SafeAreaView
       className="flex-1 bg-off-white dark:bg-near-black"
       edges={['top', 'left', 'right']}
@@ -52,4 +61,6 @@ export function SafeScreen({
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
+
+  return blockReplay ? <ReplayBlock>{screen}</ReplayBlock> : screen;
 }

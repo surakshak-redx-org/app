@@ -97,7 +97,7 @@ function RootLayout(): React.JSX.Element {
 
   // Third-party SDKs. Each one no-ops or warns when APP_ENV is dev.
   useEffect(() => {
-    initSentry();
+    void initSentry();
     initOneSignal();
     void initMixPanel();
   }, []);

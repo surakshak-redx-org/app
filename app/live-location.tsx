@@ -101,7 +101,7 @@ export default function LiveLocationScreen(): React.JSX.Element {
 
   return (
     <ErrorBoundary>
-      <SafeScreen scrollable>
+      <SafeScreen blockReplay scrollable>
         <ScreenHeader titleKey="location.liveLocation" />
 
         {isActive ? (

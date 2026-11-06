@@ -517,6 +517,8 @@
     "lowBatteryThreshold": "Alert at {{percent}}% battery",
     "followDetection": "Suspicious Follow Alert",
     "followDetectionDesc": "Alert you if you may be being followed",
+    "sessionReplay": "Session recordings",
+    "sessionReplayDesc": "Share masked screen recordings so we can fix problems. All text and sensitive screens are hidden. Fully applies the next time you open the app.",
     "safeCheckin": "Safe Check-In",
     "safeCheckinActive": "Active",
     "safeCheckinOff": "Off",
