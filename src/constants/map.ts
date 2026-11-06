@@ -70,3 +70,25 @@ export const HELP_CATEGORY_LABEL_KEY: Record<HelpCategory, string> = {
   fire_station: 'location.fireStations',
   pharmacy: 'location.pharmacies',
 };
+
+/** Marker tint per help category on the map. */
+export const HELP_CATEGORY_COLORS: Record<HelpCategory, string> = {
+  police: COLORS.POLICE_BLUE,
+  hospital: COLORS.HOSPITAL_RED,
+  fire_station: COLORS.SAFFRON,
+  pharmacy: COLORS.PHARMACY_GREEN,
+};
+
+/** Minimum distance moved (in meters) before triggering a fresh nearby places search. */
+export const NEARBY_REFETCH_METERS = 100;
+/** Nearby-help bottom sheet snap points: collapsed, half, expanded. */
+export const NEARBY_SHEET_SNAP_POINTS = ['12%', '50%', '88%'];
+/** Index of the half-open snap point used when opening nearby help from a deep link. */
+export const NEARBY_SHEET_HALF_INDEX = 1;
+/** Delay (ms) before snapping the sheet, letting the screen finish focusing first. */
+export const NEARBY_SHEET_SNAP_DELAY_MS = 150;
+/** Number of place categories fetched per nearby-help refresh. */
+export const NEARBY_CATEGORY_COUNT = 4;
+
+/** Minimum time elapsed (in milliseconds) before re-querying nearby places for the same area. */
+export const NEARBY_REFETCH_MS = 60_000;

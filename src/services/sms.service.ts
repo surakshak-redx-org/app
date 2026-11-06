@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Battery from 'expo-battery';
 import * as SMS from 'expo-sms';
 import { Platform } from 'react-native';
 import { checkSmsPermission, isAirplaneModeOn, sendSmsToContacts } from 'surakshak-native';
@@ -12,9 +13,11 @@ import {
   buildCheckInMissedMessage,
   buildLiveLocationMessage,
   buildLowBatteryMessage,
+  buildSafeJourneyArrivedMessage,
+  buildSafeJourneyCancelledMessage,
+  buildSafeJourneyEtaExtendedMessage,
   buildSafeJourneyMessage,
   buildSafeJourneyStartMessage,
-  buildSafeJourneyEtaExtendedMessage,
   buildSOSMessage,
 } from '@/utils/sms.utils';
 
@@ -71,6 +74,17 @@ export interface PendingOutboxItem {
 }
 
 const OUTBOX_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const BATTERY_READ_TIMEOUT_MS = 1000;
+
+// Serialises outbox read-modify-write cycles so concurrent enqueue/flush calls can't clobber each other.
+let outboxQueue: Promise<unknown> = Promise.resolve();
+let isFlushing = false;
+
+function withOutboxLock<T>(task: () => Promise<T>): Promise<T> {
+  const run = outboxQueue.then(task, task);
+  outboxQueue = run.catch(() => undefined);
+  return run;
+}
 
 export async function getPendingOutbox(): Promise<PendingOutboxItem[]> {
   try {
@@ -97,7 +111,11 @@ export async function getPendingOutbox(): Promise<PendingOutboxItem[]> {
   }
 }
 
-export async function enqueuePendingOutbox(recipients: string[], message: string): Promise<void> {
+export function enqueuePendingOutbox(recipients: string[], message: string): Promise<void> {
+  return withOutboxLock(() => enqueueUnlocked(recipients, message));
+}
+
+async function enqueueUnlocked(recipients: string[], message: string): Promise<void> {
   try {
     const existing = await getPendingOutbox();
     const newItem: PendingOutboxItem = {
@@ -132,22 +150,62 @@ export async function flushPendingOutbox(): Promise<{ dispatched: number }> {
     return { dispatched: 0 };
   }
 
+  if (await isAirplaneModeOn()) {
+    return { dispatched: 0 };
+  }
+
+  if (isFlushing) {
+    return { dispatched: 0 };
+  }
+  isFlushing = true;
+  try {
+    return await flushUnlocked();
+  } finally {
+    isFlushing = false;
+  }
+}
+
+async function flushUnlocked(): Promise<{ dispatched: number }> {
   const items = await getPendingOutbox();
   if (items.length === 0) {
     return { dispatched: 0 };
   }
 
   let count = 0;
+  const remaining: PendingOutboxItem[] = [];
+
   for (const item of items) {
     try {
-      await sendSmsToContacts(item.recipients, item.message);
-      count += item.recipients.length;
+      const results = await sendSmsToContacts(item.recipients, item.message);
+      const failed = results.filter((r) => !r.success).map((r) => r.phone);
+      count += item.recipients.length - failed.length;
+      if (failed.length > 0) {
+        remaining.push({ ...item, recipients: failed });
+      }
     } catch (error) {
       console.warn('sms: failed to flush outbox item:', error);
+      remaining.push(item);
     }
   }
 
-  await clearPendingOutbox();
+  // Merge against the live outbox so items queued while we were sending are kept.
+  await withOutboxLock(async () => {
+    try {
+      const processedIds = new Set(items.map((item) => item.id));
+      const queuedMeanwhile = (await getPendingOutbox()).filter(
+        (item) => !processedIds.has(item.id),
+      );
+      const next = [...queuedMeanwhile, ...remaining];
+      if (next.length === 0) {
+        await clearPendingOutbox();
+      } else {
+        await AsyncStorage.setItem(STORAGE_KEYS.EMERGENCY_OUTBOX, JSON.stringify(next));
+      }
+    } catch (error) {
+      console.warn('sms: failed to update pending outbox:', error);
+    }
+  });
+
   return { dispatched: count };
 }
 
@@ -173,8 +231,16 @@ async function dispatch(recipients: string[], message: string): Promise<SMSAlert
             sendResult.error.toLowerCase().includes('airplane mode')),
       );
       if (hasAirplaneError) {
-        await enqueuePendingOutbox(recipients, message);
-        return { sent: [], failed: recipients, isAirplaneMode: true };
+        const failedPhones = results.filter((r) => !r.success).map((r) => r.phone);
+        const sentPhones = results.filter((r) => r.success).map((r) => r.phone);
+        if (failedPhones.length > 0) {
+          await enqueuePendingOutbox(failedPhones, message);
+        }
+        return {
+          sent: sentPhones,
+          failed: failedPhones,
+          isAirplaneMode: true,
+        };
       }
       return {
         sent: results
@@ -216,13 +282,32 @@ async function dispatch(recipients: string[], message: string): Promise<SMSAlert
   }
 }
 
+async function readBatteryLevel(): Promise<number | null> {
+  try {
+    const level = await Promise.race([
+      Battery.getBatteryLevelAsync(),
+      new Promise<number>((resolve) => setTimeout(() => resolve(-1), BATTERY_READ_TIMEOUT_MS)),
+    ]);
+    // expo-battery reports -1 when the level is unavailable.
+    return level >= 0 ? level : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function sendSOSAlert(
   contacts: EmergencyContact[],
   locationUrl: string,
   userName: string,
   language: Language,
 ): Promise<SMSAlertResult> {
-  return dispatch(resolveRecipients(contacts), buildSOSMessage(userName, locationUrl, language));
+  // Both reads are optional; run them in parallel and never let them delay the SOS.
+  const [customTemplate, batteryLevel] = await Promise.all([
+    AsyncStorage.getItem(STORAGE_KEYS.CUSTOM_SOS_MESSAGE_TEMPLATE).catch(() => null),
+    readBatteryLevel(),
+  ]);
+  const message = buildSOSMessage(userName, locationUrl, language, customTemplate, batteryLevel);
+  return dispatch(resolveRecipients(contacts), message);
 }
 
 export async function sendLowBatteryAlert(
@@ -277,6 +362,32 @@ export async function sendSafeJourneyEtaExtended(
   return dispatch(
     resolveRecipients(contacts),
     buildSafeJourneyEtaExtendedMessage(userName, destination, newEtaTime, language),
+  );
+}
+
+/** Notifies chosen contacts that the user has safely arrived at her destination. */
+export async function sendSafeJourneyArrived(
+  contacts: EmergencyContact[],
+  destination: string,
+  userName: string,
+  language: Language,
+): Promise<SMSAlertResult> {
+  return dispatch(
+    resolveRecipients(contacts),
+    buildSafeJourneyArrivedMessage(userName, destination, language),
+  );
+}
+
+/** Notifies chosen contacts that the user ended or cancelled her journey. */
+export async function sendSafeJourneyCancelled(
+  contacts: EmergencyContact[],
+  destination: string,
+  userName: string,
+  language: Language,
+): Promise<SMSAlertResult> {
+  return dispatch(
+    resolveRecipients(contacts),
+    buildSafeJourneyCancelledMessage(userName, destination, language),
   );
 }
 

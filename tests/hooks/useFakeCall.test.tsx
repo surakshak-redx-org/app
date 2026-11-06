@@ -103,7 +103,7 @@ describe('useFakeCall', () => {
       expect(analytics.trackFakeCallTriggered).toHaveBeenCalledTimes(1);
     });
 
-    it('schedules native alarm and activates call on delay', async () => {
+    it('schedules native alarm and still starts a JS timer for the foreground', async () => {
       const { result } = await renderHook(() => useFakeCall());
 
       await act(async () => {
@@ -117,8 +117,30 @@ describe('useFakeCall', () => {
         jest.advanceTimersByTime(60_000);
       });
 
+      // Native alarm covers background; the JS timer surfaces the call in the foreground
       expect(result.current.isCallActive).toBe(true);
-      expect(result.current.callerName).toBe('Police');
+    });
+
+    it('falls back to JS timer if native alarm scheduling rejects', async () => {
+      jest
+        .mocked(scheduleNativeFakeCall)
+        .mockRejectedValueOnce(new Error('Alarm permission denied'));
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+      const { result } = await renderHook(() => useFakeCall());
+
+      await act(async () => {
+        await result.current.scheduleCall(60, 'Fallback');
+      });
+
+      expect(result.current.isCallActive).toBe(false);
+
+      await act(() => {
+        jest.advanceTimersByTime(60_000);
+      });
+
+      expect(result.current.isCallActive).toBe(true);
+      expect(result.current.callerName).toBe('Fallback');
+      warnSpy.mockRestore();
     });
 
     it('recovers pending fake call on app resume', async () => {
@@ -128,7 +150,7 @@ describe('useFakeCall', () => {
 
       jest.mocked(getPendingFakeCall).mockResolvedValueOnce({ callerName: 'Dad' });
 
-      void act(() => {
+      await act(async () => {
         // Emit AppState active event
         const emitActive = (
           AppState as unknown as { emit?: (event: string, state: string) => void }
@@ -136,6 +158,7 @@ describe('useFakeCall', () => {
         if (typeof emitActive === 'function') {
           emitActive('change', 'active');
         }
+        await Promise.resolve();
       });
     });
   });

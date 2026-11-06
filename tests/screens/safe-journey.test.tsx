@@ -4,21 +4,8 @@ import { Alert } from 'react-native';
 
 import { useAuthStore } from '@/stores/auth.store';
 import { useLocationStore } from '@/stores/location.store';
+import { useUserStore } from '@/stores/user.store';
 import SafeJourneyScreen from '@app/safe-journey';
-
-jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
-}));
-
-jest.mock('@/services/location.service', () => ({
-  getCurrentLocation: jest.fn(() => Promise.resolve({ latitude: 19, longitude: 72, timestamp: 0 })),
-  getLocationWithTimeout: jest.fn(() =>
-    Promise.resolve({ latitude: 19, longitude: 72, timestamp: 0 }),
-  ),
-  autocompletePlaces: jest.fn(() => Promise.resolve([])),
-  getPlaceLocation: jest.fn(),
-}));
-
 const mockGetActiveJourney = jest.fn(() => Promise.resolve(null));
 jest.mock('@/services/firebase/safe-journey.service', () => ({
   getActiveJourneySession: () => mockGetActiveJourney(),
@@ -30,12 +17,34 @@ jest.mock('@/services/firebase/safe-journey.service', () => ({
   cancelSafeJourney: jest.fn(() => Promise.resolve()),
 }));
 
-const mockSendSafeJourneyEtaExtended = jest.fn(() =>
-  Promise.resolve({ sent: ['+919000000000'], failed: [] }),
-);
+const mockSendSafeJourneyEtaExtended = jest.fn<
+  Promise<{ sent: string[]; failed: string[] }>,
+  [unknown, string, string, string, string]
+>(() => Promise.resolve({ sent: ['+919000000000'], failed: [] }));
+
+const mockSendSafeJourneyArrived = jest.fn<
+  Promise<{ sent: string[]; failed: string[] }>,
+  [unknown, string, string, string]
+>(() => Promise.resolve({ sent: ['+919000000000'], failed: [] }));
+
+const mockSendSafeJourneyCancelled = jest.fn<
+  Promise<{ sent: string[]; failed: string[] }>,
+  [unknown, string, string, string]
+>(() => Promise.resolve({ sent: ['+919000000000'], failed: [] }));
+
 jest.mock('@/services/sms.service', () => ({
   sendSafeJourneyStart: jest.fn(() => Promise.resolve({ sent: ['+919000000000'], failed: [] })),
-  sendSafeJourneyEtaExtended: mockSendSafeJourneyEtaExtended,
+  sendSafeJourneyEtaExtended: (
+    contacts: unknown,
+    dest: string,
+    eta: string,
+    name: string,
+    lang: string,
+  ) => mockSendSafeJourneyEtaExtended(contacts, dest, eta, name, lang),
+  sendSafeJourneyArrived: (contacts: unknown, dest: string, name: string, lang: string) =>
+    mockSendSafeJourneyArrived(contacts, dest, name, lang),
+  sendSafeJourneyCancelled: (contacts: unknown, dest: string, name: string, lang: string) =>
+    mockSendSafeJourneyCancelled(contacts, dest, name, lang),
   recordSMSAlert: jest.fn(() => Promise.resolve()),
 }));
 
@@ -224,5 +233,124 @@ describe('SafeJourneyScreen', () => {
       '@/services/firebase/safe-journey.service',
     ).extendSafeJourneyEta;
     expect(extendMock).toHaveBeenCalledWith('j1', 15);
+  });
+
+  it('dispatches arrival SMS when user confirms arrival with contacts', async () => {
+    useAuthStore.setState({
+      ...authSnapshot,
+      surakshakUser: {
+        userId: 'u1',
+        name: 'Asha',
+        phone: '9000000000',
+        profilePhotoUrl: '',
+        city: 'Mumbai',
+        state: 'MH',
+        language: 'en',
+        isGuest: false,
+        createdAt: null as never,
+        updatedAt: null as never,
+      },
+    });
+    useLocationStore.getState().setSafeJourneyActive(true, 'j1');
+    mockGetActiveJourney.mockResolvedValue({
+      id: 'j1',
+      userId: 'u1',
+      destinationName: 'Andheri Station',
+      destinationLatitude: 19.1,
+      destinationLongitude: 72.8,
+      etaMinutes: 30,
+      sharedWithUserIds: ['c1'],
+      startedAt: { toDate: () => new Date() },
+      expectedArrivalAt: { toDate: () => new Date(Date.now() + 600_000) },
+      status: 'active',
+    } as never);
+
+    useUserStore.setState({
+      emergencyContacts: [
+        {
+          id: 'c1',
+          name: 'Mom',
+          phone: '9876543210',
+          relationship: 'Mother',
+          isPredefined: false,
+          order: 0,
+        },
+      ],
+    });
+
+    jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
+      const arrivedBtn = buttons?.find((button) => button.text === "I've Arrived");
+      arrivedBtn?.onPress?.();
+    });
+
+    const { findByText } = await render(<SafeJourneyScreen />);
+    const arrivedButton = await findByText("I've Arrived");
+    await fireEvent.press(arrivedButton);
+
+    expect(mockSendSafeJourneyArrived).toHaveBeenCalledWith(
+      expect.anything(),
+      'Andheri Station',
+      'Asha',
+      'en',
+    );
+  });
+
+  it('dispatches cancellation SMS when user cancels journey with contacts', async () => {
+    useAuthStore.setState({
+      ...authSnapshot,
+      surakshakUser: {
+        userId: 'u1',
+        name: 'Asha',
+        phone: '9000000000',
+        profilePhotoUrl: '',
+        city: 'Mumbai',
+        state: 'MH',
+        language: 'en',
+        isGuest: false,
+        createdAt: null as never,
+        updatedAt: null as never,
+      },
+    });
+    useLocationStore.getState().setSafeJourneyActive(true, 'j1');
+    mockGetActiveJourney.mockResolvedValue({
+      id: 'j1',
+      userId: 'u1',
+      destinationName: 'Andheri Station',
+      destinationLatitude: 19.1,
+      destinationLongitude: 72.8,
+      etaMinutes: 30,
+      sharedWithUserIds: ['c1'],
+      startedAt: { toDate: () => new Date() },
+      expectedArrivalAt: { toDate: () => new Date(Date.now() + 600_000) },
+      status: 'active',
+    } as never);
+    useUserStore.setState({
+      emergencyContacts: [
+        {
+          id: 'c1',
+          name: 'Mom',
+          phone: '9876543210',
+          relationship: 'Mother',
+          isPredefined: false,
+          order: 0,
+        },
+      ],
+    });
+
+    jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
+      const cancelBtn = buttons?.find((button) => button.text === 'Cancel Journey');
+      cancelBtn?.onPress?.();
+    });
+
+    const { findByText } = await render(<SafeJourneyScreen />);
+    const cancelJourneyButton = await findByText('Cancel Journey');
+    await fireEvent.press(cancelJourneyButton);
+
+    expect(mockSendSafeJourneyCancelled).toHaveBeenCalledWith(
+      expect.anything(),
+      'Andheri Station',
+      'Asha',
+      'en',
+    );
   });
 });

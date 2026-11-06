@@ -2,10 +2,13 @@ import type { Language } from '@/types/user.types';
 import {
   buildLiveLocationMessage,
   buildLowBatteryMessage,
+  buildSafeJourneyEtaExtendedMessage,
   buildSafeJourneyMessage,
   buildSafeJourneyStartMessage,
-  buildSafeJourneyEtaExtendedMessage,
   buildSOSMessage,
+  calculateSMSCharacterCount,
+  interpolateSOSTemplate,
+  isGsm7String,
 } from '@/utils/sms.utils';
 
 const LOCATION_URL = 'https://www.google.com/maps/place/19.076,72.8777';
@@ -123,5 +126,112 @@ describe('templates', () => {
     for (const message of messages) {
       expect(message).not.toMatch(/\p{Extended_Pictographic}/u);
     }
+  });
+});
+
+describe('isGsm7String', () => {
+  it('returns true for pure GSM-7 character sets', () => {
+    expect(isGsm7String('Hello world! Emergency alert 123.')).toBe(true);
+    expect(isGsm7String('https://maps.google.com/?q=19.076,72.877')).toBe(true);
+  });
+
+  it('returns false for Devanagari text', () => {
+    expect(isGsm7String('नमस्ते दुनिया')).toBe(false);
+  });
+
+  it('returns false for emojis', () => {
+    expect(isGsm7String('Emergency 🚨')).toBe(false);
+  });
+});
+
+describe('calculateSMSCharacterCount', () => {
+  it('calculates GSM-7 segments for English text', () => {
+    const single = calculateSMSCharacterCount('Hello world');
+    expect(single.isUnicode).toBe(false);
+    expect(single.charCount).toBe(11);
+    expect(single.segmentLimit).toBe(160);
+    expect(single.segments).toBe(1);
+    expect(single.remainingInSegment).toBe(149);
+
+    const longText = 'A'.repeat(165);
+    const multi = calculateSMSCharacterCount(longText);
+    expect(multi.isUnicode).toBe(false);
+    expect(multi.segments).toBe(2);
+  });
+
+  it('calculates UCS-2 Unicode segments for Devanagari text', () => {
+    const single = calculateSMSCharacterCount('मुझे तुरंत मदद चाहिए।');
+    expect(single.isUnicode).toBe(true);
+    expect(single.segments).toBe(1);
+    expect(single.segmentLimit).toBe(70);
+
+    const longHindi = 'मदद '.repeat(20); // 80 chars
+    const multi = calculateSMSCharacterCount(longHindi);
+    expect(multi.isUnicode).toBe(true);
+    expect(multi.segments).toBe(2);
+  });
+});
+
+describe('interpolateSOSTemplate', () => {
+  it('renders N/A when the battery level is unavailable (-1)', () => {
+    const result = interpolateSOSTemplate('Battery: {battery}', {
+      name: 'Asha',
+      locationUrl: 'x',
+      battery: -1,
+    });
+
+    expect(result).toBe('Battery: N/A');
+  });
+
+  it('interpolates {name}, {location}, and {battery}', () => {
+    const template = 'EMERGENCY: {name} needs help at {location}. Battery: {battery}.';
+    const result = interpolateSOSTemplate(template, {
+      name: 'Asha',
+      locationUrl: 'https://maps.google.com/?q=19.076,72.877',
+      battery: 0.15,
+    });
+
+    expect(result).toBe(
+      'EMERGENCY: Asha needs help at https://maps.google.com/?q=19.076,72.877. Battery: 15%.',
+    );
+  });
+
+  it('replaces tokens case-insensitively and handles missing battery', () => {
+    const template = 'ALERT: {NAME} at {Location}. Bat: {BATTERY}';
+    const result = interpolateSOSTemplate(template, {
+      name: 'Priya',
+      locationUrl: 'https://loc',
+    });
+
+    expect(result).toBe('ALERT: Priya at https://loc. Bat: N/A');
+  });
+
+  it('preserves regex replacement patterns in variables literally', () => {
+    const template = 'ALERT: {name} at {location}';
+    const result = interpolateSOSTemplate(template, {
+      name: "$$ & $` $' $1",
+      locationUrl: 'https://maps.example/?q=1,2&$param=true',
+    });
+
+    expect(result).toBe("ALERT: $$ & $` $' $1 at https://maps.example/?q=1,2&$param=true");
+  });
+});
+
+describe('buildSOSMessage with custom template', () => {
+  it('uses custom template when provided', () => {
+    const custom = 'CODE RED: {name} is at {location}';
+    const message = buildSOSMessage('Asha', LOCATION_URL, 'en', custom);
+    expect(message).toBe(`CODE RED: Asha is at ${LOCATION_URL}`);
+  });
+
+  it('appends location link if custom template omits {location}', () => {
+    const custom = 'EMERGENCY: {name} needs help immediately!';
+    const message = buildSOSMessage('Asha', LOCATION_URL, 'en', custom);
+    expect(message).toBe(`EMERGENCY: Asha needs help immediately!\n${LOCATION_URL}`);
+  });
+
+  it('falls back to default template when custom template is empty or whitespace', () => {
+    const message = buildSOSMessage('Asha', LOCATION_URL, 'en', '   ');
+    expect(message).toContain('SOS EMERGENCY ALERT from Asha');
   });
 });

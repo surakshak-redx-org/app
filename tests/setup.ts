@@ -11,6 +11,7 @@
  * silently passing. `jest.mock` calls are hoisted above it by babel-jest, so
  * the mocks below still apply.
  */
+import 'react-native-gesture-handler/jestSetup';
 import * as mockReact from 'react';
 
 import '@/i18n';
@@ -54,16 +55,34 @@ jest.mock('@react-native-firebase/firestore', () => ({
       }),
   ),
   serverTimestamp: jest.fn(() => ({ __serverTimestamp: true })),
+  Timestamp: class MockTimestamp {
+    seconds: number;
+    nanoseconds: number;
+    constructor(secondsValue: number, nanosecondsValue: number) {
+      this.seconds = secondsValue;
+      this.nanoseconds = nanosecondsValue;
+    }
+    toMillis(): number {
+      return this.seconds * 1000 + Math.floor(this.nanoseconds / 1e6);
+    }
+    toDate(): Date {
+      return new Date(this.toMillis());
+    }
+  },
 }));
 
 jest.mock('expo-file-system', () => {
   class MockFile {
     exists = false;
     size = 1024;
+    uri = 'file:///mock/file.jpg';
     text = jest.fn(() => Promise.resolve('{}'));
     write = jest.fn();
     create = jest.fn();
     delete = jest.fn();
+    static downloadFileAsync = jest.fn((_url: string, destination: { uri?: string }) =>
+      Promise.resolve({ uri: destination.uri ?? 'file:///mock/downloaded.jpg' }),
+    );
   }
   class MockDirectory {
     exists = true;
@@ -99,6 +118,13 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 
 jest.mock('expo-image-picker', () => ({
   launchImageLibraryAsync: jest.fn(() => Promise.resolve({ canceled: true })),
+}));
+
+jest.mock('expo-media-library', () => ({
+  requestPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted', granted: true })),
+  getPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted', granted: true })),
+  saveToLibraryAsync: jest.fn(() => Promise.resolve()),
+  createAssetAsync: jest.fn((uri: string) => Promise.resolve({ uri })),
 }));
 
 // Native permission modules pulled in transitively by `@/utils/permissions.utils`.
@@ -309,3 +335,28 @@ jest.mock('expo-router', () => ({
     }, [cb]);
   },
 }));
+
+jest.mock('@gorhom/bottom-sheet', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  const { ScrollView, View } = jest.requireActual<typeof import('react-native')>('react-native');
+
+  const MockBottomSheet = React.forwardRef(
+    ({ children }: { children?: React.ReactNode }, ref: React.Ref<unknown>) => {
+      React.useImperativeHandle(ref, () => ({
+        snapToIndex: jest.fn(),
+        collapse: jest.fn(),
+        close: jest.fn(),
+        expand: jest.fn(),
+      }));
+      return React.createElement(View, null, children);
+    },
+  );
+  MockBottomSheet.displayName = 'MockBottomSheet';
+
+  return {
+    __esModule: true,
+    default: MockBottomSheet,
+    BottomSheetScrollView: ScrollView,
+    BottomSheetView: View,
+  };
+});

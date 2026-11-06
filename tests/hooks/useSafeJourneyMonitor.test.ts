@@ -166,4 +166,21 @@ describe('useSafeJourneyMonitor', () => {
     expect(smsService.sendSafeJourneyAlert).not.toHaveBeenCalled();
     expect(useLocationStore.getState().isSafeJourneyActive).toBe(false);
   });
+
+  it('does not restore cached journey belonging to a different user', async () => {
+    const deadline = Date.now() + 10 * MINUTE;
+    const storageMap = new Map<string, string>([
+      ['surakshak_safe_journey_session_id', 'j_other'],
+      ['surakshak_safe_journey_deadline', String(deadline)],
+      ['surakshak_safe_journey_user_id', 'different_user'],
+    ]);
+    jest
+      .mocked(AsyncStorage.getItem)
+      .mockImplementation((key: string) => Promise.resolve(storageMap.get(key) ?? null));
+
+    await renderHook(() => useSafeJourneyMonitor('u1'));
+    await flush();
+
+    expect(useLocationStore.getState().isSafeJourneyActive).toBe(false);
+  });
 });

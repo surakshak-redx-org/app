@@ -13,7 +13,7 @@ export const PHONE_PREFIX_LABEL = '🇮🇳  +91';
 export const PHONE_LAST_DIGITS = 4;
 
 /** Version string shown on Settings when `expoConfig.version` is unavailable. */
-export const FALLBACK_APP_VERSION = '1.0.0';
+export const FALLBACK_APP_VERSION = '1.4.0';
 
 /** Seconds the user must wait before "Resend OTP" becomes available. */
 export const OTP_RESEND_SECONDS = 60;

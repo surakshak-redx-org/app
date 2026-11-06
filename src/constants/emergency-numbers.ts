@@ -41,3 +41,6 @@ export const PREDEFINED_EMERGENCY_NUMBERS: readonly EmergencyContact[] = [
   },
   { id: 'pre_7', name: 'Maternity', phone: '102', relationship: '', isPredefined: true, order: 6 },
 ] as const;
+
+/** National emergency number dialled by quick-call shortcuts. */
+export const PRIMARY_EMERGENCY_NUMBER = '112';

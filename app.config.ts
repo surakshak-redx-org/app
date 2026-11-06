@@ -103,12 +103,10 @@ function googleServicesFile(path: string): { googleServicesFile: string } | Reco
 const config: ExpoConfig = {
   name: appNames[APP_ENV],
   slug: 'surakshak',
-  // Bumped for Phase 10: a new local Expo module (modules/surakshak-native)
-  // adds real native Android/iOS code, so an OTA update must not reach a
-  // native build built before it existed — runtimeVersion's "appVersion"
-  // policy keys compatibility off this exact string. Minor bump (not patch):
-  // this is a feature phase, not a fix.
-  version: '1.3.1',
+  // Bumped for Sprint 1 (v1.4.0): adds expo-media-library, @gorhom/bottom-sheet,
+  // and isAirplaneModeOn in modules/surakshak-native. runtimeVersion's "appVersion"
+  // policy keys compatibility off this exact string.
+  version: '1.4.0',
   orientation: 'portrait',
   scheme: `surakshak-${APP_ENV}`,
   userInterfaceStyle: 'automatic',
@@ -163,6 +161,8 @@ const config: ExpoConfig = {
       NSLocationAlwaysAndWhenInUseUsageDescription:
         'Surakshak needs background location for safe journey monitoring.',
       NSContactsUsageDescription: 'Surakshak needs contacts access to add emergency contacts.',
+      NSPhotoLibraryAddUsageDescription:
+        'Surakshak needs permission to save evidence photos and recordings to your library.',
       // Lets the live-location task keep receiving fixes while backgrounded.
       UIBackgroundModes: ['location'],
     },
@@ -207,6 +207,14 @@ const config: ExpoConfig = {
     ],
     ['expo-camera', { cameraPermission: 'Surakshak needs camera access for evidence recording.' }],
     ['expo-audio', { microphonePermission: 'Surakshak needs microphone for audio recording.' }],
+    [
+      'expo-media-library',
+      {
+        photosPermission: 'Surakshak needs permission to access photos for evidence recordings.',
+        savePhotosPermission:
+          'Surakshak needs permission to save incident evidence to your gallery.',
+      },
+    ],
     // iOS pods must link as static *frameworks*, not the CocoaPods default of
     // static libraries: firebase-ios-sdk's Swift pods (FirebaseAuth,
     // FirebaseFirestore, FirebaseStorage, FirebaseCoreInternal) depend on

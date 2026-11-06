@@ -12,12 +12,15 @@ interface LocationStore {
   /** Bumped whenever a journey's deadline changes, so the app-wide monitor re-reads it. */
   safeJourneyRevision: number;
   cachedUnsafeAreas: UnsafeArea[];
+  isNearbyHelpRequested: boolean;
   setCurrentLocation: (location: LocationData) => void;
   setLocationPermission: (granted: boolean) => void;
   setLiveLocationActive: (active: boolean, sessionId?: string) => void;
   setSafeJourneyActive: (active: boolean, sessionId?: string) => void;
   bumpSafeJourneyRevision: () => void;
   setCachedUnsafeAreas: (areas: UnsafeArea[]) => void;
+  requestNearbyHelp: () => void;
+  clearNearbyHelpRequest: () => void;
   reset: () => void;
 }
 
@@ -30,6 +33,7 @@ const initialState = {
   safeJourneySessionId: null,
   safeJourneyRevision: 0,
   cachedUnsafeAreas: [] as UnsafeArea[],
+  isNearbyHelpRequested: false,
 };
 
 export const useLocationStore = create<LocationStore>((set) => ({
@@ -49,5 +53,7 @@ export const useLocationStore = create<LocationStore>((set) => ({
   bumpSafeJourneyRevision: (): void =>
     set((state) => ({ safeJourneyRevision: state.safeJourneyRevision + 1 })),
   setCachedUnsafeAreas: (cachedUnsafeAreas): void => set({ cachedUnsafeAreas }),
+  requestNearbyHelp: (): void => set({ isNearbyHelpRequested: true }),
+  clearNearbyHelpRequest: (): void => set({ isNearbyHelpRequested: false }),
   reset: (): void => set({ ...initialState, cachedUnsafeAreas: [] }),
 }));

@@ -68,9 +68,9 @@ export function SOSCountdownOverlay({
             onPress={onCancel}
             accessibilityRole="button"
             accessibilityLabel={t('home.sosCancel')}
-            className="mt-8 rounded-full bg-white px-8 py-4"
+            className="mt-8 rounded-full bg-white px-8 py-4 active:opacity-90 dark:bg-white"
           >
-            <Text variant="h3" className="text-error-red">
+            <Text variant="h3" className="font-bold text-primary-red dark:text-primary-red">
               {t('home.sosCancel')}
             </Text>
           </Pressable>

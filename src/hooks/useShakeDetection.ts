@@ -81,7 +81,19 @@ export function useShakeDetection(onShake: () => void, shakeEnabled: boolean): v
   // high-frequency sensor callbacks from flooding the JS bridge and starving the
   // countdown timer / freezing the UI (BUG-143).
   const isSosActive = useSOSStore((state) => state.isActive || state.isSending);
-  const enabled = shakeEnabled && !isCalculatorShowing && !isSosActive;
+  const [isSuspended, setIsSuspended] = useState(
+    Platform.OS === 'ios' && AppState.currentState === 'background',
+  );
+
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    const sub = AppState.addEventListener('change', (state) => {
+      setIsSuspended(state === 'background');
+    });
+    return (): void => sub.remove();
+  }, []);
+
+  const enabled = shakeEnabled && !isCalculatorShowing && !isSosActive && !isSuspended;
   const shakeTimestampsRef = useRef<number[]>([]);
   const cooldownUntilRef = useRef(0);
   const { t } = useTranslation();

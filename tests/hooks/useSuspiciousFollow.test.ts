@@ -7,6 +7,7 @@ import { useSuspiciousFollow } from '@/hooks/useSuspiciousFollow';
 jest.mock('expo-location', () => ({
   getForegroundPermissionsAsync: jest.fn(() => Promise.resolve({ granted: true })),
   getCurrentPositionAsync: jest.fn(),
+  getLastKnownPositionAsync: jest.fn(),
   Accuracy: { Balanced: 3 },
 }));
 
@@ -105,5 +106,48 @@ describe('useSuspiciousFollow', () => {
     await jest.advanceTimersByTimeAsync(CHECK_INTERVAL_MS * 2);
 
     expect(Location.getCurrentPositionAsync).not.toHaveBeenCalled();
+  });
+
+  it('skips fresh GPS fix and extends interval to 120s when stationary', async () => {
+    jest.mocked(Location.getLastKnownPositionAsync).mockResolvedValue(null);
+    await renderHook(() => useSuspiciousFollow(true));
+
+    // First fix establishes a snapshot in history
+    positionAt(CLOSE_LAT);
+    await jest.advanceTimersByTimeAsync(CHECK_INTERVAL_MS);
+    expect(Location.getCurrentPositionAsync).toHaveBeenCalledTimes(1);
+
+    // Now last known position is newer and shows user hasn't moved (< 10m)
+    jest.mocked(Location.getLastKnownPositionAsync).mockImplementation(() =>
+      Promise.resolve({
+        coords: { latitude: CLOSE_LAT, longitude: LNG, accuracy: 5 },
+        timestamp: Date.now() + 5_000,
+      } as never),
+    );
+
+    // At 60s, it verifies movement threshold, sees stationary, skips fresh fix, and reschedules for 120s
+    await jest.advanceTimersByTimeAsync(CHECK_INTERVAL_MS);
+    expect(Location.getCurrentPositionAsync).toHaveBeenCalledTimes(1); // Not called again
+
+    // Advance 60s more (total 120s from previous check): next check fires
+    await jest.advanceTimersByTimeAsync(CHECK_INTERVAL_MS);
+    expect(Location.getLastKnownPositionAsync).toHaveBeenCalled();
+  });
+
+  it('reschedules next check even if permission check rejects', async () => {
+    jest
+      .mocked(Location.getForegroundPermissionsAsync)
+      .mockRejectedValueOnce(new Error('Permission check crashed'));
+
+    await renderHook(() => useSuspiciousFollow(true));
+
+    // First check crashes on permission lookup; error is caught and next check is scheduled
+    await jest.advanceTimersByTimeAsync(CHECK_INTERVAL_MS);
+
+    // Second check succeeds and takes a position fix
+    positionAt(CLOSE_LAT);
+    await jest.advanceTimersByTimeAsync(CHECK_INTERVAL_MS);
+
+    expect(Location.getCurrentPositionAsync).toHaveBeenCalledTimes(1);
   });
 });

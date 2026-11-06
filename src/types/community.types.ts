@@ -1,6 +1,6 @@
 import type { Timestamp } from '@react-native-firebase/firestore';
 
-export type PostType = 'text' | 'location' | 'image' | 'help_request';
+export type PostType = 'text' | 'location' | 'image' | 'help_request' | 'incident';
 
 /** Which slice of the community feed is on screen. */
 export type CommunityTab = 'city' | 'all_india';

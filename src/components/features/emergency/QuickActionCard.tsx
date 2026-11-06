@@ -31,6 +31,7 @@ export interface QuickActionCardProps {
    * component owning any auth/navigation logic.
    */
   locked?: boolean;
+  iconColor?: string | undefined;
   testID?: string | undefined;
 }
 
@@ -42,6 +43,7 @@ export function QuickActionCard({
   subtitle,
   warning,
   locked = false,
+  iconColor,
   testID,
 }: QuickActionCardProps): React.JSX.Element {
   const { fontScale } = useWindowDimensions();
@@ -50,6 +52,8 @@ export function QuickActionCard({
   const cardClass = active
     ? 'border-2 border-forest-green bg-forest-green/10'
     : 'border-2 border-transparent';
+
+  const resolvedIconColor = locked ? COLORS.STONE : (iconColor ?? COLORS.SHAKTI_PURPLE);
 
   return (
     <Pressable
@@ -66,7 +70,7 @@ export function QuickActionCard({
         <Ionicons
           name={locked ? 'lock-closed' : icon}
           size={ICON_SIZE.PERMISSION}
-          color={COLORS.SHAKTI_PURPLE}
+          color={resolvedIconColor}
         />
         <View className={isLargeFont ? 'flex-1' : 'items-center'}>
           <Text
