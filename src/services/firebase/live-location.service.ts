@@ -17,7 +17,7 @@ import {
 
 import { firestore } from '@/config/firebase';
 import { APP_CONFIG } from '@/constants/config';
-import type { LiveLocationSession } from '@/types/location.types';
+import type { LiveLocationSession, LiveLocationTelemetry } from '@/types/location.types';
 import { getLocationUrl } from '@/utils/location.utils';
 
 const SESSIONS_COLLECTION = 'liveLocationSessions';
@@ -30,6 +30,15 @@ function sessionsCollection(): ReturnType<typeof collection> {
 
 function sessionDoc(sessionId: string): ReturnType<typeof doc> {
   return doc(firestore, SESSIONS_COLLECTION, sessionId);
+}
+
+/** Drops `undefined` fields; Firestore rejects them. */
+function definedOnly(telemetry: LiveLocationTelemetry): Record<string, number | boolean | string> {
+  return Object.fromEntries(
+    Object.entries(telemetry).filter((entry): entry is [string, number | boolean | string] => {
+      return entry[1] !== undefined;
+    }),
+  );
 }
 
 /**
@@ -104,6 +113,7 @@ export async function updateLiveLocation(
   latitude: number,
   longitude: number,
   appendPoint: boolean,
+  telemetry: LiveLocationTelemetry = {},
 ): Promise<void> {
   try {
     const sessionRef = sessionDoc(sessionId);
@@ -113,6 +123,10 @@ export async function updateLiveLocation(
       longitude,
       locationUrl: getLocationUrl(latitude, longitude),
       lastFixAt: serverTimestamp(),
+      // A fix means the sender is reachable again, which clears a server-set
+      // `lost_contact`. Firestore rejects `undefined`, so absent readings are dropped.
+      status: 'active',
+      ...definedOnly(telemetry),
     });
     if (appendPoint) {
       batch.set(doc(collection(sessionRef, POINTS_SUBCOLLECTION)), {

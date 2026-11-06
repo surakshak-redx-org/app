@@ -60,6 +60,14 @@ export const APP_CONFIG = {
   LIVE_LOCATION_SHARE_TOKEN_BYTES: 16,
   /** A fix becomes a new route-trail point only after moving at least this far. */
   LIVE_LOCATION_TRAIL_MIN_DISTANCE_METERS: 25,
+  /** At or above this speed (m/s, about 18 km/h) the sender is in a vehicle: sample fastest. */
+  LIVE_LOCATION_MOVING_SPEED_MPS: 5,
+  /** Below this speed (m/s) the sender counts as standing still. */
+  LIVE_LOCATION_WALKING_SPEED_MPS: 0.8,
+  /** Standing still this long drops sampling to the slow stationary profile. */
+  LIVE_LOCATION_STATIONARY_AFTER_SECONDS: 120,
+  /** At or below this battery % (and not charging) sampling drops to the battery-saver profile. */
+  LIVE_LOCATION_LOW_BATTERY_PERCENT: 15,
   SAFE_JOURNEY_ETA_MIN_MINUTES: 5,
   SAFE_JOURNEY_ETA_MAX_MINUTES: 480,
   SAFE_JOURNEY_ETA_DEFAULT_MINUTES: 30,
@@ -134,6 +142,17 @@ export const SAFE_CHECKIN_INTERVAL_OPTIONS_MINUTES = [15, 30, 60, 120] as const;
 
 /** Live-location share durations (hours) offered on the Live Location screen. */
 export const LIVE_LOCATION_DURATION_OPTIONS_HOURS = [1, 2, 4, 8] as const;
+
+/**
+ * Sampling settings per live-tracking profile. `accuracy` is a key rather than
+ * the `expo-location` enum so this file stays free of native imports.
+ */
+export const LIVE_TRACKING_PROFILES = {
+  moving: { timeIntervalSeconds: 10, distanceIntervalMeters: 30, accuracy: 'high' },
+  walking: { timeIntervalSeconds: 20, distanceIntervalMeters: 15, accuracy: 'balanced' },
+  stationary: { timeIntervalSeconds: 60, distanceIntervalMeters: 50, accuracy: 'balanced' },
+  low_battery: { timeIntervalSeconds: 120, distanceIntervalMeters: 75, accuracy: 'balanced' },
+} as const;
 
 /** ETA presets (minutes) offered on the Safe Journey form. */
 export const SAFE_JOURNEY_ETA_PRESETS_MINUTES = [15, 30, 60, 120] as const;

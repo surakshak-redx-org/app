@@ -1,12 +1,16 @@
 import { create } from 'zustand';
 
-import type { LocationData, UnsafeArea } from '@/types/location.types';
+import type { LiveTrackingProfile, LocationData, UnsafeArea } from '@/types/location.types';
 
 interface LocationStore {
   currentLocation: LocationData | null;
   locationPermissionGranted: boolean;
   isLiveLocationActive: boolean;
   liveLocationSessionId: string | null;
+  /** Sampling profile of the running live-location session; `null` when none. */
+  liveTrackingProfile: LiveTrackingProfile | null;
+  /** Latest battery reading (0–1) taken while sharing; `null` when unknown. */
+  liveBatteryLevel: number | null;
   isSafeJourneyActive: boolean;
   safeJourneySessionId: string | null;
   /** Bumped whenever a journey's deadline changes, so the app-wide monitor re-reads it. */
@@ -16,6 +20,7 @@ interface LocationStore {
   setCurrentLocation: (location: LocationData) => void;
   setLocationPermission: (granted: boolean) => void;
   setLiveLocationActive: (active: boolean, sessionId?: string) => void;
+  setLiveTrackingStatus: (profile: LiveTrackingProfile, batteryLevel: number | null) => void;
   setSafeJourneyActive: (active: boolean, sessionId?: string) => void;
   bumpSafeJourneyRevision: () => void;
   setCachedUnsafeAreas: (areas: UnsafeArea[]) => void;
@@ -29,6 +34,8 @@ const initialState = {
   locationPermissionGranted: false,
   isLiveLocationActive: false,
   liveLocationSessionId: null,
+  liveTrackingProfile: null,
+  liveBatteryLevel: null,
   isSafeJourneyActive: false,
   safeJourneySessionId: null,
   safeJourneyRevision: 0,
@@ -44,7 +51,10 @@ export const useLocationStore = create<LocationStore>((set) => ({
     set({
       isLiveLocationActive: active,
       liveLocationSessionId: active ? (sessionId ?? null) : null,
+      ...(active ? {} : { liveTrackingProfile: null, liveBatteryLevel: null }),
     }),
+  setLiveTrackingStatus: (liveTrackingProfile, liveBatteryLevel): void =>
+    set({ liveTrackingProfile, liveBatteryLevel }),
   setSafeJourneyActive: (active, sessionId): void =>
     set({
       isSafeJourneyActive: active,

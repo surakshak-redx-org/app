@@ -1,4 +1,5 @@
 import { fireEvent, render } from '@testing-library/react-native';
+import * as Location from 'expo-location';
 import React from 'react';
 
 import { useAuthStore } from '@/stores/auth.store';
@@ -84,5 +85,53 @@ describe('LiveLocationScreen', () => {
     const { findByText } = await render(<LiveLocationScreen />);
     expect(await findByText('Stop Sharing')).toBeTruthy();
     expect(await findByText('Extend 1 Hour')).toBeTruthy();
+  });
+
+  describe('foreground-only warning', () => {
+    function givenRunningSession(): void {
+      useAuthStore.setState({
+        ...authSnapshot,
+        surakshakUser: {
+          userId: 'u1',
+          name: 'Asha',
+          phone: '9000000000',
+          profilePhotoUrl: '',
+          city: 'Mumbai',
+          state: 'MH',
+          language: 'en',
+          isGuest: false,
+          createdAt: null as never,
+          updatedAt: null as never,
+        },
+      });
+      mockGetActiveLiveSession.mockResolvedValue({
+        id: 's1',
+        userId: 'u1',
+        latitude: 19,
+        longitude: 72,
+        locationUrl: 'https://www.google.com/maps/place/19,72',
+        sharedWithUserIds: [],
+        startedAt: { toDate: () => new Date() },
+        expiresAt: { toDate: () => new Date(Date.now() + 3_600_000) },
+        isActive: true,
+      } as never);
+    }
+
+    it('warns when the session has no background task running', async () => {
+      givenRunningSession();
+      jest.mocked(Location.hasStartedLocationUpdatesAsync).mockResolvedValue(false);
+
+      const { findByText } = await render(<LiveLocationScreen />);
+      expect(await findByText('Keep Surakshak open')).toBeTruthy();
+    });
+
+    it('does not warn when the background task is running', async () => {
+      givenRunningSession();
+      jest.mocked(Location.hasStartedLocationUpdatesAsync).mockResolvedValue(true);
+
+      const { findByText, queryByText } = await render(<LiveLocationScreen />);
+      expect(await findByText('Stop Sharing')).toBeTruthy();
+      expect(queryByText('Keep Surakshak open')).toBeNull();
+    });
   });
 });

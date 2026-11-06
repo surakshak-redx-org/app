@@ -1,9 +1,12 @@
 import * as Crypto from 'expo-crypto';
 
 import { APP_CONFIG } from '@/constants/config';
+import type { LiveTrackingProfile } from '@/types/location.types';
 import { getDistanceKm } from '@/utils/location.utils';
 
 const METERS_PER_KM = 1000;
+const MS_PER_SECOND = 1000;
+const PERCENT = 100;
 const HEX_RADIX = 16;
 const HEX_BYTE_WIDTH = 2;
 
@@ -27,6 +30,58 @@ export async function generateShareToken(): Promise<string> {
 export function buildTrackingUrl(baseUrl: string | undefined, token: string): string | null {
   if (baseUrl === undefined || baseUrl.length === 0) return null;
   return `${baseUrl.replace(/\/+$/, '')}/${token}`;
+}
+
+export interface TrackingProfileInput {
+  /** Metres per second; `undefined` when the device reported no usable speed. */
+  speedMps: number | undefined;
+  /** 0–1; `undefined` when unavailable. */
+  batteryLevel: number | undefined;
+  isCharging: boolean;
+  /** When the sender last stopped moving, or `null` while moving / unknown. */
+  stationarySinceMs: number | null;
+  nowMs: number;
+}
+
+/**
+ * Keeps the stationary clock: starts it when speed drops below walking pace,
+ * clears it on any movement, and leaves it alone when speed is unknown (a
+ * missing reading must not flip the sender between "moving" and "still").
+ */
+export function nextStationarySince(
+  speedMps: number | undefined,
+  previous: number | null,
+  nowMs: number,
+): number | null {
+  if (speedMps === undefined) return previous;
+  if (speedMps >= APP_CONFIG.LIVE_LOCATION_WALKING_SPEED_MPS) return null;
+  return previous ?? nowMs;
+}
+
+/**
+ * Chooses how often to sample the next fix. A low battery wins over everything
+ * (the sender must still be trackable at 5%), then speed decides, and an
+ * unknown speed is treated as walking, the safe middle.
+ */
+export function selectTrackingProfile(input: TrackingProfileInput): LiveTrackingProfile {
+  const { speedMps, batteryLevel, isCharging, stationarySinceMs, nowMs } = input;
+
+  if (
+    batteryLevel !== undefined &&
+    !isCharging &&
+    batteryLevel * PERCENT <= APP_CONFIG.LIVE_LOCATION_LOW_BATTERY_PERCENT
+  ) {
+    return 'low_battery';
+  }
+
+  if (speedMps === undefined) return 'walking';
+  if (speedMps >= APP_CONFIG.LIVE_LOCATION_MOVING_SPEED_MPS) return 'moving';
+  if (speedMps >= APP_CONFIG.LIVE_LOCATION_WALKING_SPEED_MPS) return 'walking';
+
+  const stillForMs = stationarySinceMs === null ? 0 : nowMs - stationarySinceMs;
+  return stillForMs >= APP_CONFIG.LIVE_LOCATION_STATIONARY_AFTER_SECONDS * MS_PER_SECOND
+    ? 'stationary'
+    : 'walking';
 }
 
 /**

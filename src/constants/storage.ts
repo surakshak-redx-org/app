@@ -37,6 +37,12 @@ export const STORAGE_KEYS = {
    * session expires. Used by the background location task to self-terminate.
    */
   LIVE_LOCATION_EXPIRES_AT: 'surakshak_live_session_expires_at',
+  /**
+   * `JSON.stringify`'d `{ profile, stationarySinceMs }`: the live-tracking
+   * profile in force and when the sender last stopped moving. Persisted because
+   * the background task can be relaunched with a fresh JS context between fixes.
+   */
+  LIVE_LOCATION_TRACKING_STATE: 'surakshak_live_session_tracking_state',
   /** Safe Journey persistent session state to prevent watchdog orphaning across OTA/reloads (BUG-137). */
   SAFE_JOURNEY_SESSION_ID: 'surakshak_safe_journey_session_id',
   SAFE_JOURNEY_DEADLINE: 'surakshak_safe_journey_deadline',
@@ -125,6 +131,7 @@ export const SENSITIVE_STORAGE_KEYS = [
   STORAGE_KEYS.CHECKIN_MISSED_COUNT,
   STORAGE_KEYS.ONBOARDING_COMPLETE,
   STORAGE_KEYS.LIVE_LOCATION_USER_ID,
+  STORAGE_KEYS.LIVE_LOCATION_TRACKING_STATE,
   STORAGE_KEYS.OTP_RESEND_DEADLINE,
   STORAGE_KEYS.OTP_RESEND_PHONE,
 ] as const;

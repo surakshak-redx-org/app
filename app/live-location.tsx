@@ -21,6 +21,14 @@ import { useUserStore } from '@/stores/user.store';
 import { formatDuration } from '@/utils/date.utils';
 
 const MS_PER_MINUTE = 60_000;
+const PERCENT = 100;
+
+const PROFILE_LABEL_KEYS = {
+  moving: 'location.trackingMoving',
+  walking: 'location.trackingWalking',
+  stationary: 'location.trackingStationary',
+  low_battery: 'location.trackingLowBattery',
+} as const;
 
 export default function LiveLocationScreen(): React.JSX.Element {
   const { t } = useTranslation();
@@ -37,6 +45,9 @@ export default function LiveLocationScreen(): React.JSX.Element {
     expiresAt,
     sharedWithCount,
     currentLocationUrl,
+    foregroundOnly,
+    trackingProfile,
+    batteryLevel,
     startSharing,
     stopSharing,
     extendTime,
@@ -96,6 +107,10 @@ export default function LiveLocationScreen(): React.JSX.Element {
     });
   }, [extendTime, t]);
 
+  const handleOpenSettings = useCallback((): void => {
+    Linking.openSettings().catch((error: unknown) => captureException(error));
+  }, []);
+
   const remainingMinutes =
     expiresAt === null ? 0 : Math.max(0, Math.round((expiresAt.getTime() - now) / MS_PER_MINUTE));
 
@@ -103,6 +118,25 @@ export default function LiveLocationScreen(): React.JSX.Element {
     <ErrorBoundary>
       <SafeScreen blockReplay scrollable>
         <ScreenHeader titleKey="location.liveLocation" />
+
+        {isActive && foregroundOnly && (
+          <Card padding="lg" className="mt-2 border-2 border-saffron">
+            <View className="flex-row items-center gap-2">
+              <MaterialIcons name="warning" size={ICON_SIZE.STATUS} color={COLORS.SAFFRON} />
+              <Text variant="label">{t('location.foregroundOnlyTitle')}</Text>
+            </View>
+            <Text variant="caption" className="mt-2">
+              {t('location.foregroundOnlyBody')}
+            </Text>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-3"
+              label={t('common.openSettings')}
+              onPress={handleOpenSettings}
+            />
+          </Card>
+        )}
 
         {isActive ? (
           <Card padding="lg" className="mt-2 border-2 border-forest-green">
@@ -130,6 +164,19 @@ export default function LiveLocationScreen(): React.JSX.Element {
                   {currentLocationUrl}
                 </Text>
               </Pressable>
+            )}
+
+            {(trackingProfile !== null || batteryLevel !== null) && (
+              <View className="mt-3 flex-row flex-wrap items-center gap-x-4 gap-y-1">
+                {trackingProfile !== null && (
+                  <Text variant="caption">{t(PROFILE_LABEL_KEYS[trackingProfile])}</Text>
+                )}
+                {batteryLevel !== null && (
+                  <Text variant="caption">
+                    {t('location.batteryPercent', { percent: Math.round(batteryLevel * PERCENT) })}
+                  </Text>
+                )}
+              </View>
             )}
 
             <View className="mt-5 flex-row gap-3">
