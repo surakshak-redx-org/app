@@ -1,23 +1,27 @@
-import { MaterialIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Platform, Pressable, ScrollView, View } from 'react-native';
+import { Alert, Platform, Pressable, View } from 'react-native';
 
 import { GuestBanner } from '@/components/features/auth/GuestBanner';
 import { FakeCallScheduler } from '@/components/features/emergency/FakeCallScheduler';
 import { IncomingCallOverlay } from '@/components/features/emergency/IncomingCallOverlay';
 import { QuickActionCard } from '@/components/features/emergency/QuickActionCard';
+import { ActiveTrackingBanner } from '@/components/features/home/ActiveTrackingBanner';
+import { EmergencyHelplineGrid } from '@/components/features/home/EmergencyHelplineGrid';
+import { SafetyStatusCard } from '@/components/features/home/SafetyStatusCard';
 import { SOSButton } from '@/components/features/sos/SOSButton';
+import { Badge } from '@/components/ui/Badge';
+import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { SafeScreen } from '@/components/ui/SafeScreen';
 import { Text } from '@/components/ui/Text';
 import { captureException } from '@/config/sentry';
-import { COLORS } from '@/constants/colors';
-import { PREDEFINED_EMERGENCY_NUMBERS } from '@/constants/emergency-numbers';
+import { ACTION_COLORS, COLORS } from '@/constants/colors';
 import { ROUTES } from '@/constants/routes';
 import { STORAGE_FLAG_OFF, STORAGE_FLAG_ON, STORAGE_KEYS } from '@/constants/storage';
 import { ICON_SIZE } from '@/constants/ui';
@@ -42,7 +46,7 @@ export default function HomeScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const router = useRouter();
 
-  const { isActive, handleTap, trigger } = useSOS();
+  const { isActive, tapCount, handleTap, trigger } = useSOS();
   const sosOutcome = useSOSStore((state) => state.lastOutcome);
   const setSosOutcome = useSOSStore((state) => state.setLastOutcome);
   const siren = useSiren();
@@ -58,6 +62,7 @@ export default function HomeScreen(): React.JSX.Element {
   const [shakeEnabled, setShakeEnabled] = useState(true);
   const [followEnabled, setFollowEnabled] = useState(true);
   const [fakeCallModalVisible, setFakeCallModalVisible] = useState(false);
+  const [trackingModalVisible, setTrackingModalVisible] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [iosHintDismissed, setIosHintDismissed] = useState(true);
 
@@ -213,16 +218,54 @@ export default function HomeScreen(): React.JSX.Element {
     <ErrorBoundary>
       <SafeScreen scrollable>
         <View className="mt-4 flex-row items-center justify-between">
-          <Text variant="h2" tKey="home.title" />
-          <Text variant="caption" tKey="home.tagline" className="text-stone" />
+          <View>
+            <Text variant="h2" tKey="home.title" />
+            <Text
+              variant="caption"
+              tKey="home.tagline"
+              className="text-stone dark:text-dark-text-secondary"
+            />
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('home.disguiseModeShortcut')}
+            onPress={() => router.push(ROUTES.CALCULATOR)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            className="h-10 w-10 items-center justify-center rounded-full border border-stone/20 bg-white dark:border-dark-border dark:bg-charcoal"
+          >
+            <Ionicons name="calculator-outline" size={ICON_SIZE.ROW} color={COLORS.STONE} />
+          </Pressable>
         </View>
 
+        <ActiveTrackingBanner
+          isSafeJourneyActive={isSafeJourneyActive}
+          isLiveLocationActive={isLiveLocationActive}
+          onManage={() => setTrackingModalVisible(true)}
+        />
+
+        <SafetyStatusCard
+          contactCount={contactCount}
+          isGuest={isGuest}
+          shakeEnabled={shakeEnabled}
+          onAddContacts={() => router.push(ROUTES.EMERGENCY_CONTACTS)}
+          onSignIn={() => {
+            setGuestSigningIn(true);
+            router.push(ROUTES.WELCOME);
+          }}
+        />
+
         <View className="mt-8 w-full items-center">
-          <SOSButton onTrigger={handleTap} disabled={isActive} />
+          <SOSButton onTrigger={handleTap} disabled={isActive} tapCount={tapCount} />
           <Text
             variant="caption"
-            tKey="home.sosInstruction"
-            className="mt-3 text-center text-stone"
+            tKey={
+              tapCount === 1
+                ? 'home.sosTap1'
+                : tapCount === 2
+                  ? 'home.sosTap2'
+                  : 'home.sosInstruction'
+            }
+            className="mt-3 text-center text-stone dark:text-dark-text-secondary"
           />
         </View>
 
@@ -232,53 +275,74 @@ export default function HomeScreen(): React.JSX.Element {
           </View>
         )}
 
-        <View className="mt-8 flex-row flex-wrap">
+        <View className="mt-6 flex-row flex-wrap">
           <QuickActionCard
             icon="people"
             labelKey="home.emergencyContacts"
+            iconColor={ACTION_COLORS.CONTACTS}
             warning={!isGuest && contactCount === 0 ? t('home.addContactsWarning') : undefined}
             locked={isGuest}
             onPress={() => openFeatureForGuest(() => router.push(ROUTES.EMERGENCY_CONTACTS))}
           />
           <QuickActionCard
-            icon="location"
-            labelKey="home.liveLocation"
-            active={isLiveLocationActive}
+            icon="navigate"
+            labelKey="home.trackingAndJourneys"
+            iconColor={ACTION_COLORS.TRACKING}
+            active={isLiveLocationActive || isSafeJourneyActive}
+            subtitle={
+              isLiveLocationActive && isSafeJourneyActive
+                ? t('home.trackingActiveBoth')
+                : isSafeJourneyActive
+                  ? t('home.trackingActiveJourney')
+                  : isLiveLocationActive
+                    ? t('home.trackingActiveLocation')
+                    : undefined
+            }
             locked={isGuest}
-            onPress={() => openFeatureForGuest(() => router.push(ROUTES.LIVE_LOCATION))}
-          />
-          <QuickActionCard
-            icon="walk"
-            labelKey="home.safeJourney"
-            active={isSafeJourneyActive}
-            locked={isGuest}
-            onPress={() => openFeatureForGuest(() => router.push(ROUTES.SAFE_JOURNEY))}
+            onPress={() => openFeatureForGuest(() => setTrackingModalVisible(true))}
           />
           <QuickActionCard
             icon="call"
             labelKey="home.fakeCall"
+            iconColor={ACTION_COLORS.FAKE_CALL}
             onPress={() => setFakeCallModalVisible(true)}
           />
           <QuickActionCard
             icon="megaphone"
             labelKey="home.siren"
+            iconColor={ACTION_COLORS.SIREN}
             active={siren.isActive}
             onPress={siren.toggle}
           />
           <QuickActionCard
             icon="medkit"
             labelKey="home.nearbyHelp"
-            onPress={() => router.push(ROUTES.NEARBY_HELP)}
+            iconColor={ACTION_COLORS.NEARBY_HELP}
+            onPress={() => {
+              useLocationStore.getState().requestNearbyHelp();
+              router.push({ pathname: ROUTES.MAP, params: { openHelp: '1' } });
+            }}
           />
           <QuickActionCard
             icon="mic"
             labelKey="home.silentRecording"
+            iconColor={ACTION_COLORS.SILENT_RECORDING}
             locked={isGuest}
             onPress={() => openFeatureForGuest(() => router.push(ROUTES.SILENT_RECORDING))}
           />
           <QuickActionCard
+            icon="time"
+            labelKey="home.safeCheckin"
+            iconColor={ACTION_COLORS.SAFE_CHECKIN}
+            active={safeCheckin.isActive}
+            subtitle={safeCheckin.isActive ? t('home.checkinActiveSubtitle') : undefined}
+            locked={isGuest}
+            onPress={() => openFeatureForGuest(() => router.push(ROUTES.SAFE_CHECKIN))}
+          />
+          <QuickActionCard
             icon="document-text"
             labelKey="home.incidentReport"
+            iconColor={ACTION_COLORS.INCIDENT_REPORT}
             locked={isGuest}
             onPress={() => openFeatureForGuest(() => router.push(ROUTES.INCIDENT_REPORT))}
           />
@@ -318,30 +382,7 @@ export default function HomeScreen(): React.JSX.Element {
           </Card>
         )}
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          className="mt-6"
-          contentContainerClassName="pr-4"
-        >
-          {PREDEFINED_EMERGENCY_NUMBERS.map((contact) => (
-            <Pressable
-              key={contact.id}
-              onPress={() => callHelpline(contact.phone)}
-              accessibilityRole="button"
-              accessibilityLabel={t('home.callHelplineLabel', {
-                name: contact.name,
-                phone: contact.phone,
-              })}
-              hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-              className="mr-3 min-h-[44px] flex-row items-center rounded-full border border-stone/20 bg-white px-4 py-2 dark:border-dark-border dark:bg-charcoal"
-            >
-              <Text variant="caption" className="text-ink dark:text-white">
-                {contact.name} · {contact.phone}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
+        <EmergencyHelplineGrid onCall={callHelpline} />
 
         {Platform.OS === 'ios' && !iosHintDismissed && (
           <Card padding="sm" className="mx-0 mt-3 border border-saffron/40 bg-saffron/10">
@@ -373,6 +414,69 @@ export default function HomeScreen(): React.JSX.Element {
         onAnswer={() => undefined}
         onDecline={fakeCall.endCall}
       />
+
+      <BottomSheet visible={trackingModalVisible} onClose={() => setTrackingModalVisible(false)}>
+        <Text variant="h2" tKey="home.trackingModalTitle" />
+        <Text
+          variant="caption"
+          tKey="home.trackingModalSubtitle"
+          className="mt-1 text-stone dark:text-dark-text-secondary"
+        />
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('home.pointToPointJourneyTitle')}
+          onPress={() => {
+            setTrackingModalVisible(false);
+            router.push(ROUTES.SAFE_JOURNEY);
+          }}
+          className="mt-4 rounded-xl border border-stone/20 bg-white p-4 shadow-sm dark:border-dark-border dark:bg-charcoal"
+        >
+          <View className="flex-row items-center justify-between">
+            <View className="flex-row items-center gap-2">
+              <MaterialIcons
+                name="directions-walk"
+                size={ICON_SIZE.ROW}
+                color={COLORS.SHAKTI_PURPLE}
+              />
+              <Text variant="h3">{t('home.pointToPointJourneyTitle')}</Text>
+            </View>
+            {isSafeJourneyActive && <Badge variant="success" label={t('home.activeStatus')} />}
+          </View>
+          <Text variant="caption" className="mt-2 text-stone dark:text-dark-text-secondary">
+            {t('home.pointToPointJourneyDesc')}
+          </Text>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('home.continuousLiveLocationTitle')}
+          onPress={() => {
+            setTrackingModalVisible(false);
+            router.push(ROUTES.LIVE_LOCATION);
+          }}
+          className="mt-3 rounded-xl border border-stone/20 bg-white p-4 shadow-sm dark:border-dark-border dark:bg-charcoal"
+        >
+          <View className="flex-row items-center justify-between">
+            <View className="flex-row items-center gap-2">
+              <MaterialIcons name="my-location" size={ICON_SIZE.ROW} color={COLORS.SHAKTI_PURPLE} />
+              <Text variant="h3">{t('home.continuousLiveLocationTitle')}</Text>
+            </View>
+            {isLiveLocationActive && <Badge variant="success" label={t('home.activeStatus')} />}
+          </View>
+          <Text variant="caption" className="mt-2 text-stone dark:text-dark-text-secondary">
+            {t('home.continuousLiveLocationDesc')}
+          </Text>
+        </Pressable>
+
+        <Button
+          variant="ghost"
+          size="md"
+          className="mt-4 self-center"
+          label={t('common.cancel')}
+          onPress={() => setTrackingModalVisible(false)}
+        />
+      </BottomSheet>
     </ErrorBoundary>
   );
 }

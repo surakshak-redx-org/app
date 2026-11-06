@@ -34,7 +34,12 @@ export const PostCard = React.memo(function PostCard({
 }: PostCardProps): React.JSX.Element {
   const { t } = useTranslation();
 
-  const accent = post.type === 'help_request' ? 'mb-3 border-l-4 border-primary-red pl-3' : 'mb-3';
+  const accent =
+    post.type === 'help_request'
+      ? 'mb-3 border-l-4 border-primary-red pl-3'
+      : post.type === 'incident'
+        ? 'mb-3 border-l-4 border-saffron bg-saffron/5 pl-3'
+        : 'mb-3';
   const locationUrl = post.locationUrl;
   const imageUrl = post.imageUrl;
 
@@ -83,11 +88,15 @@ export const PostCard = React.memo(function PostCard({
         <Badge variant="error" label={t('community.helpBadge')} className="mt-2" />
       )}
 
+      {post.type === 'incident' && (
+        <Badge variant="warning" label={t('community.incidentBadge')} className="mt-2" />
+      )}
+
       <Text variant="body" className="mt-2">
         {post.content}
       </Text>
 
-      {post.type === 'location' && locationUrl !== null && (
+      {(post.type === 'location' || post.type === 'incident') && locationUrl !== null && (
         <Pressable
           accessibilityRole="link"
           accessibilityLabel={t('community.viewOnMap')}

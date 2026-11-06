@@ -1,3 +1,4 @@
+import { SMS_SEGMENT_LIMITS } from '@/constants/config';
 import type { Language } from '@/types/user.types';
 
 /**
@@ -40,6 +41,16 @@ interface SafeJourneyEtaExtendedTemplateInput {
   name: string;
   destination: string;
   newEtaTime: string;
+}
+
+interface SafeJourneyArrivedTemplateInput {
+  name: string;
+  destination: string;
+}
+
+interface SafeJourneyCancelledTemplateInput {
+  name: string;
+  destination: string;
 }
 
 interface LiveLocationTemplateInput {
@@ -151,6 +162,28 @@ const SAFE_JOURNEY_ETA_EXTENDED_TEMPLATES: Record<
     `— सुरक्षक`,
 };
 
+const SAFE_JOURNEY_ARRIVED_TEMPLATES: Record<
+  Language,
+  (input: SafeJourneyArrivedTemplateInput) => string
+> = {
+  en: ({ name, destination }) =>
+    `Surakshak: ${name} has arrived safely at ${destination}. Safe Journey tracking completed.`,
+  hi: ({ name, destination }) =>
+    `सुरक्षक: ${name} ${destination} पर सुरक्षित पहुँच चुकी हैं। सेफ जर्नी ट्रैकिंग पूरी हुई।`,
+  mr: ({ name, destination }) =>
+    `सुरक्षक: ${name} ${destination} येथे सुरक्षित पोहोचल्या आहेत. सेफ जर्नी ट्रॅकिंग पूर्ण झाले.`,
+};
+
+const SAFE_JOURNEY_CANCELLED_TEMPLATES: Record<
+  Language,
+  (input: SafeJourneyCancelledTemplateInput) => string
+> = {
+  en: ({ name, destination }) => `Surakshak: ${name} has ended the Safe Journey to ${destination}.`,
+  hi: ({ name, destination }) => `सुरक्षक: ${name} ने ${destination} की सेफ जर्नी समाप्त कर दी है।`,
+  mr: ({ name, destination }) =>
+    `सुरक्षक: ${name} ने ${destination} चा सेफ जर्नी प्रवास समाप्त केला आहे.`,
+};
+
 // Routine sharing, not an emergency (BUG-026).
 const LIVE_LOCATION_TEMPLATES: Record<Language, (input: LiveLocationTemplateInput) => string> = {
   en: ({ name, locationUrl, untilTime }) =>
@@ -185,7 +218,92 @@ const CHECKIN_MISSED_TEMPLATES: Record<Language, (input: CheckInMissedTemplateIn
     `— सुरक्षक`,
 };
 
-export function buildSOSMessage(name: string, locationUrl: string, language: Language): string {
+export interface SMSCharacterCount {
+  isUnicode: boolean;
+  charCount: number;
+  segmentLimit: number;
+  segments: number;
+  remainingInSegment: number;
+}
+
+const GSM_7_REGEX =
+  /^[@£$¥èéùìòÇ\r\nØøÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !"#¤%&'()*+,\-./0-9:;<=>?¡A-ZÄÖÑÜ§¿a-zäöñüà^{}\\[~\]|€]*$/;
+
+export function isGsm7String(text: string): boolean {
+  return GSM_7_REGEX.test(text);
+}
+
+export function calculateSMSCharacterCount(text: string): SMSCharacterCount {
+  const isUnicode = !isGsm7String(text);
+  const charCount = Array.from(text).length;
+
+  const { single: singleLimit, multi: multiLimit } = isUnicode
+    ? SMS_SEGMENT_LIMITS.UCS2
+    : SMS_SEGMENT_LIMITS.GSM7;
+  const segments =
+    charCount <= singleLimit
+      ? charCount === 0
+        ? 1
+        : Math.ceil(charCount / singleLimit)
+      : Math.ceil(charCount / multiLimit);
+  const segmentLimit = charCount <= singleLimit ? singleLimit : segments * multiLimit;
+  const remainingInSegment =
+    charCount <= singleLimit ? singleLimit - charCount : segments * multiLimit - charCount;
+  return {
+    isUnicode,
+    charCount,
+    segmentLimit,
+    segments: Math.max(1, segments),
+    remainingInSegment,
+  };
+}
+
+export function interpolateSOSTemplate(
+  template: string,
+  variables: { name: string; locationUrl: string; battery?: string | number | null | undefined },
+): string {
+  let batteryStr = 'N/A';
+  if (variables.battery !== undefined && variables.battery !== null) {
+    if (typeof variables.battery === 'number') {
+      // Negative means "unavailable" (expo-battery returns -1); keep N/A.
+      if (variables.battery >= 0) {
+        const pct =
+          variables.battery <= 1
+            ? Math.round(variables.battery * 100)
+            : Math.round(variables.battery);
+        batteryStr = `${pct}%`;
+      }
+    } else {
+      batteryStr = String(variables.battery);
+    }
+  }
+
+  return template
+    .replace(/\{name\}/gi, () => variables.name)
+    .replace(/\{location\}/gi, () => variables.locationUrl)
+    .replace(/\{battery\}/gi, () => batteryStr);
+}
+
+export function buildSOSMessage(
+  name: string,
+  locationUrl: string,
+  language: Language,
+  customTemplate?: string | null,
+  batteryLevel?: number | null,
+): string {
+  if (typeof customTemplate === 'string' && customTemplate.trim().length > 0) {
+    const trimmed = customTemplate.trim();
+    let message = interpolateSOSTemplate(trimmed, {
+      name,
+      locationUrl,
+      battery: batteryLevel,
+    });
+    if (!/\{location\}/i.test(trimmed)) {
+      message = `${message}\n${locationUrl}`;
+    }
+    return message;
+  }
+
   // 'en-IN' keeps the timestamp in ASCII digits regardless of the app's
   // selected language or the device's own locale — Devanagari numerals
   // (e.g. from a hi-IN/mr-IN device default) are never acceptable here.
@@ -231,6 +349,22 @@ export function buildSafeJourneyEtaExtendedMessage(
   language: Language,
 ): string {
   return SAFE_JOURNEY_ETA_EXTENDED_TEMPLATES[language]({ name, destination, newEtaTime });
+}
+
+export function buildSafeJourneyArrivedMessage(
+  name: string,
+  destination: string,
+  language: Language,
+): string {
+  return SAFE_JOURNEY_ARRIVED_TEMPLATES[language]({ name, destination });
+}
+
+export function buildSafeJourneyCancelledMessage(
+  name: string,
+  destination: string,
+  language: Language,
+): string {
+  return SAFE_JOURNEY_CANCELLED_TEMPLATES[language]({ name, destination });
 }
 
 export function buildLiveLocationMessage(

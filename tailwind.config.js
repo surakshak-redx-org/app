@@ -28,6 +28,11 @@ module.exports = {
         // named token rather than e.g. `stone-400`.
         'dark-text-secondary': '#9CA3AF',
       },
+      spacing: {
+        // Report FAB clearance above the collapsed map sheet:
+        // APP_CONFIG.MAP_FAB_OFFSET (24) + MAP_BOTTOM_SHEET_COLLAPSED_CLEARANCE (70).
+        'map-fab': '94px',
+      },
       fontFamily: {
         // Android-only fallback so Devanagari text (hi/mr) never renders as
         // boxes/tofu on system fonts that lack full Devanagari coverage.

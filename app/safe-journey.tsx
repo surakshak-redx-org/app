@@ -1,5 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
@@ -21,6 +22,7 @@ import { captureException } from '@/config/sentry';
 import { COLORS } from '@/constants/colors';
 import { APP_CONFIG, SAFE_JOURNEY_ETA_PRESETS_MINUTES } from '@/constants/config';
 import { ROUTES } from '@/constants/routes';
+import { STORAGE_FLAG_OFF, STORAGE_KEYS } from '@/constants/storage';
 import { ICON_SIZE, TIMING } from '@/constants/ui';
 import { trackSafeJourneyArrived, trackSafeJourneyStarted } from '@/services/analytics.service';
 import {
@@ -34,6 +36,8 @@ import {
 import { getCurrentLocation, getLocationWithTimeout } from '@/services/location.service';
 import {
   recordSMSAlert,
+  sendSafeJourneyArrived,
+  sendSafeJourneyCancelled,
   sendSafeJourneyEtaExtended,
   sendSafeJourneyStart,
 } from '@/services/sms.service';
@@ -221,7 +225,7 @@ export default function SafeJourneyScreen(): React.JSX.Element {
         // A "journey started" note — the overdue warning is only ever sent
         // by the monitor once the deadline passes (BUG-028).
         const locationUrl = getLocationUrl(fix.latitude, fix.longitude);
-        const name = surakshakUser?.name ?? 'User';
+        const name = surakshakUser?.name ?? t('common.user');
         const language = surakshakUser?.language ?? 'en';
         const result = await sendSafeJourneyStart(
           contactsFor(selectedContactIds),
@@ -280,6 +284,15 @@ export default function SafeJourneyScreen(): React.JSX.Element {
   const handleArrived = useCallback((): void => {
     if (activeSession === null) return;
     const sessionId = activeSession.id;
+    const contacts = contactsFor(activeSession.sharedWithUserIds);
+    const destinationName = activeSession.destinationName;
+    const name = surakshakUser?.name ?? t('common.user');
+    const language = surakshakUser?.language ?? 'en';
+    const destinationCoordsObj = {
+      lat: activeSession.destinationLatitude,
+      lng: activeSession.destinationLongitude,
+    };
+
     Alert.alert(t('location.iArrivedConfirm'), undefined, [
       { text: t('common.cancel'), style: 'cancel' },
       {
@@ -292,6 +305,33 @@ export default function SafeJourneyScreen(): React.JSX.Element {
           bumpSafeJourneyRevision();
           trackSafeJourneyArrived();
           router.back();
+
+          // Dispatch arrival SMS in the background if enabled
+          void (async (): Promise<void> => {
+            try {
+              const setting = await AsyncStorage.getItem(STORAGE_KEYS.NOTIFY_ARRIVAL_SMS);
+              if (setting !== STORAGE_FLAG_OFF && contacts.length > 0) {
+                const result = await sendSafeJourneyArrived(
+                  contacts,
+                  destinationName,
+                  name,
+                  language,
+                );
+                await recordSMSAlert({
+                  type: 'safe_journey',
+                  locationUrl: getLocationUrl(destinationCoordsObj.lat, destinationCoordsObj.lng),
+                  contactsSent: result.sent,
+                  contactsFailed: result.failed,
+                });
+              }
+            } catch (err: unknown) {
+              metroLogger.warn('Failed to send arrival SMS', {
+                domain: 'LOCATION',
+                operation: 'sendArrivalSMS',
+                error: err,
+              });
+            }
+          })();
 
           markSafeJourneyArrived(sessionId)
             .then(() => clearSafeJourneyArrivedOffline(sessionId))
@@ -307,7 +347,15 @@ export default function SafeJourneyScreen(): React.JSX.Element {
         },
       },
     ]);
-  }, [activeSession, setSafeJourneyActive, bumpSafeJourneyRevision, router, t]);
+  }, [
+    activeSession,
+    contactsFor,
+    surakshakUser,
+    setSafeJourneyActive,
+    bumpSafeJourneyRevision,
+    router,
+    t,
+  ]);
 
   const handleExtend = useCallback(
     (minutes: number): void => {
@@ -317,7 +365,7 @@ export default function SafeJourneyScreen(): React.JSX.Element {
       const newArrivalDate = new Date(baseMs + minutes * MS_PER_MINUTE);
       const newEtaTime = formatClockTime(newArrivalDate);
       const contacts = contactsFor(activeSession.sharedWithUserIds);
-      const name = surakshakUser?.name ?? 'User';
+      const name = surakshakUser?.name ?? t('common.user');
       const language = surakshakUser?.language ?? 'en';
 
       extendSafeJourneyEta(activeSession.id, minutes)
@@ -358,6 +406,15 @@ export default function SafeJourneyScreen(): React.JSX.Element {
   const handleCancel = useCallback((): void => {
     if (activeSession === null) return;
     const sessionId = activeSession.id;
+    const contacts = contactsFor(activeSession.sharedWithUserIds);
+    const destinationName = activeSession.destinationName;
+    const name = surakshakUser?.name ?? t('common.user');
+    const language = surakshakUser?.language ?? 'en';
+    const destinationCoordsObj = {
+      lat: activeSession.destinationLatitude,
+      lng: activeSession.destinationLongitude,
+    };
+
     Alert.alert(t('location.cancelJourneyConfirm'), undefined, [
       { text: t('common.cancel'), style: 'cancel' },
       {
@@ -368,6 +425,32 @@ export default function SafeJourneyScreen(): React.JSX.Element {
           setActiveSession(null);
           bumpSafeJourneyRevision();
           router.back();
+
+          // Dispatch cancellation SMS in the background if contacts were alerted
+          if (contacts.length > 0) {
+            void (async (): Promise<void> => {
+              try {
+                const result = await sendSafeJourneyCancelled(
+                  contacts,
+                  destinationName,
+                  name,
+                  language,
+                );
+                await recordSMSAlert({
+                  type: 'safe_journey',
+                  locationUrl: getLocationUrl(destinationCoordsObj.lat, destinationCoordsObj.lng),
+                  contactsSent: result.sent,
+                  contactsFailed: result.failed,
+                });
+              } catch (err: unknown) {
+                metroLogger.warn('Failed to send cancellation SMS', {
+                  domain: 'LOCATION',
+                  operation: 'sendCancellationSMS',
+                  error: err,
+                });
+              }
+            })();
+          }
 
           cancelSafeJourney(sessionId).catch((error: unknown) => {
             metroLogger.warn('Cancellation recorded offline; sync pending', {
@@ -381,7 +464,15 @@ export default function SafeJourneyScreen(): React.JSX.Element {
         },
       },
     ]);
-  }, [activeSession, setSafeJourneyActive, bumpSafeJourneyRevision, router, t]);
+  }, [
+    activeSession,
+    contactsFor,
+    surakshakUser,
+    setSafeJourneyActive,
+    bumpSafeJourneyRevision,
+    router,
+    t,
+  ]);
 
   const isFreeTextDestination =
     destinationCoords === null && destination.trim().length >= DESTINATION_MIN;

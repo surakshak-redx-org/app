@@ -76,7 +76,7 @@ describe('HomeScreen', () => {
     const { getByText, getByLabelText } = await render(<HomeScreen />);
 
     expect(getByLabelText('SOS Emergency Button')).toBeTruthy();
-    expect(getByText('Live Location')).toBeTruthy();
+    expect(getByText('Live Tracking & Journeys')).toBeTruthy();
     expect(getByText('Siren')).toBeTruthy();
     expect(getByText('Fake Call')).toBeTruthy();
   });
@@ -183,10 +183,30 @@ describe('HomeScreen', () => {
     });
 
     const { getByText } = await render(<HomeScreen />);
-    await fireEvent.press(getByText('Live Location'));
+    await fireEvent.press(getByText('Live Tracking & Journeys'));
 
     expect(useAuthStore.getState().isGuestSigningIn).toBe(true);
     expect(mockPush).toHaveBeenCalledWith(ROUTES.WELCOME);
+  });
+
+  it('opens tracking mode selection sheet and navigates to Safe Journey or Live Location', async () => {
+    const { getByText, getByLabelText } = await render(<HomeScreen />);
+
+    // Open unified tracking card
+    await fireEvent.press(getByText('Live Tracking & Journeys'));
+
+    // Check modal contents
+    expect(getByLabelText('Point-to-Point Journey')).toBeTruthy();
+    expect(getByLabelText('Continuous Live Location')).toBeTruthy();
+
+    // Tap Safe Journey
+    await fireEvent.press(getByLabelText('Point-to-Point Journey'));
+    expect(mockPush).toHaveBeenCalledWith(ROUTES.SAFE_JOURNEY);
+
+    // Reopen and tap Live Location
+    await fireEvent.press(getByText('Live Tracking & Journeys'));
+    await fireEvent.press(getByLabelText('Continuous Live Location'));
+    expect(mockPush).toHaveBeenCalledWith(ROUTES.LIVE_LOCATION);
   });
 
   it('does not lock a card that does not need a real sign-in', async () => {
@@ -195,7 +215,10 @@ describe('HomeScreen', () => {
     const { getByText } = await render(<HomeScreen />);
     await fireEvent.press(getByText('Nearby Help'));
 
-    expect(mockPush).toHaveBeenCalledWith(ROUTES.NEARBY_HELP);
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: ROUTES.MAP,
+      params: { openHelp: '1' },
+    });
   });
 
   it('navigates straight through for a signed-in user', async () => {
@@ -203,6 +226,20 @@ describe('HomeScreen', () => {
     await fireEvent.press(getByText('Emergency Contacts'));
 
     expect(mockPush).toHaveBeenCalledWith(ROUTES.EMERGENCY_CONTACTS);
+  });
+
+  it('navigates to safe check-in for a signed-in user', async () => {
+    const { getByText } = await render(<HomeScreen />);
+    await fireEvent.press(getByText('Safe Check-in'));
+
+    expect(mockPush).toHaveBeenCalledWith(ROUTES.SAFE_CHECKIN);
+  });
+
+  it('navigates to calculator disguise mode when shortcut is pressed', async () => {
+    const { getByLabelText } = await render(<HomeScreen />);
+    await fireEvent.press(getByLabelText('Open Calculator Disguise'));
+
+    expect(mockPush).toHaveBeenCalledWith(ROUTES.CALCULATOR);
   });
 
   describe('iOS one-tap hint banner', () => {

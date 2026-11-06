@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Platform, Text as RNText } from 'react-native';
+import { Platform, StyleProp, Text as RNText, TextStyle } from 'react-native';
 
 import {
   DEVANAGARI_FONT_CLASSES,
@@ -18,6 +18,8 @@ export interface TextProps {
   tOptions?: Record<string, unknown>;
   className?: string;
   numberOfLines?: number;
+  style?: StyleProp<TextStyle>;
+  testID?: string;
 }
 
 const VARIANT_CLASSES: Record<TextVariant, string> = {
@@ -47,6 +49,8 @@ export function Text({
   tOptions,
   className,
   numberOfLines,
+  style,
+  testID,
 }: TextProps): React.JSX.Element {
   const { t, i18n } = useTranslation();
 
@@ -60,7 +64,7 @@ export function Text({
   const content = tKey === undefined ? children : t(tKey, tOptions ?? {});
 
   return (
-    <RNText className={composed} numberOfLines={numberOfLines}>
+    <RNText testID={testID} style={style} className={composed} numberOfLines={numberOfLines}>
       {content}
     </RNText>
   );

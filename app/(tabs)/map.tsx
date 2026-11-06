@@ -1,10 +1,17 @@
 import { MaterialIcons } from '@expo/vector-icons';
+import GorhomBottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useRouter } from 'expo-router';
+import {
+  useFocusEffect,
+  useGlobalSearchParams,
+  useLocalSearchParams,
+  useRouter,
+} from 'expo-router';
+import { cssInterop } from 'nativewind';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Linking, Pressable, View } from 'react-native';
 import MapView, { Circle, Marker, PROVIDER_GOOGLE, type Region } from 'react-native-maps';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { z } from 'zod';
@@ -15,11 +22,22 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { Input } from '@/components/ui/Input';
+import { Spinner } from '@/components/ui/Spinner';
 import { Text } from '@/components/ui/Text';
 import { captureException } from '@/config/sentry';
 import { COLORS } from '@/constants/colors';
 import { APP_CONFIG } from '@/constants/config';
 import {
+  HELP_CATEGORIES,
+  HELP_CATEGORY_COLORS,
+  HELP_CATEGORY_ICON,
+  HELP_CATEGORY_LABEL_KEY,
+  NEARBY_CATEGORY_COUNT,
+  NEARBY_SHEET_HALF_INDEX,
+  NEARBY_SHEET_SNAP_DELAY_MS,
+  NEARBY_SHEET_SNAP_POINTS,
+  NEARBY_REFETCH_METERS,
+  NEARBY_REFETCH_MS,
   PIN_CIRCLE_FILL,
   PIN_CIRCLE_STROKE,
   PIN_HEX,
@@ -30,17 +48,29 @@ import { ROUTES } from '@/constants/routes';
 import { ICON_SIZE } from '@/constants/ui';
 import { useLocation } from '@/hooks/useLocation';
 import { useTheme } from '@/hooks/useTheme';
-import { trackUnsafeAreaReported, trackUnsafeAreaVoted } from '@/services/analytics.service';
+import {
+  trackNearbyHelpCalled,
+  trackNearbyHelpDirections,
+  trackNearbyHelpViewed,
+  trackUnsafeAreaReported,
+  trackUnsafeAreaVoted,
+} from '@/services/analytics.service';
 import {
   reportUnsafeArea,
   subscribeToUnsafeAreas,
   voteOnUnsafeArea,
 } from '@/services/firebase/unsafe-areas.service';
-import { getFreshLocation } from '@/services/location.service';
+import { fetchNearbyPlaces, getFreshLocation } from '@/services/location.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { useLocationStore } from '@/stores/location.store';
-import type { UnsafeArea, UnsafeAreaCategory } from '@/types/location.types';
-import { locationErrorKey } from '@/utils/location.utils';
+import type {
+  HelpCategory,
+  NearbyPlace,
+  UnsafeArea,
+  UnsafeAreaCategory,
+} from '@/types/location.types';
+import { getDistanceKm, locationErrorKey } from '@/utils/location.utils';
+import { placeCall } from '@/utils/phone.utils';
 
 interface ReportFormValues {
   title: string;
@@ -48,13 +78,38 @@ interface ReportFormValues {
   category: UnsafeAreaCategory;
 }
 
+type PlacesByCategory = Record<HelpCategory, NearbyPlace[]>;
+
+const EMPTY_PLACES: PlacesByCategory = {
+  police: [],
+  hospital: [],
+  fire_station: [],
+  pharmacy: [],
+};
+
 const TITLE_MIN = 3;
 const TITLE_MAX = 100;
 const DESCRIPTION_MIN = 10;
 const DESCRIPTION_MAX = 500;
+const METERS_PER_KM = 1000;
 
-const styles = StyleSheet.create({
-  map: { flex: 1 },
+function directionsUrl(latitude: number, longitude: number): string {
+  return `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
+}
+
+function formatDistance(distanceKm: number): string {
+  if (distanceKm < 1) {
+    return `${Math.round(distanceKm * METERS_PER_KM)}m`;
+  }
+  return `${distanceKm.toFixed(1)}km`;
+}
+
+// Register third-party components with NativeWind so className maps to their style props.
+cssInterop(MapView, { className: 'style' });
+cssInterop(GorhomBottomSheet, {
+  className: 'style',
+  backgroundClassName: 'backgroundStyle',
+  handleIndicatorClassName: 'handleIndicatorStyle',
 });
 
 export default function MapScreen(): React.JSX.Element {
@@ -83,8 +138,161 @@ export default function MapScreen(): React.JSX.Element {
   const [isReportModalVisible, setReportModalVisible] = useState(false);
   const [isSubmitting, setSubmitting] = useState(false);
 
+  const localParams = useLocalSearchParams<{ openHelp?: string }>();
+  const globalParams = useGlobalSearchParams<{ openHelp?: string }>();
+  const openHelp = localParams.openHelp ?? globalParams.openHelp;
+  const consumedParamRef = useRef<string | null>(null);
+  const [isFocused, setIsFocused] = useState(true);
+  useFocusEffect(
+    useCallback(() => {
+      setIsFocused(true);
+      const isDeepLinkHelp = openHelp === '1' && consumedParamRef.current !== openHelp;
+      const isRequested = useLocationStore.getState().isNearbyHelpRequested || isDeepLinkHelp;
+      if (isRequested) {
+        consumedParamRef.current = openHelp ?? null;
+        useLocationStore.getState().clearNearbyHelpRequest();
+        const timer = setTimeout(() => {
+          bottomSheetRef.current?.snapToIndex(NEARBY_SHEET_HALF_INDEX);
+        }, NEARBY_SHEET_SNAP_DELAY_MS);
+        return (): void => {
+          clearTimeout(timer);
+          setIsFocused(false);
+        };
+      }
+      return (): void => {
+        setIsFocused(false);
+      };
+    }, [openHelp]),
+  );
+
+  const [nearbyPlaces, setNearbyPlaces] = useState<PlacesByCategory>(EMPTY_PLACES);
+  const [isFetchingPlaces, setIsFetchingPlaces] = useState(false);
+  const [activeHelpCategory, setActiveHelpCategory] = useState<HelpCategory>('police');
+  const [sheetIndex, setSheetIndex] = useState(0);
+  const bottomSheetRef = useRef<GorhomBottomSheet>(null);
+
   const mapRef = useRef<MapView | null>(null);
   const hasCenteredOnUserRef = useRef(false);
+  const lastFetchRef = useRef<{ lat: number; lon: number; at: number } | null>(null);
+
+  const fetchRequestIdRef = useRef(0);
+
+  // Only the latest request may write state; a skipped re-run must not cancel an in-flight fetch.
+  const fetchNearbyCallback = useCallback(async (lat: number, lon: number): Promise<void> => {
+    fetchRequestIdRef.current += 1;
+    const requestId = fetchRequestIdRef.current;
+    setIsFetchingPlaces(true);
+    try {
+      let failedCount = 0;
+      const safeFetch = (category: HelpCategory): Promise<NearbyPlace[]> =>
+        fetchNearbyPlaces(lat, lon, category).catch((): NearbyPlace[] => {
+          failedCount += 1;
+          return [];
+        });
+      const [police, hospital, fire_station, pharmacy] = await Promise.all([
+        safeFetch('police'),
+        safeFetch('hospital'),
+        safeFetch('fire_station'),
+        safeFetch('pharmacy'),
+      ]);
+      if (requestId !== fetchRequestIdRef.current) return;
+      setNearbyPlaces({ police, hospital, fire_station, pharmacy });
+      // Every category failed: forget the fetch so the next location update retries.
+      if (failedCount === NEARBY_CATEGORY_COUNT) lastFetchRef.current = null;
+    } catch (error: unknown) {
+      captureException(error);
+      if (requestId === fetchRequestIdRef.current) lastFetchRef.current = null;
+    } finally {
+      if (requestId === fetchRequestIdRef.current) setIsFetchingPlaces(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const requestIdRef = fetchRequestIdRef;
+    return (): void => {
+      // Invalidate in-flight work on unmount.
+      requestIdRef.current += 1;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!currentLocation) return;
+    const last = lastFetchRef.current;
+    if (last) {
+      const movedMeters =
+        getDistanceKm(last.lat, last.lon, currentLocation.latitude, currentLocation.longitude) *
+        METERS_PER_KM;
+      if (movedMeters < NEARBY_REFETCH_METERS && Date.now() - last.at < NEARBY_REFETCH_MS) {
+        return;
+      }
+    }
+    lastFetchRef.current = {
+      lat: currentLocation.latitude,
+      lon: currentLocation.longitude,
+      at: Date.now(),
+    };
+    void fetchNearbyCallback(currentLocation.latitude, currentLocation.longitude);
+  }, [currentLocation, fetchNearbyCallback]);
+
+  const nearestFacilitySummary = useMemo(() => {
+    if (
+      isFetchingPlaces &&
+      nearbyPlaces.police.length === 0 &&
+      nearbyPlaces.hospital.length === 0
+    ) {
+      return t('location.findingHelp');
+    }
+    const nearestPolice = nearbyPlaces.police[0];
+    const nearestHospital = nearbyPlaces.hospital[0];
+    if (nearestPolice && nearestHospital) {
+      return t('location.nearestSummary', {
+        police: formatDistance(nearestPolice.distanceKm),
+        hospital: formatDistance(nearestHospital.distanceKm),
+      });
+    }
+    if (nearestPolice) {
+      return t('location.nearestFacility', {
+        distance: formatDistance(nearestPolice.distanceKm),
+        type: t('location.policeStations'),
+      });
+    }
+    if (nearestHospital) {
+      return t('location.nearestFacility', {
+        distance: formatDistance(nearestHospital.distanceKm),
+        type: t('location.hospitals'),
+      });
+    }
+    return t('location.nearbyHelp');
+  }, [isFetchingPlaces, nearbyPlaces.police, nearbyPlaces.hospital, t]);
+
+  const selectHelpCategory = useCallback((category: HelpCategory): void => {
+    setActiveHelpCategory(category);
+    trackNearbyHelpViewed(category);
+  }, []);
+
+  const handleCall = useCallback(
+    (place: NearbyPlace): void => {
+      if (place.phoneNumber === undefined) return;
+      trackNearbyHelpCalled(activeHelpCategory);
+      placeCall(place.phoneNumber).catch((error: unknown) => {
+        captureException(error);
+        const isNoTelephony =
+          error instanceof Error && error.message === 'errors.telephonyUnavailable';
+        Alert.alert(t(isNoTelephony ? 'errors.telephonyUnavailable' : 'errors.callFailed'));
+      });
+    },
+    [activeHelpCategory, t],
+  );
+
+  const handleDirections = useCallback(
+    (place: NearbyPlace): void => {
+      trackNearbyHelpDirections(activeHelpCategory);
+      void Linking.openURL(directionsUrl(place.latitude, place.longitude)).catch((error: unknown) =>
+        captureException(error),
+      );
+    },
+    [activeHelpCategory],
+  );
 
   const selectedArea = useMemo(
     () => unsafeAreas.find((area) => area.id === selectedAreaId) ?? null,
@@ -227,7 +435,7 @@ export default function MapScreen(): React.JSX.Element {
         <MapView
           ref={mapRef}
           provider={PROVIDER_GOOGLE}
-          style={styles.map}
+          className="flex-1"
           showsUserLocation
           showsMyLocationButton
           initialRegion={initialRegion}
@@ -243,22 +451,36 @@ export default function MapScreen(): React.JSX.Element {
             left: 0,
           }}
         >
-          {unsafeAreas.map((area) => (
-            <React.Fragment key={area.id}>
-              <Marker
-                coordinate={{ latitude: area.latitude, longitude: area.longitude }}
-                pinColor={PIN_HEX[area.pinColor]}
-                testID={`unsafe-area-${area.id}`}
-                onPress={() => setSelectedAreaId(area.id)}
-              />
-              <Circle
-                center={{ latitude: area.latitude, longitude: area.longitude }}
-                radius={area.radiusMeters}
-                strokeColor={PIN_CIRCLE_STROKE[area.pinColor]}
-                fillColor={PIN_CIRCLE_FILL[area.pinColor]}
-              />
-            </React.Fragment>
-          ))}
+          {isFocused && (
+            <>
+              {unsafeAreas.map((area) => (
+                <React.Fragment key={area.id}>
+                  <Marker
+                    coordinate={{ latitude: area.latitude, longitude: area.longitude }}
+                    pinColor={PIN_HEX[area.pinColor]}
+                    testID={`unsafe-area-${area.id}`}
+                    onPress={() => setSelectedAreaId(area.id)}
+                  />
+                  <Circle
+                    center={{ latitude: area.latitude, longitude: area.longitude }}
+                    radius={area.radiusMeters}
+                    strokeColor={PIN_CIRCLE_STROKE[area.pinColor]}
+                    fillColor={PIN_CIRCLE_FILL[area.pinColor]}
+                  />
+                </React.Fragment>
+              ))}
+              {nearbyPlaces[activeHelpCategory].map((place) => (
+                <Marker
+                  key={`help-${place.id}`}
+                  coordinate={{ latitude: place.latitude, longitude: place.longitude }}
+                  pinColor={HELP_CATEGORY_COLORS[activeHelpCategory]}
+                  title={place.name}
+                  description={`${formatDistance(place.distanceKm)} • ${place.address}`}
+                  testID={`nearby-marker-${place.id}`}
+                />
+              ))}
+            </>
+          )}
         </MapView>
 
         <SafeAreaView
@@ -298,21 +520,27 @@ export default function MapScreen(): React.JSX.Element {
 
         {/* A labelled button rather than an icon-only FAB, and hidden while
             an area card would cover it (BUG-008). */}
-        {selectedArea === null && (
-          <Pressable
-            onPress={openReport}
-            accessibilityRole="button"
-            accessibilityLabel={t('map.reportArea')}
-            style={{ bottom: APP_CONFIG.MAP_FAB_OFFSET + insets.bottom }}
-            className="absolute right-5 h-14 flex-row items-center gap-2 rounded-full bg-primary-red px-5 shadow-lg"
+        {selectedArea === null && sheetIndex === 0 && (
+          <SafeAreaView
+            edges={['bottom']}
+            pointerEvents="box-none"
+            className="absolute inset-x-0 bottom-0 items-end pr-5"
           >
-            <MaterialIcons name="add-location" size={ICON_SIZE.ROW} color={COLORS.WHITE} />
-            <Text variant="label" tKey="map.reportArea" className="text-white" />
-          </Pressable>
+            {/* mb-map-fab = MAP_FAB_OFFSET + MAP_BOTTOM_SHEET_COLLAPSED_CLEARANCE (tailwind.config.js) */}
+            <Pressable
+              onPress={openReport}
+              accessibilityRole="button"
+              accessibilityLabel={t('map.reportArea')}
+              className="mb-map-fab h-14 flex-row items-center gap-2 rounded-full bg-primary-red px-5 shadow-lg"
+            >
+              <MaterialIcons name="add-location" size={ICON_SIZE.ROW} color={COLORS.WHITE} />
+              <Text variant="label" tKey="map.reportArea" className="text-white" />
+            </Pressable>
+          </SafeAreaView>
         )}
 
         {selectedArea !== null && (
-          <View className="absolute inset-x-0 bottom-0" style={{ paddingBottom: insets.bottom }}>
+          <SafeAreaView edges={['bottom']} className="absolute inset-x-0 bottom-0">
             <Card padding="lg" className="rounded-b-none">
               <View className="flex-row items-center justify-between">
                 <Text variant="h3" className="flex-1">
@@ -359,7 +587,143 @@ export default function MapScreen(): React.JSX.Element {
                 onPress={() => setSelectedAreaId(null)}
               />
             </Card>
-          </View>
+          </SafeAreaView>
+        )}
+
+        {selectedArea === null && (
+          <GorhomBottomSheet
+            ref={bottomSheetRef}
+            index={0}
+            snapPoints={NEARBY_SHEET_SNAP_POINTS}
+            enableDynamicSizing={false}
+            onChange={setSheetIndex}
+            backgroundClassName="rounded-t-3xl border border-[#E5E7EB] bg-white dark:border-dark-border dark:bg-charcoal"
+            handleIndicatorClassName="w-10 bg-stone"
+          >
+            <View className="px-4 pb-2 pt-1">
+              <View className="flex-row items-center justify-between gap-2">
+                <View className="flex-1">
+                  <Text
+                    variant="label"
+                    className="font-semibold text-ink dark:text-white"
+                    numberOfLines={1}
+                  >
+                    {nearestFacilitySummary}
+                  </Text>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('location.call112')}
+                  onPress={() => {
+                    void placeCall('112').catch((e: unknown) => {
+                      captureException(e);
+                      Alert.alert(t('errors.generic'));
+                    });
+                  }}
+                  className="rounded-lg bg-primary-red px-3 py-1.5"
+                >
+                  <Text variant="caption" className="font-bold text-white">
+                    {t('location.call112')}
+                  </Text>
+                </Pressable>
+              </View>
+
+              <View className="mt-3 flex-row border-b border-stone/20 pb-2">
+                {HELP_CATEGORIES.map((category) => {
+                  const selected = category === activeHelpCategory;
+                  return (
+                    <Pressable
+                      key={category}
+                      onPress={() => selectHelpCategory(category)}
+                      accessibilityRole="tab"
+                      accessibilityState={{ selected }}
+                      accessibilityLabel={t(HELP_CATEGORY_LABEL_KEY[category])}
+                      className={`flex-1 items-center border-b-2 pb-1.5 ${
+                        selected ? 'border-shakti-purple' : 'border-transparent'
+                      }`}
+                    >
+                      <MaterialIcons
+                        name={HELP_CATEGORY_ICON[category]}
+                        size={ICON_SIZE.ROW}
+                        color={selected ? COLORS.SHAKTI_PURPLE : COLORS.STONE}
+                      />
+                      <Text
+                        variant="caption"
+                        className={`mt-0.5 text-xs ${
+                          selected
+                            ? 'font-semibold text-shakti-purple'
+                            : 'text-stone dark:text-dark-text-secondary'
+                        }`}
+                        numberOfLines={1}
+                      >
+                        {t(HELP_CATEGORY_LABEL_KEY[category])}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            <BottomSheetScrollView
+              contentContainerClassName="px-4 pb-12 pt-1"
+              showsVerticalScrollIndicator={false}
+            >
+              {isFetchingPlaces && nearbyPlaces[activeHelpCategory].length === 0 ? (
+                <Spinner size="md" className="py-6" />
+              ) : nearbyPlaces[activeHelpCategory].length === 0 ? (
+                <Text variant="caption" className="py-6 text-center text-stone">
+                  {t('location.noPlacesFound')}
+                </Text>
+              ) : (
+                nearbyPlaces[activeHelpCategory].map((place) => (
+                  <View
+                    key={place.id}
+                    className="mb-2.5 flex-row items-center justify-between rounded-xl border border-stone/15 bg-white p-3 dark:border-dark-border dark:bg-charcoal"
+                  >
+                    <View className="flex-1 pr-2">
+                      <View className="flex-row items-center gap-2">
+                        <Text variant="label" className="font-semibold" numberOfLines={1}>
+                          {place.name}
+                        </Text>
+                        <Badge variant="info" label={formatDistance(place.distanceKm)} />
+                      </View>
+                      <Text
+                        variant="caption"
+                        className="mt-0.5 text-stone dark:text-dark-text-secondary"
+                        numberOfLines={1}
+                      >
+                        {place.address}
+                      </Text>
+                    </View>
+                    <View className="flex-row items-center gap-2">
+                      {place.phoneNumber !== undefined && (
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`${t('location.call')} ${place.name}`}
+                          onPress={() => handleCall(place)}
+                          className="rounded-lg bg-forest-green p-2"
+                        >
+                          <MaterialIcons name="call" size={ICON_SIZE.ROW} color={COLORS.WHITE} />
+                        </Pressable>
+                      )}
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`${t('location.directions')} ${place.name}`}
+                        onPress={() => handleDirections(place)}
+                        className="rounded-lg bg-shakti-purple p-2"
+                      >
+                        <MaterialIcons
+                          name="directions"
+                          size={ICON_SIZE.ROW}
+                          color={COLORS.WHITE}
+                        />
+                      </Pressable>
+                    </View>
+                  </View>
+                ))
+              )}
+            </BottomSheetScrollView>
+          </GorhomBottomSheet>
         )}
 
         <BottomSheet visible={isReportModalVisible} onClose={() => setReportModalVisible(false)}>

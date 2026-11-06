@@ -140,6 +140,53 @@ describe('RootLayout auth listener', () => {
     expect(useUserStore.getState().emergencyContacts[0]).toMatchObject({ name: 'Mom' });
   });
 
+  it('rehydrates user profile and emergency contacts from local cache offline', async () => {
+    const cachedProfile = {
+      userId: 'u1',
+      name: 'Priya Cached',
+      phone: '+919876543210',
+      profilePhotoUrl: '',
+      city: 'Mumbai',
+      state: '',
+      language: 'en' as const,
+      isGuest: false,
+      createdAt: { seconds: 1_700_000_000, nanoseconds: 0 } as never,
+      updatedAt: { seconds: 1_700_000_000, nanoseconds: 0 } as never,
+    };
+    const cachedContacts = [
+      {
+        id: 'c1',
+        name: 'Sister',
+        phone: '+919876500001',
+        relationship: 'sister',
+        isPredefined: false,
+        order: 0,
+      },
+    ];
+
+    jest.mocked(AsyncStorage.getItem).mockImplementation((key: string) => {
+      if (key === STORAGE_KEYS.USER_PROFILE_CACHE) {
+        return Promise.resolve(JSON.stringify(cachedProfile));
+      }
+      if (key === STORAGE_KEYS.EMERGENCY_CONTACTS_CACHE) {
+        return Promise.resolve(JSON.stringify(cachedContacts));
+      }
+      return Promise.resolve(null);
+    });
+
+    // Simulate network error in background sync
+    jest.mocked(getDoc).mockRejectedValueOnce(new Error('Network offline'));
+    jest.mocked(getDocs).mockRejectedValueOnce(new Error('Network offline'));
+
+    await render(<RootLayout />);
+    await emitAuth({ uid: 'u1', phoneNumber: '+919876543210' });
+
+    expect(useAuthStore.getState().isInitialized).toBe(true);
+    expect(useAuthStore.getState().surakshakUser?.name).toBe('Priya Cached');
+    expect(useUserStore.getState().emergencyContacts).toHaveLength(1);
+    expect(useUserStore.getState().emergencyContacts[0]).toMatchObject({ name: 'Sister' });
+  });
+
   it('clears the user on sign-out when not in guest mode', async () => {
     await render(<RootLayout />);
     useAuthStore.getState().setUser({ uid: 'u1' } as never);
@@ -172,6 +219,48 @@ describe('RootLayout auth listener', () => {
     await render(<RootLayout />);
 
     expect(mockReplace).toHaveBeenCalledWith(ROUTES.HOME);
+  });
+
+  it('ignores cached profile belonging to a different user', async () => {
+    const wrongProfile = {
+      userId: 'different_user',
+      name: 'Wrong User',
+      language: 'en' as const,
+    };
+    jest.mocked(AsyncStorage.getItem).mockImplementation((key: string) => {
+      if (key === STORAGE_KEYS.USER_PROFILE_CACHE) {
+        return Promise.resolve(JSON.stringify(wrongProfile));
+      }
+      return Promise.resolve(null);
+    });
+
+    jest.mocked(getDoc).mockResolvedValueOnce({
+      exists: () => true,
+      id: 'u1',
+      data: () => ({ name: 'Real User', language: 'en' }),
+    } as never);
+    jest.mocked(getDocs).mockResolvedValueOnce({ docs: [] } as never);
+
+    await render(<RootLayout />);
+    await emitAuth({ uid: 'u1', phoneNumber: '+919876543210' });
+
+    expect(useAuthStore.getState().surakshakUser?.name).toBe('Real User');
+  });
+
+  it('keeps user profile even when emergency contacts fetch fails on first launch', async () => {
+    jest.mocked(AsyncStorage.getItem).mockResolvedValue(null);
+    jest.mocked(getDoc).mockResolvedValueOnce({
+      exists: () => true,
+      id: 'u1',
+      data: () => ({ name: 'Priya Fresh', language: 'en' }),
+    } as never);
+    jest.mocked(getDocs).mockRejectedValueOnce(new Error('Contacts collection unavailable'));
+
+    await render(<RootLayout />);
+    await emitAuth({ uid: 'u1', phoneNumber: '+919876543210' });
+
+    expect(useAuthStore.getState().surakshakUser?.name).toBe('Priya Fresh');
+    expect(useUserStore.getState().emergencyContacts).toEqual([]);
   });
 });
 

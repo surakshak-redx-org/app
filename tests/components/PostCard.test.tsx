@@ -58,6 +58,23 @@ describe('PostCard', () => {
     expect(getByText('Help Needed')).toBeTruthy();
   });
 
+  it('renders the Incident Alert badge and location link for an incident post', async () => {
+    const { getByText } = await render(
+      <PostCard
+        post={makePost({
+          type: 'incident',
+          content: '⚠️ Hazard reported',
+          locationUrl: 'https://maps.google.com/?q=19.076,72.877',
+        })}
+        isGuest={false}
+        onReport={jest.fn()}
+        onOpenImage={jest.fn()}
+      />,
+    );
+    expect(getByText('⚠️ Incident Alert')).toBeTruthy();
+    expect(getByText('View on Maps')).toBeTruthy();
+  });
+
   it('opens the maps link when "View on Maps" is pressed', async () => {
     const spy = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
     const { getByText } = await render(

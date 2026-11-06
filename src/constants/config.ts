@@ -34,7 +34,7 @@ export const APP_CONFIG = {
   SHAKE_THRESHOLD: 2.5,
   SHAKE_COUNT_REQUIRED: 3,
   SHAKE_WINDOW_MS: 2000,
-  SHAKE_SAMPLE_INTERVAL_MS: 50,
+  SHAKE_SAMPLE_INTERVAL_MS: 100,
   LOW_BATTERY_THRESHOLD_PERCENT: 20,
   FAKE_CALL_DEFAULT_DELAY_SECONDS: 15,
   FAKE_CALL_RING_SECONDS: 30,
@@ -84,6 +84,8 @@ export const APP_CONFIG = {
   MAP_FALLBACK_LONGITUDE: 72.8777,
   /** Base distance of the report FAB from the screen edge, before the safe-area inset. */
   MAP_FAB_OFFSET: 24,
+  /** Height clearance to lift the report FAB above the collapsed nearby help bottom sheet handle. */
+  MAP_BOTTOM_SHEET_COLLAPSED_CLEARANCE: 70,
   /**
    * Height of the floating title/legend header overlay, used to push the
    * native map controls (Android's My Location button defaults to top-right;
@@ -102,6 +104,10 @@ export const APP_CONFIG = {
   FOLLOW_DURATION_MINUTES: 10,
   /** How often `useSuspiciousFollow` samples the device's position. */
   FOLLOW_CHECK_INTERVAL_SECONDS: 60,
+  /** Interval extended when device is stationary to save battery. */
+  FOLLOW_STATIONARY_INTERVAL_SECONDS: 120,
+  /** Movement threshold below which device is considered stationary. */
+  FOLLOW_STATIONARY_THRESHOLD_METERS: 10,
   /** The user must have moved at least this much to count as "in transit". */
   FOLLOW_MIN_MOVEMENT_METERS: 50,
   /** Incident report field lengths. */
@@ -138,6 +144,17 @@ export const LOCATION_UNAVAILABLE = 'Location unavailable';
 /** Newest-first cap on the locally persisted SMS alert history. */
 export const SMS_HISTORY_LIMIT = 50;
 
+/**
+ * Characters per SMS segment. `single` applies when the whole message fits in
+ * one segment; `multi` applies once it is split (concatenation headers take
+ * some of each segment). GSM-7 is the default alphabet; any other character
+ * forces UCS-2, which has much smaller segments.
+ */
+export const SMS_SEGMENT_LIMITS = {
+  GSM7: { single: 160, multi: 153 },
+  UCS2: { single: 70, multi: 67 },
+} as const;
+
 /** Newest-first cap on the locally persisted evidence-recording history. */
 export const EVIDENCE_RECORDING_HISTORY_LIMIT = 50;
 
@@ -153,3 +170,7 @@ export const ALL_CATEGORIES = 'all';
  * `APP_CONFIG` because that object is asserted to be entirely numeric.
  */
 export const COMMUNITY_IMAGE_ASPECT: [number, number] = [4, 3];
+
+/** Sample coordinates (Mumbai) used only for the SOS message preview in settings. */
+export const SOS_PREVIEW_LATITUDE = 19.076;
+export const SOS_PREVIEW_LONGITUDE = 72.877;

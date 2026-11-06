@@ -1,9 +1,20 @@
 import { MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useState } from 'react';
+import { useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, FlatList, Linking, Pressable, Switch, TextInput, View } from 'react-native';
+import {
+  Alert,
+  FlatList,
+  Linking,
+  Pressable,
+  ScrollView,
+  Switch,
+  TextInput,
+  View,
+} from 'react-native';
 
 import { GuestBanner } from '@/components/features/auth/GuestBanner';
 import { ImageViewer } from '@/components/features/community/ImageViewer';
@@ -18,6 +29,9 @@ import { Text } from '@/components/ui/Text';
 import { captureException } from '@/config/sentry';
 import { COLORS } from '@/constants/colors';
 import { APP_CONFIG, COMMUNITY_IMAGE_ASPECT } from '@/constants/config';
+import { PRIMARY_EMERGENCY_NUMBER } from '@/constants/emergency-numbers';
+import { ROUTES } from '@/constants/routes';
+import { STORAGE_FLAG_ON, STORAGE_KEYS } from '@/constants/storage';
 import { ICON_SIZE } from '@/constants/ui';
 import { useCommunity } from '@/hooks/useCommunity';
 import { useTheme } from '@/hooks/useTheme';
@@ -29,7 +43,27 @@ import type {
   CreatePostInput,
   PostType,
 } from '@/types/community.types';
+import { toMillis } from '@/utils/date.utils';
 import { getLocationUrl } from '@/utils/location.utils';
+import { placeCall } from '@/utils/phone.utils';
+
+export type TopicFilter = 'all' | 'incident' | 'help_request' | 'discussion';
+
+interface FilterOption {
+  key: TopicFilter;
+  labelKey: string;
+}
+
+const FILTER_OPTIONS: readonly FilterOption[] = [
+  { key: 'all', labelKey: 'community.filterAll' },
+  { key: 'incident', labelKey: 'community.filterSafetyAlerts' },
+  { key: 'help_request', labelKey: 'community.filterHelpRequests' },
+  { key: 'discussion', labelKey: 'community.filterDiscussions' },
+];
+
+const MS_IN_72_HOURS = 72 * 60 * 60 * 1000;
+const MIN_FILTERED_POSTS = 5;
+const NOW_REFRESH_MS = 60_000;
 
 const TABS: readonly CommunityTab[] = ['city', 'all_india'];
 
@@ -38,6 +72,7 @@ const TYPE_ICON: Record<PostType, keyof typeof MaterialIcons.glyphMap> = {
   location: 'place',
   image: 'image',
   help_request: 'sos',
+  incident: 'warning',
 };
 
 const TYPE_LABEL_KEY: Record<PostType, string> = {
@@ -45,11 +80,13 @@ const TYPE_LABEL_KEY: Record<PostType, string> = {
   location: 'community.shareLocation',
   image: 'community.shareImage',
   help_request: 'community.helpRequest',
+  incident: 'community.incidentAlert',
 };
 
 export default function CommunityScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const { colors } = useTheme();
+  const router = useRouter();
   const isGuest = useAuthStore((state) => state.isGuest);
   const surakshakUser = useAuthStore((state) => state.surakshakUser);
   const city = surakshakUser?.city ?? '';
@@ -72,6 +109,14 @@ export default function CommunityScreen(): React.JSX.Element {
     uploadImage,
   } = useCommunity();
 
+  const [topicFilter, setTopicFilter] = useState<TopicFilter>('all');
+  const [now, setNow] = useState(() => Date.now());
+
+  // Keep the 72h staleness cutoff moving while the tab stays mounted.
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), NOW_REFRESH_MS);
+    return (): void => clearInterval(timer);
+  }, []);
   const [composeOpen, setComposeOpen] = useState(false);
   const [content, setContent] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
@@ -81,6 +126,57 @@ export default function CommunityScreen(): React.JSX.Element {
   const [isUploading, setIsUploading] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
   const [viewerUri, setViewerUri] = useState<string | null>(null);
+  const [isDisclaimerDismissed, setIsDisclaimerDismissed] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem(STORAGE_KEYS.COMMUNITY_DISCLAIMER_DISMISSED)
+      .then((val) => {
+        if (val === STORAGE_FLAG_ON) {
+          setIsDisclaimerDismissed(true);
+        }
+      })
+      .catch((err: unknown) => captureException(err));
+  }, []);
+
+  const dismissDisclaimer = useCallback((): void => {
+    setIsDisclaimerDismissed(true);
+    AsyncStorage.setItem(STORAGE_KEYS.COMMUNITY_DISCLAIMER_DISMISSED, STORAGE_FLAG_ON).catch(
+      (err: unknown) => captureException(err),
+    );
+  }, []);
+
+  const filteredPosts = useMemo(() => {
+    if (topicFilter === 'all') {
+      return posts;
+    }
+    return posts.filter((post) => {
+      if (topicFilter === 'incident') {
+        if (post.type !== 'incident') return false;
+        const createdMillis = toMillis(post.createdAt);
+        return createdMillis === null || now - createdMillis <= MS_IN_72_HOURS;
+      }
+      if (topicFilter === 'help_request') {
+        return post.type === 'help_request';
+      }
+      if (topicFilter === 'discussion') {
+        return post.type === 'text' || post.type === 'image' || post.type === 'location';
+      }
+      return true;
+    });
+  }, [now, posts, topicFilter]);
+
+  // Filtering is client-side over paged data: keep paging while a filter leaves the list short.
+  useEffect(() => {
+    if (
+      topicFilter !== 'all' &&
+      filteredPosts.length < MIN_FILTERED_POSTS &&
+      hasMore &&
+      !isLoading &&
+      !isLoadingMore
+    ) {
+      void loadMore();
+    }
+  }, [topicFilter, filteredPosts.length, hasMore, isLoading, isLoadingMore, loadMore]);
 
   const closeCompose = (): void => {
     setComposeOpen(false);
@@ -239,7 +335,7 @@ export default function CommunityScreen(): React.JSX.Element {
     return (
       <FlatList
         testID="community-feed-list"
-        data={posts}
+        data={filteredPosts}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <PostCard
@@ -262,16 +358,24 @@ export default function CommunityScreen(): React.JSX.Element {
         updateCellsBatchingPeriod={50}
         contentContainerClassName="pb-24 pt-3"
         ListEmptyComponent={
-          <EmptyState
-            icon="chatbubbles-outline"
-            title={t('community.noMessages')}
-            subtitle={t('community.beFirst')}
-          />
+          posts.length > 0 ? (
+            <EmptyState
+              icon="filter-outline"
+              title={t('community.noFilterResults')}
+              subtitle={t('community.tryDifferentFilter')}
+            />
+          ) : (
+            <EmptyState
+              icon="chatbubbles-outline"
+              title={t('community.noMessages')}
+              subtitle={t('community.beFirst')}
+            />
+          )
         }
         ListFooterComponent={
           isLoadingMore ? (
             <Spinner className="py-4" />
-          ) : !hasMore && posts.length > 0 ? (
+          ) : !hasMore && filteredPosts.length > 0 ? (
             <Text variant="caption" className="py-4 text-center">
               {t('community.caughtUp')}
             </Text>
@@ -285,7 +389,56 @@ export default function CommunityScreen(): React.JSX.Element {
     <ErrorBoundary>
       <SafeScreen>
         <View className="border-b border-stone/20 pb-2">
-          <Text variant="h2" tKey="community.title" className="mt-2" />
+          {/* Emergency Sticky Disclaimer Banner */}
+          {!isDisclaimerDismissed && (
+            <View
+              accessibilityRole="alert"
+              className="mb-2 flex-row items-center justify-between rounded-xl border border-primary-red/30 bg-primary-red/10 p-2.5"
+            >
+              <MaterialIcons name="warning" size={ICON_SIZE.ROW} color={COLORS.PRIMARY_RED} />
+              <Text variant="caption" className="mx-2 flex-1 font-medium text-primary-red">
+                {t('community.emergencyDisclaimer')}
+              </Text>
+              <View className="flex-row items-center gap-1.5">
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('community.tapSos')}
+                  onPress={() => router.push(ROUTES.HOME)}
+                  className="rounded-md bg-shakti-purple px-2 py-1"
+                >
+                  <Text variant="caption" className="font-bold text-white">
+                    {t('community.tapSos')}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('community.call112')}
+                  onPress={() => {
+                    void placeCall(PRIMARY_EMERGENCY_NUMBER).catch((e: unknown) => {
+                      captureException(e);
+                      Alert.alert(t('errors.generic'));
+                    });
+                  }}
+                  className="rounded-md bg-primary-red px-2 py-1"
+                >
+                  <Text variant="caption" className="font-bold text-white">
+                    {t('community.call112')}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('community.dismissDisclaimer')}
+                  onPress={dismissDisclaimer}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  className="ml-0.5 p-1"
+                >
+                  <MaterialIcons name="close" size={ICON_SIZE.DISMISS} color={COLORS.PRIMARY_RED} />
+                </Pressable>
+              </View>
+            </View>
+          )}
+
+          <Text variant="h2" tKey="community.title" className="mt-1" />
           {city.length > 0 && <Text variant="caption">{city}</Text>}
           <View className="mt-2 flex-row">
             {TABS.map((tab) => {
@@ -307,6 +460,36 @@ export default function CommunityScreen(): React.JSX.Element {
               );
             })}
           </View>
+
+          {/* Horizontal Topic Filter Chips */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerClassName="flex-row gap-2 pt-2.5 pb-1"
+          >
+            {FILTER_OPTIONS.map((filter) => {
+              const selected = filter.key === topicFilter;
+              return (
+                <Pressable
+                  key={filter.key}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  accessibilityLabel={t(filter.labelKey)}
+                  onPress={() => setTopicFilter(filter.key)}
+                  className={`rounded-full px-3 py-1.5 ${
+                    selected ? 'bg-shakti-purple' : 'bg-stone/10 dark:bg-stone/20'
+                  }`}
+                >
+                  <Text
+                    variant="caption"
+                    className={`font-semibold ${selected ? 'text-white' : 'text-stone dark:text-dark-text-primary'}`}
+                  >
+                    {t(filter.labelKey)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
         </View>
 
         {renderBody()}

@@ -33,4 +33,9 @@ describe('SOSButton', () => {
     await fireEvent.press(getByLabelText('SOS Emergency Button'));
     expect(onTrigger).not.toHaveBeenCalled();
   });
+
+  it('renders tap count indicator pips', async () => {
+    const { getByTestId } = await render(<SOSButton onTrigger={jest.fn()} tapCount={2} />);
+    expect(getByTestId('sos-tap-pips')).toBeTruthy();
+  });
 });

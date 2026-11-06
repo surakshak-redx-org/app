@@ -1,5 +1,5 @@
 import * as Haptics from 'expo-haptics';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 import { checkSmsPermission } from 'surakshak-native';
 
@@ -28,6 +28,8 @@ export interface UseSOSResult {
   /** The countdown has elapsed and alerts are going out; cancel no longer applies. */
   isSending: boolean;
   triggerMethod: SOSTriggerMethod | null;
+  /** Number of taps registered inside the current tap window (0, 1, or 2). */
+  tapCount: number;
   /** Every SOS-button press goes here; a triple-tap inside the window fires SOS. */
   handleTap: () => void;
   /** Starts the countdown immediately (used by shake-to-SOS and tests). */
@@ -86,6 +88,36 @@ export function useSOS(): UseSOSResult {
   const reset = useSOSStore((state) => state.reset);
 
   const tapTimestampsRef = useRef<number[]>([]);
+  const tapWindowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleTapExpiryRef = useRef<() => void>(() => undefined);
+  const [tapCount, setTapCount] = useState(0);
+
+  const clearTapExpiryTimer = useCallback((): void => {
+    if (tapWindowTimerRef.current !== null) {
+      clearTimeout(tapWindowTimerRef.current);
+      tapWindowTimerRef.current = null;
+    }
+  }, []);
+
+  const scheduleTapExpiry = useCallback((): void => {
+    clearTapExpiryTimer();
+    const now = Date.now();
+    const valid = tapTimestampsRef.current.filter((at) => now - at < APP_CONFIG.SOS_TAP_WINDOW_MS);
+    tapTimestampsRef.current = valid;
+    setTapCount(valid.length);
+
+    if (valid.length > 0 && valid[0] !== undefined) {
+      const oldestTap = valid[0];
+      const msUntilOldestExpires = Math.max(0, oldestTap + APP_CONFIG.SOS_TAP_WINDOW_MS - now);
+      tapWindowTimerRef.current = setTimeout(() => {
+        scheduleTapExpiryRef.current();
+      }, msUntilOldestExpires);
+    }
+  }, [clearTapExpiryTimer]);
+
+  useEffect(() => {
+    scheduleTapExpiryRef.current = scheduleTapExpiry;
+  }, [scheduleTapExpiry]);
 
   /**
    * Android's silent send needs a runtime `SEND_SMS` grant. Ask while the
@@ -244,15 +276,27 @@ export function useSOS(): UseSOSResult {
 
   const handleTap = useCallback((): void => {
     const now = Date.now();
-    tapTimestampsRef.current = [
-      ...tapTimestampsRef.current.filter((at) => now - at < APP_CONFIG.SOS_TAP_WINDOW_MS),
-      now,
-    ];
-    if (tapTimestampsRef.current.length >= APP_CONFIG.SOS_TAP_COUNT) {
+    const valid = tapTimestampsRef.current.filter((at) => now - at < APP_CONFIG.SOS_TAP_WINDOW_MS);
+    valid.push(now);
+    tapTimestampsRef.current = valid;
+
+    if (valid.length >= APP_CONFIG.SOS_TAP_COUNT) {
       tapTimestampsRef.current = [];
+      setTapCount(0);
+      clearTapExpiryTimer();
       trigger('button');
+    } else {
+      setTapCount(valid.length);
+      clearTapExpiryTimer();
+      const oldestTap = valid[0];
+      if (oldestTap !== undefined) {
+        const msUntilOldestExpires = Math.max(0, oldestTap + APP_CONFIG.SOS_TAP_WINDOW_MS - now);
+        tapWindowTimerRef.current = setTimeout(() => {
+          scheduleTapExpiry();
+        }, msUntilOldestExpires);
+      }
     }
-  }, [trigger]);
+  }, [clearTapExpiryTimer, scheduleTapExpiry, trigger]);
 
   // Starts the countdown even when `isActive` flipped true from outside this
   // hook instance's own `trigger` call — e.g. the suspicious-follow alert in
@@ -282,11 +326,12 @@ export function useSOS(): UseSOSResult {
 
   useEffect(() => {
     return (): void => {
+      clearTapExpiryTimer();
       if (!useSOSStore.getState().isActive) {
         clearActiveTimer();
       }
     };
-  }, []);
+  }, [clearTapExpiryTimer]);
 
-  return { isActive, countdown, isSending, triggerMethod, handleTap, trigger, cancel };
+  return { isActive, countdown, isSending, triggerMethod, tapCount, handleTap, trigger, cancel };
 }

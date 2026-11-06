@@ -37,6 +37,8 @@ export const STORAGE_KEYS = {
   SAFE_JOURNEY_USER_ID: 'surakshak_safe_journey_user_id',
   /** Timestamp in milliseconds until which OTP resend is throttled across restarts (BUG-139 / BUG-150). */
   OTP_RESEND_DEADLINE: 'surakshak_otp_resend_deadline',
+  /** Phone number associated with the active OTP resend deadline. */
+  OTP_RESEND_PHONE: 'surakshak_otp_resend_phone',
   /** `'false'` disables the suspicious-follow alert; absent means enabled. */
   FOLLOW_DETECTION_ENABLED: 'surakshak_follow_detection_enabled',
   /** `'true'` while a Safe Check-In session is running. */
@@ -49,6 +51,8 @@ export const STORAGE_KEYS = {
   CHECKIN_CONTACT_IDS: 'surakshak_checkin_contacts',
   /** `'true'` once the iOS one-tap-limitation hint on Home has been dismissed. */
   IOS_HINT_DISMISSED: 'surakshak_ios_hint_dismissed',
+  /** `'true'` once the emergency disclaimer banner in Community has been dismissed. */
+  COMMUNITY_DISCLAIMER_DISMISSED: 'surakshak_community_disclaimer_dismissed',
   /** `'true'` once the Android battery-optimisation guidance for shake detection has been shown. */
   SHAKE_BATTERY_HINT_SHOWN: 'surakshak_shake_battery_hint_shown',
   /** Consecutive missed check-ins since the last successful one. */
@@ -74,6 +78,18 @@ export const STORAGE_KEYS = {
    * were missing, drained automatically upon permission grant.
    */
   EMERGENCY_OUTBOX: 'surakshak_emergency_outbox',
+  /**
+   * `'false'` disables sending safe arrival SMS to contacts; absent or anything else means enabled.
+   */
+  NOTIFY_ARRIVAL_SMS: 'surakshak_notify_arrival_sms',
+  /**
+   * `JSON.stringify`'d `User` profile cache for instantaneous non-blocking app launch hydration.
+   */
+  USER_PROFILE_CACHE: 'surakshak_user_profile_cache',
+  /**
+   * User-customized SOS SMS template containing optional tokens {name}, {location}, {battery}.
+   */
+  CUSTOM_SOS_MESSAGE_TEMPLATE: 'surakshak_custom_sos_message_template',
 } as const;
 
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];
@@ -84,11 +100,16 @@ export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];
  * cross-account data leakage on shared devices.
  */
 export const SENSITIVE_STORAGE_KEYS = [
+  STORAGE_KEYS.CUSTOM_SOS_MESSAGE_TEMPLATE,
+  STORAGE_KEYS.USER_PROFILE_CACHE,
   STORAGE_KEYS.EMERGENCY_CONTACTS_CACHE,
   STORAGE_KEYS.USER_INFO_CACHE,
   STORAGE_KEYS.SMS_HISTORY,
   STORAGE_KEYS.EVIDENCE_RECORDING_HISTORY,
   STORAGE_KEYS.LIVE_LOCATION_SESSION_ID,
+  STORAGE_KEYS.SAFE_JOURNEY_SESSION_ID,
+  STORAGE_KEYS.SAFE_JOURNEY_DEADLINE,
+  STORAGE_KEYS.SAFE_JOURNEY_USER_ID,
   STORAGE_KEYS.SAFE_JOURNEY_ARRIVED_SESSIONS,
   STORAGE_KEYS.EMERGENCY_OUTBOX,
   STORAGE_KEYS.CHECKIN_ACTIVE,
@@ -98,6 +119,8 @@ export const SENSITIVE_STORAGE_KEYS = [
   STORAGE_KEYS.CHECKIN_MISSED_COUNT,
   STORAGE_KEYS.ONBOARDING_COMPLETE,
   STORAGE_KEYS.LIVE_LOCATION_USER_ID,
+  STORAGE_KEYS.OTP_RESEND_DEADLINE,
+  STORAGE_KEYS.OTP_RESEND_PHONE,
 ] as const;
 
 export type SensitiveStorageKey = (typeof SENSITIVE_STORAGE_KEYS)[number];
