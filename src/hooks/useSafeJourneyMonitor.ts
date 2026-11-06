@@ -36,6 +36,8 @@ const MS_PER_SECOND = 1000;
 const MS_PER_HOUR = 3_600_000;
 /** Re-check just after the deadline rather than exactly on it. */
 const DEADLINE_GRACE_MS = 500;
+// Re-evaluate at least this often: RN timers stall in deep sleep and drift on clock changes.
+const WATCHDOG_MAX_DELAY_MS = 30_000;
 
 async function cancelJourneyNotifications(): Promise<void> {
   await Promise.all([
@@ -171,7 +173,10 @@ export function useSafeJourneyMonitor(userId: string | null): void {
           [STORAGE_KEYS.SAFE_JOURNEY_DEADLINE, String(deadline)],
         ]).catch(() => undefined);
         // Timer fires exactly at the expected arrival deadline (plus grace window).
-        const delayMs = Math.max(deadline - now + DEADLINE_GRACE_MS, 0);
+        const delayMs = Math.min(
+          Math.max(deadline - now + DEADLINE_GRACE_MS, 0),
+          WATCHDOG_MAX_DELAY_MS,
+        );
         clearTimer();
         timerRef.current = setTimeout(() => void checkRef.current(), delayMs);
         return;
@@ -246,7 +251,10 @@ export function useSafeJourneyMonitor(userId: string | null): void {
         if (cachedDeadline > now) {
           setSafeJourneyActive(true, cachedId);
           await scheduleJourneyNotifications(cachedDeadline, now);
-          const delayMs = Math.max(cachedDeadline - now + DEADLINE_GRACE_MS, 0);
+          const delayMs = Math.min(
+            Math.max(cachedDeadline - now + DEADLINE_GRACE_MS, 0),
+            WATCHDOG_MAX_DELAY_MS,
+          );
           clearTimer();
           timerRef.current = setTimeout(() => void checkRef.current(), delayMs);
         }

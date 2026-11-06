@@ -91,12 +91,18 @@ export default function PhoneScreen(): React.JSX.Element {
         const inCooldown = !Number.isNaN(storedDeadline) && Date.now() < storedDeadline;
         const sameNumber = storedPhone === phone;
 
-        if (inCooldown && sameNumber && getStoredConfirmation() !== null) {
-          // If within active cooldown for the exact same number and confirmation exists, jump to OTP
-          router.push({
-            pathname: ROUTES.OTP,
-            params: { phone: `${PHONE_E164_PREFIX}${phone}` },
-          });
+        if (inCooldown && sameNumber) {
+          if (getStoredConfirmation() !== null) {
+            // Within cooldown for the same number with a live confirmation: resume at OTP entry.
+            router.push({
+              pathname: ROUTES.OTP,
+              params: { phone: `${PHONE_E164_PREFIX}${phone}` },
+            });
+          } else {
+            // Confirmation lived only in memory (app restarted): resending now would hit
+            // Firebase's rate limit, so ask the user to wait out the cooldown instead.
+            setSubmitError('auth.tooManyRequests');
+          }
           return;
         }
       }

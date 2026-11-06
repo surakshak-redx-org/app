@@ -474,7 +474,9 @@
     "guestHistoryTitle": "Sign in to view your reports",
     "guestHistorySubtitle": "Incident reports you submit while signed in are saved to your secure account",
     "postToCommunity": "Post anonymous hazard alert to Community feed",
-    "postToCommunityDesc": "Warn nearby residents anonymously without revealing your identity or evidence photos."
+    "postToCommunityDesc": "Warn nearby residents anonymously without revealing your identity or evidence photos.",
+    "communityPostContent": "⚠️ [Hazard Incident] {{title}}: {{description}}",
+    "communityPostFailedBody": "Your report was saved, but sharing it to the community failed."
   },
   "safeCheckin": {
     "active": "Check-In Active",

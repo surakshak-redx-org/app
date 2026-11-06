@@ -251,10 +251,13 @@ export default function IncidentReportScreen(): React.JSX.Element {
         if (postToCommunity) {
           try {
             const locUrl = getLocationUrl(fix.latitude, fix.longitude);
-            await createPost(userId, 'Resident', '', {
+            await createPost(userId, '', '', {
               type: 'incident',
               isAnonymous: true,
-              content: `⚠️ [Hazard Incident] ${values.title.trim()}: ${values.description.trim()}`,
+              content: t('incidentReport.communityPostContent', {
+                title: values.title.trim(),
+                description: values.description.trim(),
+              }),
               locationUrl: locUrl,
               city: surakshakUser?.city ?? '',
               state: surakshakUser?.state ?? '',
@@ -262,6 +265,10 @@ export default function IncidentReportScreen(): React.JSX.Element {
           } catch (communityErr) {
             console.warn('Failed to syndicate incident to community:', communityErr);
             captureException(communityErr);
+            Alert.alert(
+              t('incidentReport.submittedTitle'),
+              t('incidentReport.communityPostFailedBody'),
+            );
           }
         }
 

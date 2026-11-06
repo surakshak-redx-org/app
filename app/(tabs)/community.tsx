@@ -29,6 +29,7 @@ import { Text } from '@/components/ui/Text';
 import { captureException } from '@/config/sentry';
 import { COLORS } from '@/constants/colors';
 import { APP_CONFIG, COMMUNITY_IMAGE_ASPECT } from '@/constants/config';
+import { PRIMARY_EMERGENCY_NUMBER } from '@/constants/emergency-numbers';
 import { ROUTES } from '@/constants/routes';
 import { STORAGE_FLAG_ON, STORAGE_KEYS } from '@/constants/storage';
 import { ICON_SIZE } from '@/constants/ui';
@@ -61,6 +62,8 @@ const FILTER_OPTIONS: readonly FilterOption[] = [
 ];
 
 const MS_IN_72_HOURS = 72 * 60 * 60 * 1000;
+const MIN_FILTERED_POSTS = 5;
+const NOW_REFRESH_MS = 60_000;
 
 const TABS: readonly CommunityTab[] = ['city', 'all_india'];
 
@@ -107,7 +110,13 @@ export default function CommunityScreen(): React.JSX.Element {
   } = useCommunity();
 
   const [topicFilter, setTopicFilter] = useState<TopicFilter>('all');
-  const [now] = useState(() => Date.now());
+  const [now, setNow] = useState(() => Date.now());
+
+  // Keep the 72h staleness cutoff moving while the tab stays mounted.
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), NOW_REFRESH_MS);
+    return (): void => clearInterval(timer);
+  }, []);
   const [composeOpen, setComposeOpen] = useState(false);
   const [content, setContent] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
@@ -155,6 +164,19 @@ export default function CommunityScreen(): React.JSX.Element {
       return true;
     });
   }, [now, posts, topicFilter]);
+
+  // Filtering is client-side over paged data: keep paging while a filter leaves the list short.
+  useEffect(() => {
+    if (
+      topicFilter !== 'all' &&
+      filteredPosts.length < MIN_FILTERED_POSTS &&
+      hasMore &&
+      !isLoading &&
+      !isLoadingMore
+    ) {
+      void loadMore();
+    }
+  }, [topicFilter, filteredPosts.length, hasMore, isLoading, isLoadingMore, loadMore]);
 
   const closeCompose = (): void => {
     setComposeOpen(false);
@@ -380,7 +402,7 @@ export default function CommunityScreen(): React.JSX.Element {
               <View className="flex-row items-center gap-1.5">
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="SOS"
+                  accessibilityLabel={t('community.tapSos')}
                   onPress={() => router.push(ROUTES.HOME)}
                   className="rounded-md bg-shakti-purple px-2 py-1"
                 >
@@ -392,7 +414,7 @@ export default function CommunityScreen(): React.JSX.Element {
                   accessibilityRole="button"
                   accessibilityLabel={t('community.call112')}
                   onPress={() => {
-                    void placeCall('112').catch((e: unknown) => {
+                    void placeCall(PRIMARY_EMERGENCY_NUMBER).catch((e: unknown) => {
                       captureException(e);
                       Alert.alert(t('errors.generic'));
                     });

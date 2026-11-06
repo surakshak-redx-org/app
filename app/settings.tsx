@@ -19,6 +19,10 @@ import { captureException } from '@/config/sentry';
 import { getRunningUpdateHash } from '@/config/updates';
 import { FALLBACK_APP_VERSION } from '@/constants/auth';
 import { COLORS } from '@/constants/colors';
+import {
+  SOS_PREVIEW_LATITUDE as PREVIEW_LATITUDE,
+  SOS_PREVIEW_LONGITUDE as PREVIEW_LONGITUDE,
+} from '@/constants/config';
 import { ROUTES } from '@/constants/routes';
 import {
   STORAGE_FLAG_OFF,
@@ -39,6 +43,7 @@ import { AuthError, deleteAccount } from '@/services/firebase/auth.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { useDisguiseStore } from '@/stores/disguise.store';
 import { useUserStore } from '@/stores/user.store';
+import { getLocationUrl } from '@/utils/location.utils';
 import { calculateSMSCharacterCount, interpolateSOSTemplate } from '@/utils/sms.utils';
 
 type DisguiseModalMode = 'enable' | 'disable' | 'change' | null;
@@ -144,7 +149,7 @@ export default function SettingsScreen(): React.JSX.Element {
     customSosTemplate.trim().length > 0 ? customSosTemplate : defaultPlaceholder,
     {
       name: surakshakUser?.name ?? t('common.user'),
-      locationUrl: 'https://maps.google.com/?q=19.076,72.877',
+      locationUrl: getLocationUrl(PREVIEW_LATITUDE, PREVIEW_LONGITUDE),
       battery: 85,
     },
   );

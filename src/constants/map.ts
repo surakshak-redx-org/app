@@ -81,6 +81,8 @@ export const HELP_CATEGORY_COLORS: Record<HelpCategory, string> = {
 
 /** Minimum distance moved (in meters) before triggering a fresh nearby places search. */
 export const NEARBY_REFETCH_METERS = 100;
+/** Number of place categories fetched per nearby-help refresh. */
+export const NEARBY_CATEGORY_COUNT = 4;
 
 /** Minimum time elapsed (in milliseconds) before re-querying nearby places for the same area. */
 export const NEARBY_REFETCH_MS = 60_000;

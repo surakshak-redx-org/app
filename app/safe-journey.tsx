@@ -225,7 +225,7 @@ export default function SafeJourneyScreen(): React.JSX.Element {
         // A "journey started" note — the overdue warning is only ever sent
         // by the monitor once the deadline passes (BUG-028).
         const locationUrl = getLocationUrl(fix.latitude, fix.longitude);
-        const name = surakshakUser?.name ?? 'User';
+        const name = surakshakUser?.name ?? t('common.user');
         const language = surakshakUser?.language ?? 'en';
         const result = await sendSafeJourneyStart(
           contactsFor(selectedContactIds),
@@ -286,7 +286,7 @@ export default function SafeJourneyScreen(): React.JSX.Element {
     const sessionId = activeSession.id;
     const contacts = contactsFor(activeSession.sharedWithUserIds);
     const destinationName = activeSession.destinationName;
-    const name = surakshakUser?.name ?? 'User';
+    const name = surakshakUser?.name ?? t('common.user');
     const language = surakshakUser?.language ?? 'en';
     const destinationCoordsObj = {
       lat: activeSession.destinationLatitude,
@@ -365,7 +365,7 @@ export default function SafeJourneyScreen(): React.JSX.Element {
       const newArrivalDate = new Date(baseMs + minutes * MS_PER_MINUTE);
       const newEtaTime = formatClockTime(newArrivalDate);
       const contacts = contactsFor(activeSession.sharedWithUserIds);
-      const name = surakshakUser?.name ?? 'User';
+      const name = surakshakUser?.name ?? t('common.user');
       const language = surakshakUser?.language ?? 'en';
 
       extendSafeJourneyEta(activeSession.id, minutes)
@@ -408,7 +408,7 @@ export default function SafeJourneyScreen(): React.JSX.Element {
     const sessionId = activeSession.id;
     const contacts = contactsFor(activeSession.sharedWithUserIds);
     const destinationName = activeSession.destinationName;
-    const name = surakshakUser?.name ?? 'User';
+    const name = surakshakUser?.name ?? t('common.user');
     const language = surakshakUser?.language ?? 'en';
     const destinationCoordsObj = {
       lat: activeSession.destinationLatitude,

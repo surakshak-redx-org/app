@@ -110,8 +110,9 @@ export function useFakeCall(): UseFakeCallResult {
         }
 
         try {
+          // Native alarm covers background/lock screen; the JS timer below still
+          // covers the foreground, where no AppState change would surface the call.
           await scheduleNativeFakeCall(delaySeconds * TIMING.SECOND_MS, name);
-          return;
         } catch (error: unknown) {
           console.warn('Native alarm schedule failed, falling back to JS timer:', error);
         }
@@ -119,7 +120,7 @@ export function useFakeCall(): UseFakeCallResult {
 
       timeoutRef.current = setTimeout((): void => {
         timeoutRef.current = null;
-        triggerCall(name);
+        if (!isCallActiveRef.current) triggerCall(name);
       }, delaySeconds * TIMING.SECOND_MS);
     },
     [clearPending, triggerCall],

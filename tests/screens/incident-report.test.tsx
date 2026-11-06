@@ -269,7 +269,7 @@ describe('IncidentReportScreen', () => {
     expect(submitIncidentReport).toHaveBeenCalled();
     expect(createPost).toHaveBeenCalledWith(
       'user-1',
-      'Resident',
+      '',
       '',
       expect.objectContaining({
         type: 'incident',

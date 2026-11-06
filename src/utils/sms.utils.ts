@@ -284,11 +284,14 @@ export function interpolateSOSTemplate(
   let batteryStr = 'N/A';
   if (variables.battery !== undefined && variables.battery !== null) {
     if (typeof variables.battery === 'number') {
-      const pct =
-        variables.battery <= 1
-          ? Math.round(variables.battery * 100)
-          : Math.round(variables.battery);
-      batteryStr = `${pct}%`;
+      // Negative means "unavailable" (expo-battery returns -1); keep N/A.
+      if (variables.battery >= 0) {
+        const pct =
+          variables.battery <= 1
+            ? Math.round(variables.battery * 100)
+            : Math.round(variables.battery);
+        batteryStr = `${pct}%`;
+      }
     } else {
       batteryStr = String(variables.battery);
     }

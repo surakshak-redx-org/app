@@ -31,6 +31,7 @@ import {
   HELP_CATEGORY_COLORS,
   HELP_CATEGORY_ICON,
   HELP_CATEGORY_LABEL_KEY,
+  NEARBY_CATEGORY_COUNT,
   NEARBY_REFETCH_METERS,
   NEARBY_REFETCH_MS,
   PIN_CIRCLE_FILL,
@@ -175,31 +176,43 @@ export default function MapScreen(): React.JSX.Element {
   const hasCenteredOnUserRef = useRef(false);
   const lastFetchRef = useRef<{ lat: number; lon: number; at: number } | null>(null);
 
-  const fetchNearbyCallback = useCallback((lat: number, lon: number): (() => void) => {
-    let isCancelled = false;
-    const doFetch = async (): Promise<void> => {
-      setIsFetchingPlaces(true);
-      try {
-        const [police, hospital, fire_station, pharmacy] = await Promise.all([
-          fetchNearbyPlaces(lat, lon, 'police').catch((): NearbyPlace[] => []),
-          fetchNearbyPlaces(lat, lon, 'hospital').catch((): NearbyPlace[] => []),
-          fetchNearbyPlaces(lat, lon, 'fire_station').catch((): NearbyPlace[] => []),
-          fetchNearbyPlaces(lat, lon, 'pharmacy').catch((): NearbyPlace[] => []),
-        ]);
-        if (!isCancelled) {
-          setNearbyPlaces({ police, hospital, fire_station, pharmacy });
-        }
-      } catch (error: unknown) {
-        captureException(error);
-      } finally {
-        if (!isCancelled) {
-          setIsFetchingPlaces(false);
-        }
-      }
-    };
-    void doFetch();
+  const fetchRequestIdRef = useRef(0);
+
+  // Only the latest request may write state; a skipped re-run must not cancel an in-flight fetch.
+  const fetchNearbyCallback = useCallback(async (lat: number, lon: number): Promise<void> => {
+    fetchRequestIdRef.current += 1;
+    const requestId = fetchRequestIdRef.current;
+    setIsFetchingPlaces(true);
+    try {
+      let failedCount = 0;
+      const safeFetch = (category: HelpCategory): Promise<NearbyPlace[]> =>
+        fetchNearbyPlaces(lat, lon, category).catch((): NearbyPlace[] => {
+          failedCount += 1;
+          return [];
+        });
+      const [police, hospital, fire_station, pharmacy] = await Promise.all([
+        safeFetch('police'),
+        safeFetch('hospital'),
+        safeFetch('fire_station'),
+        safeFetch('pharmacy'),
+      ]);
+      if (requestId !== fetchRequestIdRef.current) return;
+      setNearbyPlaces({ police, hospital, fire_station, pharmacy });
+      // Every category failed: forget the fetch so the next location update retries.
+      if (failedCount === NEARBY_CATEGORY_COUNT) lastFetchRef.current = null;
+    } catch (error: unknown) {
+      captureException(error);
+      if (requestId === fetchRequestIdRef.current) lastFetchRef.current = null;
+    } finally {
+      if (requestId === fetchRequestIdRef.current) setIsFetchingPlaces(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const requestIdRef = fetchRequestIdRef;
     return (): void => {
-      isCancelled = true;
+      // Invalidate in-flight work on unmount.
+      requestIdRef.current += 1;
     };
   }, []);
 
@@ -219,7 +232,7 @@ export default function MapScreen(): React.JSX.Element {
       lon: currentLocation.longitude,
       at: Date.now(),
     };
-    return fetchNearbyCallback(currentLocation.latitude, currentLocation.longitude);
+    void fetchNearbyCallback(currentLocation.latitude, currentLocation.longitude);
   }, [currentLocation, fetchNearbyCallback]);
 
   const nearestFacilitySummary = useMemo(() => {

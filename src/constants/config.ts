@@ -159,3 +159,7 @@ export const ALL_CATEGORIES = 'all';
  * `APP_CONFIG` because that object is asserted to be entirely numeric.
  */
 export const COMMUNITY_IMAGE_ASPECT: [number, number] = [4, 3];
+
+/** Sample coordinates (Mumbai) used only for the SOS message preview in settings. */
+export const SOS_PREVIEW_LATITUDE = 19.076;
+export const SOS_PREVIEW_LONGITUDE = 72.877;

@@ -474,7 +474,9 @@
     "guestHistoryTitle": "आपले अहवाल पाहण्यासाठी साइन इन करा",
     "guestHistorySubtitle": "साइन इन असताना तुम्ही सबमिट केलेले अहवाल तुमच्या सुरक्षित खात्यात सेव्ह केले जातात",
     "postToCommunity": "समुदायामध्ये अनामिक इशारा पोस्ट करा",
-    "postToCommunityDesc": "तुमची ओळख किंवा पुरावे उघड न करता शेजाऱ्यांना सावध करा."
+    "postToCommunityDesc": "तुमची ओळख किंवा पुरावे उघड न करता शेजाऱ्यांना सावध करा.",
+    "communityPostContent": "⚠️ [धोकादायक घटना] {{title}}: {{description}}",
+    "communityPostFailedBody": "तुमचा अहवाल जतन झाला, परंतु समुदायात शेअर करणे अयशस्वी झाले."
   },
   "safeCheckin": {
     "active": "चेक-इन सुरू आहे",

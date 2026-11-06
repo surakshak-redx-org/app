@@ -173,6 +173,16 @@ describe('calculateSMSCharacterCount', () => {
 });
 
 describe('interpolateSOSTemplate', () => {
+  it('renders N/A when the battery level is unavailable (-1)', () => {
+    const result = interpolateSOSTemplate('Battery: {battery}', {
+      name: 'Asha',
+      locationUrl: 'x',
+      battery: -1,
+    });
+
+    expect(result).toBe('Battery: N/A');
+  });
+
   it('interpolates {name}, {location}, and {battery}', () => {
     const template = 'EMERGENCY: {name} needs help at {location}. Battery: {battery}.';
     const result = interpolateSOSTemplate(template, {
