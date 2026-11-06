@@ -16,6 +16,11 @@ const envSchema = z.object({
   ONESIGNAL_APP_ID: z.string().min(1),
   MIXPANEL_TOKEN: z.string().min(1),
   SENTRY_DSN: z.url(),
+  /**
+   * Base URL of the public live-tracking page. Optional so the app still runs
+   * before the web page exists — sharing then falls back to a static Maps pin.
+   */
+  TRACKING_BASE_URL: z.url().optional(),
 });
 
 /**
@@ -31,6 +36,7 @@ const rawEnv: Record<string, unknown> = {
   ONESIGNAL_APP_ID: process.env.EXPO_PUBLIC_ONESIGNAL_APP_ID,
   MIXPANEL_TOKEN: process.env.EXPO_PUBLIC_MIXPANEL_TOKEN,
   SENTRY_DSN: process.env.EXPO_PUBLIC_SENTRY_DSN,
+  TRACKING_BASE_URL: process.env.EXPO_PUBLIC_TRACKING_BASE_URL || undefined,
 };
 
 const parsed = envSchema.safeParse(rawEnv);

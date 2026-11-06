@@ -3,6 +3,7 @@ import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import { useCallback, useEffect, useState } from 'react';
 
+import { ENV } from '@/config/env';
 import { captureException } from '@/config/sentry';
 import { COLORS } from '@/constants/colors';
 import { APP_CONFIG } from '@/constants/config';
@@ -29,6 +30,7 @@ import { useUserStore } from '@/stores/user.store';
 import { formatClockTime } from '@/utils/date.utils';
 import { getLocationUrl } from '@/utils/location.utils';
 import { requestBackgroundLocationPermission } from '@/utils/permissions.utils';
+import { buildTrackingUrl, generateShareToken, shouldAppendPoint } from '@/utils/tracking.utils';
 
 const BACKGROUND_LOCATION_TASK = 'surakshak-live-location';
 const MS_PER_HOUR = 60 * 60 * 1000;
@@ -40,6 +42,9 @@ async function getOrCreateDeviceId(): Promise<string> {
   await AsyncStorage.setItem(STORAGE_KEYS.DEVICE_ID, newId);
   return newId;
 }
+
+/** Last coordinate written to the route trail, so the task can decimate points. */
+let lastTrailPoint: { latitude: number; longitude: number } | null = null;
 
 interface LocationTaskData {
   locations: Location.LocationObject[];
@@ -100,17 +105,13 @@ export function registerLiveLocationTask(): void {
 
       const sessionId = await AsyncStorage.getItem(STORAGE_KEYS.LIVE_LOCATION_SESSION_ID);
       const sessionUserId = await AsyncStorage.getItem(STORAGE_KEYS.LIVE_LOCATION_USER_ID);
-      const sessionDeviceId = await AsyncStorage.getItem(STORAGE_KEYS.LIVE_LOCATION_DEVICE_ID);
 
       if (sessionId === null || sessionUserId === null) return;
 
-      await updateLiveLocation(
-        sessionId,
-        fix.coords.latitude,
-        fix.coords.longitude,
-        sessionUserId,
-        sessionDeviceId ?? undefined,
-      );
+      const coordinate = { latitude: fix.coords.latitude, longitude: fix.coords.longitude };
+      const appendPoint = shouldAppendPoint(lastTrailPoint, coordinate);
+      await updateLiveLocation(sessionId, coordinate.latitude, coordinate.longitude, appendPoint);
+      if (appendPoint) lastTrailPoint = coordinate;
     } catch (taskError) {
       captureException(taskError);
     }
@@ -242,6 +243,7 @@ export function useLiveLocation(): UseLiveLocationResult {
 
       const fix = await getCurrentLocation();
       const deviceId = await getOrCreateDeviceId();
+      const shareToken = await generateShareToken();
       const newSessionId = await createLiveLocationSession(
         userId,
         sharedWithUserIds,
@@ -249,7 +251,9 @@ export function useLiveLocation(): UseLiveLocationResult {
         fix.latitude,
         fix.longitude,
         deviceId,
+        shareToken,
       );
+      lastTrailPoint = { latitude: fix.latitude, longitude: fix.longitude };
 
       const expiryDate = new Date(Date.now() + durationHours * MS_PER_HOUR);
       await AsyncStorage.multiSet([
@@ -283,7 +287,11 @@ export function useLiveLocation(): UseLiveLocationResult {
       );
       const name = surakshakUser?.name ?? profile?.name ?? 'User';
       const language = surakshakUser?.language ?? profile?.language ?? 'en';
-      const locationUrl = getLocationUrl(fix.latitude, fix.longitude);
+      // Prefer the live tracking link; fall back to a static pin if no tracking
+      // page is configured for this build.
+      const locationUrl =
+        buildTrackingUrl(ENV.TRACKING_BASE_URL, shareToken) ??
+        getLocationUrl(fix.latitude, fix.longitude);
 
       const untilTime = formatClockTime(expiryDate);
       const result = await sendLiveLocationShare(selected, locationUrl, name, untilTime, language);
