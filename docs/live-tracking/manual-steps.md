@@ -4,7 +4,7 @@ Everything that cannot be done from code and must be done by a person, in the or
 
 ## 0. Merge order
 
-1. App PRs: #180 (merged), PR2, then PR3 and PR4 when they exist.
+1. App PRs: #180, #181 and #182 (merged), then PR4 (share-sheet, copy-link, revoke-link, iOS wording).
 2. Functions PR into `develop`.
 3. Landing PR into `develop`.
 
@@ -52,8 +52,9 @@ Nothing deploys from `develop` in any repo. Deploys happen when you promote `dev
 
 ## 6. Release the app
 
-- [ ] PRs #180 and PR2 contain **no native change and no dependency addition**, so they can ship as an **OTA** update to builds with the current `version`. Promote `develop` to `staging` first.
-- [ ] PR4 (planned) rewords the iOS "Always location" usage string and so needs a **`version` bump and a full EAS build** (`runtimeVersion` is `appVersion`). Do not ship that change OTA.
+- [ ] #180, #181 and #182 contain **no native change and no dependency addition**, so they ship as an **OTA** update to builds with the current `version`. Promote `develop` to `staging` first.
+- [ ] PR4 changes `app.config.ts` (the iOS "Always location" usage string). By the repo's build rules that forces a **full EAS build** on the next `staging` / `production` deploy. `version` is deliberately **not** bumped, so the new build keeps `runtimeVersion` 1.4.2 and still receives OTA updates like every existing install. The new wording only takes effect on devices that install the new binary; older installs keep the old text until they update from the store. The change is only a permission string, so there is no native API difference between old and new builds.
+- [ ] The first build with the new string must go to App Store review with the "Always" justification noted in step 8.
 
 ## 7. End-to-end test (two phones, staging)
 
@@ -65,6 +66,8 @@ Nothing deploys from `develop` in any repo. Deploys happen when you promote `dev
 - [ ] Deny "Always" location on A: the orange "Keep Surakshak open" card appears, and updates only flow while the app is open.
 - [ ] Arrival: start sharing with a destination about 1 km away, walk or ride there. Sharing should stop on its own within a minute of arriving, you get an "You've arrived" notification, and the page shows the arrived state with no map. Check the Firestore session: `isActive: false`, `status: 'arrived'`. (Allow notifications for the app, or the notice is skipped; sharing still stops.)
 - [ ] Arrival edge cases: start sharing while standing at the destination, which must **not** end the share; and pick a destination, then drive past it without stopping, which should end it only if the fixes land within about 100 m of the pin.
+- [ ] Link controls on A: "Copy link" puts the full `…/track/<token>` URL on the clipboard, "Share link" opens the system share sheet with the message and link (try WhatsApp). Tap "Stop link" and confirm: phone B's page switches to "not valid / stopped" within a few seconds while A keeps sharing, and A shows the "tracking link is stopped" note. Force-quit and reopen A: the note is still there.
+- [ ] iOS permission prompt: on a fresh install of the **new build**, the "Always" location prompt shows the new wording about trusted contacts and safe journeys.
 - [ ] Stop sharing on A: the page shows "ended" and no coordinates. Re-open the old link a minute later: still "ended".
 - [ ] Open `.../track/00000000000000000000000000000000` and a malformed token: both show the invalid-link state, not an error page.
 - [ ] Check the Firestore usage graph for a few minutes of tracking and confirm write volume matches expectations (about one batched write per fix).
@@ -78,7 +81,7 @@ Nothing deploys from `develop` in any repo. Deploys happen when you promote `dev
 ## 9. Product decisions still open
 
 - [ ] **How are contacts alerted when contact is lost?** v1 only turns the web page red. Options (functions spec §2): an SMS provider (needs DLT registration), or push to contacts who are Surakshak users (needs phone numbers stored). Decide before building escalation.
-- [ ] **ETA is not computed anywhere yet.** The app stores the destination and the web page can show `eta` when present, but nothing writes `eta`. It needs a function (spec: `functions-spec.md` §3, using a server-side Directions key) that was deliberately left out of the first functions PR. Without it the page shows the destination but no "about 14 min away".
+- **ETA: decided not to build.** The app stores the destination and the web page shows `eta` only if present; nothing writes it, so the page shows the destination but no "about 14 min away". If you ever want it, the spec is `functions-spec.md` §3 (server-side Directions key).
 - [ ] Per-contact links with view receipts, and other ideas in the plan file, if wanted later.
 
 ## 10. Housekeeping

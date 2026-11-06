@@ -1,7 +1,8 @@
 import { MaterialIcons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Linking, Pressable, View } from 'react-native';
+import { Alert, Linking, Pressable, Share, View } from 'react-native';
 
 import { GuestBanner } from '@/components/features/auth/GuestBanner';
 import { ContactMultiSelect } from '@/components/features/location/ContactMultiSelect';
@@ -52,6 +53,9 @@ export default function LiveLocationScreen(): React.JSX.Element {
     trackingProfile,
     batteryLevel,
     destination,
+    trackingUrl,
+    linkStatus,
+    revokeLink,
     startSharing,
     stopSharing,
     extendTime,
@@ -124,6 +128,42 @@ export default function LiveLocationScreen(): React.JSX.Element {
     });
   }, [extendTime, t]);
 
+  const handleCopyLink = useCallback((): void => {
+    if (trackingUrl === null) return;
+    Clipboard.setStringAsync(trackingUrl)
+      .then(() => Alert.alert(t('location.linkCopied')))
+      .catch((error: unknown) => {
+        captureException(error);
+        Alert.alert(t('errors.generic'));
+      });
+  }, [trackingUrl, t]);
+
+  const handleShareLink = useCallback((): void => {
+    if (trackingUrl === null) return;
+    Share.share({ message: t('location.shareMessage', { url: trackingUrl }) }).catch(
+      (error: unknown) => {
+        captureException(error);
+        Alert.alert(t('errors.generic'));
+      },
+    );
+  }, [trackingUrl, t]);
+
+  const handleRevokeLink = useCallback((): void => {
+    Alert.alert(t('location.revokeLinkConfirm'), undefined, [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('location.revokeLink'),
+        style: 'destructive',
+        onPress: (): void => {
+          revokeLink().catch((error: unknown) => {
+            captureException(error);
+            Alert.alert(t('errors.generic'));
+          });
+        },
+      },
+    ]);
+  }, [revokeLink, t]);
+
   const handleOpenSettings = useCallback((): void => {
     Linking.openSettings().catch((error: unknown) => captureException(error));
   }, []);
@@ -172,6 +212,44 @@ export default function LiveLocationScreen(): React.JSX.Element {
                 <MaterialIcons name="flag" size={ICON_SIZE.STATUS} color={COLORS.STONE} />
                 <Text variant="caption" numberOfLines={1} className="flex-1">
                   {t('location.headingTo', { name: destination.name })}
+                </Text>
+              </View>
+            )}
+
+            {linkStatus === 'active' && trackingUrl !== null && (
+              <View className="mt-4 rounded-xl border border-stone/30 p-3">
+                <Text variant="label">{t('location.trackingLink')}</Text>
+                <Text variant="caption" numberOfLines={1} className="mt-1 text-shakti-purple">
+                  {trackingUrl}
+                </Text>
+                <View className="mt-3 flex-row flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    label={t('location.copyLink')}
+                    onPress={handleCopyLink}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    label={t('location.shareLink')}
+                    onPress={handleShareLink}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    label={t('location.revokeLink')}
+                    onPress={handleRevokeLink}
+                  />
+                </View>
+              </View>
+            )}
+
+            {linkStatus === 'revoked' && (
+              <View className="mt-4 flex-row items-center gap-2">
+                <MaterialIcons name="link-off" size={ICON_SIZE.STATUS} color={COLORS.STONE} />
+                <Text variant="caption" className="flex-1">
+                  {t('location.linkRevokedNotice')}
                 </Text>
               </View>
             )}

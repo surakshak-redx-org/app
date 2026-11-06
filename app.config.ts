@@ -159,7 +159,7 @@ const config: ExpoConfig = {
       NSLocationWhenInUseUsageDescription:
         'Surakshak needs your location to share with emergency contacts.',
       NSLocationAlwaysAndWhenInUseUsageDescription:
-        'Surakshak needs background location for safe journey monitoring.',
+        'Surakshak uses your location in the background to keep sharing it with your trusted contacts and to monitor safe journeys while your screen is off.',
       NSContactsUsageDescription: 'Surakshak needs contacts access to add emergency contacts.',
       NSPhotoLibraryAddUsageDescription:
         'Surakshak needs permission to save evidence photos and recordings to your library.',
@@ -199,7 +199,7 @@ const config: ExpoConfig = {
       'expo-location',
       {
         locationAlwaysAndWhenInUsePermission:
-          'Surakshak needs background location for safe journey monitoring.',
+          'Surakshak uses your location in the background to keep sharing it with your trusted contacts and to monitor safe journeys while your screen is off.',
         isAndroidBackgroundLocationEnabled: true,
         isAndroidForegroundServiceEnabled: true,
         isIosBackgroundLocationEnabled: true,

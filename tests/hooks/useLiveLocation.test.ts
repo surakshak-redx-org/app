@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import * as Location from 'expo-location';
 
+import { ENV } from '@/config/env';
 import { STORAGE_KEYS } from '@/constants/storage';
 import { useLiveLocation } from '@/hooks/useLiveLocation';
 import { trackLiveLocationExpired, trackLiveLocationStopped } from '@/services/analytics.service';
@@ -9,6 +10,7 @@ import {
   createLiveLocationSession,
   extendLiveLocationSession,
   getActiveLiveSession,
+  revokeShareToken,
   stopLiveLocationSession,
 } from '@/services/firebase/live-location.service';
 import { getCurrentLocation, watchLocation } from '@/services/location.service';
@@ -27,6 +29,7 @@ jest.mock('@/services/firebase/live-location.service', () => ({
   createLiveLocationSession: jest.fn(() => Promise.resolve('session-1')),
   extendLiveLocationSession: jest.fn(() => Promise.resolve()),
   stopLiveLocationSession: jest.fn(() => Promise.resolve()),
+  revokeShareToken: jest.fn(() => Promise.resolve()),
   updateLiveLocation: jest.fn(() => Promise.resolve()),
   getActiveLiveSession: jest.fn(() => Promise.resolve(null)),
 }));
@@ -250,6 +253,118 @@ describe('useLiveLocation', () => {
         ],
       ]),
     );
+  });
+
+  describe('tracking link', () => {
+    const BASE_URL = 'https://track.example.com/track';
+
+    afterEach(() => {
+      Object.assign(ENV, { TRACKING_BASE_URL: undefined });
+    });
+
+    it('reports the link as unavailable when no tracking page is configured', async () => {
+      const { result } = await renderHook(() => useLiveLocation());
+
+      await act(async () => {
+        await result.current.startSharing(['c1'], 1);
+      });
+
+      expect(result.current.linkStatus).toBe('unavailable');
+      expect(result.current.trackingUrl).toBeNull();
+    });
+
+    it('texts contacts the tracking link and exposes it for copying and sharing', async () => {
+      Object.assign(ENV, { TRACKING_BASE_URL: BASE_URL });
+      const { result } = await renderHook(() => useLiveLocation());
+
+      await act(async () => {
+        await result.current.startSharing(['c1'], 1);
+      });
+
+      expect(sendLiveLocationShare).toHaveBeenCalledWith(
+        expect.anything(),
+        `${BASE_URL}/abcd1234`,
+        'Asha',
+        expect.any(String),
+        'en',
+      );
+      expect(result.current.trackingUrl).toBe(`${BASE_URL}/abcd1234`);
+      expect(result.current.linkStatus).toBe('active');
+    });
+
+    it('revokeLink removes the token but keeps the session running', async () => {
+      Object.assign(ENV, { TRACKING_BASE_URL: BASE_URL });
+      const { result } = await renderHook(() => useLiveLocation());
+      await act(async () => {
+        await result.current.startSharing(['c1'], 1);
+      });
+
+      await act(async () => {
+        await result.current.revokeLink();
+      });
+
+      expect(revokeShareToken).toHaveBeenCalledWith('session-1');
+      expect(result.current.trackingUrl).toBeNull();
+      expect(result.current.linkStatus).toBe('revoked');
+      expect(result.current.isActive).toBe(true);
+    });
+
+    it('keeps the link active when revoking fails', async () => {
+      Object.assign(ENV, { TRACKING_BASE_URL: BASE_URL });
+      const { result } = await renderHook(() => useLiveLocation());
+      await act(async () => {
+        await result.current.startSharing(['c1'], 1);
+      });
+      jest.mocked(revokeShareToken).mockRejectedValueOnce(new Error('offline'));
+
+      await act(async () => {
+        await expect(result.current.revokeLink()).rejects.toThrow('offline');
+      });
+
+      expect(result.current.linkStatus).toBe('active');
+      expect(result.current.trackingUrl).toBe(`${BASE_URL}/abcd1234`);
+    });
+
+    it('does nothing when there is no session to revoke', async () => {
+      const { result } = await renderHook(() => useLiveLocation());
+
+      await act(async () => {
+        await result.current.revokeLink();
+      });
+
+      expect(revokeShareToken).not.toHaveBeenCalled();
+    });
+
+    it('restores the link of a running session', async () => {
+      Object.assign(ENV, { TRACKING_BASE_URL: BASE_URL });
+      jest.mocked(getActiveLiveSession).mockResolvedValueOnce({
+        id: 'session-9',
+        userId: 'u1',
+        isActive: true,
+        expiresAt: { toDate: () => new Date(Date.now() + 3_600_000) },
+        sharedWithUserIds: ['c1'],
+        shareToken: 'feedface',
+      } as never);
+
+      const { result } = await renderHook(() => useLiveLocation());
+
+      await waitFor(() => expect(result.current.trackingUrl).toBe(`${BASE_URL}/feedface`));
+      expect(result.current.linkStatus).toBe('active');
+    });
+
+    it('forgets the link when sharing stops', async () => {
+      Object.assign(ENV, { TRACKING_BASE_URL: BASE_URL });
+      const { result } = await renderHook(() => useLiveLocation());
+      await act(async () => {
+        await result.current.startSharing(['c1'], 1);
+      });
+
+      await act(async () => {
+        await result.current.stopSharing();
+      });
+
+      expect(result.current.trackingUrl).toBeNull();
+    });
   });
 
   it('stopSharing forgets the destination', async () => {

@@ -15,6 +15,7 @@ import {
   createLiveLocationSession,
   extendLiveLocationSession,
   getActiveLiveSession,
+  revokeShareToken,
   stopLiveLocationSession,
 } from '@/services/firebase/live-location.service';
 import {
@@ -75,6 +76,13 @@ function toLocationObject(location: LocationData): Location.LocationObject {
 /** Why a live location session ended: the user stopped it, or its timer ran out. */
 export type LiveLocationEndReason = 'user' | 'expired';
 
+/**
+ * State of the public tracking link for the running session:
+ * `active` it works, `revoked` the sender stopped it, `unavailable` this build
+ * has no tracking page configured (contacts only got a static map pin).
+ */
+export type LiveLocationLinkStatus = 'active' | 'revoked' | 'unavailable';
+
 export interface UseLiveLocationResult {
   isActive: boolean;
   sessionId: string | null;
@@ -91,6 +99,11 @@ export interface UseLiveLocationResult {
   batteryLevel: number | null;
   /** Where the sender is heading, if set; the share ends automatically on arrival. */
   destination: PlaceLocation | null;
+  /** The shareable tracking link, or `null` when it is revoked or not configured. */
+  trackingUrl: string | null;
+  linkStatus: LiveLocationLinkStatus;
+  /** Stops the public link without ending the session. Contacts lose access immediately. */
+  revokeLink: () => Promise<void>;
   startSharing: (
     sharedWithUserIds: string[],
     durationHours: number,
@@ -118,6 +131,7 @@ export function useLiveLocation(): UseLiveLocationResult {
   const [sharedWithCount, setSharedWithCount] = useState(0);
   const [foregroundOnly, setForegroundOnly] = useState(false);
   const [destination, setDestination] = useState<PlaceLocation | null>(null);
+  const [shareToken, setShareToken] = useState<string | null>(null);
 
   const stopSharing = useCallback(
     async (reason: LiveLocationEndReason = 'user'): Promise<void> => {
@@ -132,6 +146,7 @@ export function useLiveLocation(): UseLiveLocationResult {
       setSharedWithCount(0);
       setForegroundOnly(false);
       setDestination(null);
+      setShareToken(null);
 
       try {
         const started = await Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
@@ -183,6 +198,7 @@ export function useLiveLocation(): UseLiveLocationResult {
           setSharedWithCount(session.sharedWithUserIds.length);
           setForegroundOnly(!backgroundRunning);
           setDestination(session.destination ?? null);
+          setShareToken(session.shareToken ?? null);
           void AsyncStorage.multiSet([
             [STORAGE_KEYS.LIVE_LOCATION_SESSION_ID, session.id],
             [STORAGE_KEYS.LIVE_LOCATION_USER_ID, userId],
@@ -239,7 +255,7 @@ export function useLiveLocation(): UseLiveLocationResult {
 
       const fix = await getCurrentLocation();
       const deviceId = await getOrCreateDeviceId();
-      const shareToken = await generateShareToken();
+      const newToken = await generateShareToken();
       const newSessionId = await createLiveLocationSession(
         userId,
         sharedWithUserIds,
@@ -247,7 +263,7 @@ export function useLiveLocation(): UseLiveLocationResult {
         fix.latitude,
         fix.longitude,
         deviceId,
-        shareToken,
+        newToken,
         chosenDestination === null ? undefined : toStoredDestination(chosenDestination),
       );
       resetTrail({ latitude: fix.latitude, longitude: fix.longitude });
@@ -269,6 +285,7 @@ export function useLiveLocation(): UseLiveLocationResult {
         );
       }
       setDestination(chosenDestination);
+      setShareToken(newToken);
       setLiveLocationActive(true, newSessionId);
       useLocationStore.getState().setLiveTrackingStatus(INITIAL_TRACKING_PROFILE, null);
       setExpiresAt(expiryDate);
@@ -289,7 +306,7 @@ export function useLiveLocation(): UseLiveLocationResult {
       // Prefer the live tracking link; fall back to a static pin if no tracking
       // page is configured for this build.
       const locationUrl =
-        buildTrackingUrl(ENV.TRACKING_BASE_URL, shareToken) ??
+        buildTrackingUrl(ENV.TRACKING_BASE_URL, newToken) ??
         getLocationUrl(fix.latitude, fix.longitude);
 
       const untilTime = formatClockTime(expiryDate);
@@ -327,6 +344,20 @@ export function useLiveLocation(): UseLiveLocationResult {
     [userId],
   );
 
+  const revokeLink = useCallback(async (): Promise<void> => {
+    const activeSessionId = useLocationStore.getState().liveLocationSessionId;
+    if (activeSessionId === null) return;
+
+    await revokeShareToken(activeSessionId);
+    setShareToken(null);
+  }, []);
+
+  const trackingUrl =
+    shareToken === null ? null : buildTrackingUrl(ENV.TRACKING_BASE_URL, shareToken);
+  const trackingConfigured = ENV.TRACKING_BASE_URL !== undefined;
+  let linkStatus: LiveLocationLinkStatus = 'unavailable';
+  if (trackingConfigured) linkStatus = shareToken === null ? 'revoked' : 'active';
+
   const currentLocationUrl =
     currentLocation === null
       ? null
@@ -342,6 +373,9 @@ export function useLiveLocation(): UseLiveLocationResult {
     trackingProfile,
     batteryLevel,
     destination,
+    trackingUrl,
+    linkStatus,
+    revokeLink,
     startSharing,
     stopSharing,
     extendTime,
