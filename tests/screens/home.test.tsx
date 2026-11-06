@@ -6,6 +6,7 @@ import { Alert } from 'react-native';
 import { ROUTES } from '@/constants/routes';
 import { STORAGE_FLAG_ON, STORAGE_KEYS } from '@/constants/storage';
 import { useAuthStore } from '@/stores/auth.store';
+import { useLocationStore } from '@/stores/location.store';
 import { useSOSStore } from '@/stores/sos.store';
 import { useUserStore } from '@/stores/user.store';
 import HomeScreen from '@app/(tabs)/index';
@@ -303,7 +304,7 @@ describe('HomeScreen', () => {
     });
 
     const { getByText } = await render(<HomeScreen />);
-    await fireEvent.press(getByText('Live Location'));
+    await fireEvent.press(getByText('Live Tracking & Journeys'));
 
     expect(useAuthStore.getState().isGuestSigningIn).toBe(true);
     expect(mockPush).toHaveBeenCalledWith(ROUTES.WELCOME);
@@ -315,7 +316,8 @@ describe('HomeScreen', () => {
     const { getByText } = await render(<HomeScreen />);
     await fireEvent.press(getByText('Nearby Help'));
 
-    expect(mockPush).toHaveBeenCalledWith(ROUTES.NEARBY_HELP);
+    expect(useLocationStore.getState().isNearbyHelpRequested).toBe(true);
+    expect(mockPush).toHaveBeenCalledWith({ pathname: ROUTES.MAP, params: { openHelp: '1' } });
   });
 
   it('navigates straight through for a signed-in user', async () => {
