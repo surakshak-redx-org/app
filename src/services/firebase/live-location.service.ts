@@ -17,7 +17,11 @@ import {
 
 import { firestore } from '@/config/firebase';
 import { APP_CONFIG } from '@/constants/config';
-import type { LiveLocationSession, LiveLocationTelemetry } from '@/types/location.types';
+import type {
+  LiveLocationSession,
+  LiveLocationTelemetry,
+  PlaceLocation,
+} from '@/types/location.types';
 import { getLocationUrl } from '@/utils/location.utils';
 
 const SESSIONS_COLLECTION = 'liveLocationSessions';
@@ -54,6 +58,7 @@ export async function createLiveLocationSession(
   initialLng: number,
   deviceId?: string,
   shareToken?: string,
+  destination?: PlaceLocation,
 ): Promise<string> {
   try {
     // BUG-136: Deactivate any other active live location sessions for this user
@@ -86,6 +91,13 @@ export async function createLiveLocationSession(
     };
     if (shareToken !== undefined) {
       sessionPayload.shareToken = shareToken;
+    }
+    if (destination !== undefined) {
+      sessionPayload.destination = {
+        name: destination.name,
+        latitude: destination.latitude,
+        longitude: destination.longitude,
+      };
     }
     if (deviceId !== undefined) {
       sessionPayload.deviceId = deviceId;
@@ -181,6 +193,20 @@ export async function stopLiveLocationSession(sessionId: string): Promise<void> 
     await updateDoc(sessionDoc(sessionId), { isActive: false, status: 'ended' });
   } catch (error) {
     console.error('stopLiveLocationSession failed:', error);
+    throw error;
+  }
+}
+
+/**
+ * Ends a session because the sender reached the destination. Unlike a plain
+ * stop, `status: 'arrived'` lets the tracking page tell contacts they got there.
+ * @phase Phase 4 — Location & Maps
+ */
+export async function markLiveLocationArrived(sessionId: string): Promise<void> {
+  try {
+    await updateDoc(sessionDoc(sessionId), { isActive: false, status: 'arrived' });
+  } catch (error) {
+    console.error('markLiveLocationArrived failed:', error);
     throw error;
   }
 }

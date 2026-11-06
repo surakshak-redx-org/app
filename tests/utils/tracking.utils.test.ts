@@ -2,7 +2,11 @@ import * as Crypto from 'expo-crypto';
 
 import { APP_CONFIG } from '@/constants/config';
 import {
+  type ArrivalState,
+  INITIAL_ARRIVAL_STATE,
   buildTrackingUrl,
+  distanceMeters,
+  evaluateArrival,
   generateShareToken,
   nextStationarySince,
   selectTrackingProfile,
@@ -73,6 +77,60 @@ describe('selectTrackingProfile', () => {
 
   it('ignores an unknown battery level', () => {
     expect(selectTrackingProfile(input({ speedMps: 20, batteryLevel: undefined }))).toBe('moving');
+  });
+});
+
+describe('evaluateArrival', () => {
+  const RADIUS = APP_CONFIG.LIVE_LOCATION_ARRIVAL_RADIUS_METERS;
+  const ARM = APP_CONFIG.LIVE_LOCATION_ARRIVAL_ARM_METERS;
+  const ARMED: ArrivalState = { armed: true, insideFixes: 0 };
+
+  it('arms once the sender is well away from the destination', () => {
+    const result = evaluateArrival(INITIAL_ARRIVAL_STATE, ARM, 10);
+    expect(result).toEqual({ state: { armed: true, insideFixes: 0 }, arrived: false });
+  });
+
+  it('does nothing when the share starts right next to the destination', () => {
+    const result = evaluateArrival(INITIAL_ARRIVAL_STATE, 20, 10);
+    expect(result).toEqual({ state: INITIAL_ARRIVAL_STATE, arrived: false });
+  });
+
+  it('needs several consecutive fixes inside the radius', () => {
+    const first = evaluateArrival(ARMED, RADIUS - 1, 10);
+    expect(first).toEqual({ state: { armed: true, insideFixes: 1 }, arrived: false });
+
+    const second = evaluateArrival(first.state, RADIUS - 1, 10);
+    expect(second.arrived).toBe(true);
+  });
+
+  it('counts a fix exactly on the radius as inside', () => {
+    expect(evaluateArrival({ armed: true, insideFixes: 1 }, RADIUS, 10).arrived).toBe(true);
+  });
+
+  it('resets the inside count when the sender drifts back out', () => {
+    const result = evaluateArrival({ armed: true, insideFixes: 1 }, RADIUS + 50, 10);
+    expect(result).toEqual({ state: { armed: true, insideFixes: 0 }, arrived: false });
+  });
+
+  it('ignores imprecise fixes entirely', () => {
+    const state: ArrivalState = { armed: true, insideFixes: 1 };
+    const tooVague = APP_CONFIG.LIVE_LOCATION_ARRIVAL_MAX_ACCURACY_METERS + 1;
+    expect(evaluateArrival(state, 5, tooVague)).toEqual({ state, arrived: false });
+    expect(evaluateArrival(INITIAL_ARRIVAL_STATE, ARM + 500, tooVague).state.armed).toBe(false);
+  });
+
+  it('accepts a fix with unknown accuracy', () => {
+    expect(evaluateArrival({ armed: true, insideFixes: 1 }, 5, undefined).arrived).toBe(true);
+  });
+});
+
+describe('distanceMeters', () => {
+  it('measures straight-line metres between coordinates', () => {
+    const from = { latitude: 19.076, longitude: 72.8777 };
+    const to = { latitude: 19.077, longitude: 72.8777 };
+    expect(distanceMeters(from, to)).toBeGreaterThan(100);
+    expect(distanceMeters(from, to)).toBeLessThan(125);
+    expect(distanceMeters(from, from)).toBe(0);
   });
 });
 

@@ -76,6 +76,7 @@ export const ANALYTICS_EVENTS = {
   OTP_VERIFY_FAILED: 'otp_verify_failed',
   SAFE_JOURNEY_CANCELLED: 'safe_journey_cancelled',
   LIVE_LOCATION_EXPIRED: 'live_location_expired',
+  LIVE_LOCATION_ARRIVED: 'live_location_arrived',
   SAFE_CHECKIN_CONFIRMED: 'safe_checkin_confirmed',
 } as const;
 
@@ -218,6 +219,10 @@ export function trackSafeJourneyCancelled(): void {
 /** The session ran out on its own, as opposed to the user stopping it. */
 export function trackLiveLocationExpired(): void {
   trackEvent(ANALYTICS_EVENTS.LIVE_LOCATION_EXPIRED, {});
+}
+
+export function trackLiveLocationArrived(): void {
+  trackEvent(ANALYTICS_EVENTS.LIVE_LOCATION_ARRIVED, {});
 }
 
 export function trackUnsafeAreaReported(category: string): void {

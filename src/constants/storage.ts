@@ -43,6 +43,11 @@ export const STORAGE_KEYS = {
    * the background task can be relaunched with a fresh JS context between fixes.
    */
   LIVE_LOCATION_TRACKING_STATE: 'surakshak_live_session_tracking_state',
+  /**
+   * `JSON.stringify`'d `PlaceLocation` the live-location session is heading to.
+   * Read by the background task to end the share on arrival.
+   */
+  LIVE_LOCATION_DESTINATION: 'surakshak_live_session_destination',
   /** Safe Journey persistent session state to prevent watchdog orphaning across OTA/reloads (BUG-137). */
   SAFE_JOURNEY_SESSION_ID: 'surakshak_safe_journey_session_id',
   SAFE_JOURNEY_DEADLINE: 'surakshak_safe_journey_deadline',
@@ -106,6 +111,16 @@ export const STORAGE_KEYS = {
 
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];
 
+/** Every key that belongs to one running live-location session, cleared together when it ends. */
+export const LIVE_LOCATION_SESSION_STORAGE_KEYS = [
+  STORAGE_KEYS.LIVE_LOCATION_SESSION_ID,
+  STORAGE_KEYS.LIVE_LOCATION_USER_ID,
+  STORAGE_KEYS.LIVE_LOCATION_DEVICE_ID,
+  STORAGE_KEYS.LIVE_LOCATION_EXPIRES_AT,
+  STORAGE_KEYS.LIVE_LOCATION_TRACKING_STATE,
+  STORAGE_KEYS.LIVE_LOCATION_DESTINATION,
+] as const;
+
 /**
  * AsyncStorage keys that hold user-sensitive profile data, contacts, or transient
  * emergency/safety session state. Purged upon user sign-out to prevent
@@ -132,6 +147,7 @@ export const SENSITIVE_STORAGE_KEYS = [
   STORAGE_KEYS.ONBOARDING_COMPLETE,
   STORAGE_KEYS.LIVE_LOCATION_USER_ID,
   STORAGE_KEYS.LIVE_LOCATION_TRACKING_STATE,
+  STORAGE_KEYS.LIVE_LOCATION_DESTINATION,
   STORAGE_KEYS.OTP_RESEND_DEADLINE,
   STORAGE_KEYS.OTP_RESEND_PHONE,
 ] as const;

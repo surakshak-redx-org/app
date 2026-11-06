@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { ENV } from '@/config/env';
 import { captureException } from '@/config/sentry';
-import { STORAGE_KEYS } from '@/constants/storage';
+import { LIVE_LOCATION_SESSION_STORAGE_KEYS, STORAGE_KEYS } from '@/constants/storage';
 import {
   trackLiveLocationExpired,
   trackLiveLocationExtended,
@@ -29,7 +29,7 @@ import { recordSMSAlert, sendLiveLocationShare } from '@/services/sms.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { useLocationStore } from '@/stores/location.store';
 import { useUserStore } from '@/stores/user.store';
-import type { LiveTrackingProfile, LocationData } from '@/types/location.types';
+import type { LiveTrackingProfile, LocationData, PlaceLocation } from '@/types/location.types';
 import { formatClockTime } from '@/utils/date.utils';
 import { getLocationUrl } from '@/utils/location.utils';
 import { requestBackgroundLocationPermission } from '@/utils/permissions.utils';
@@ -37,13 +37,7 @@ import { buildTrackingUrl, generateShareToken } from '@/utils/tracking.utils';
 
 const MS_PER_HOUR = 60 * 60 * 1000;
 
-const SESSION_STORAGE_KEYS = [
-  STORAGE_KEYS.LIVE_LOCATION_SESSION_ID,
-  STORAGE_KEYS.LIVE_LOCATION_USER_ID,
-  STORAGE_KEYS.LIVE_LOCATION_DEVICE_ID,
-  STORAGE_KEYS.LIVE_LOCATION_EXPIRES_AT,
-  STORAGE_KEYS.LIVE_LOCATION_TRACKING_STATE,
-];
+const SESSION_STORAGE_KEYS = [...LIVE_LOCATION_SESSION_STORAGE_KEYS];
 
 async function getOrCreateDeviceId(): Promise<string> {
   const existing = await AsyncStorage.getItem(STORAGE_KEYS.DEVICE_ID);
@@ -51,6 +45,11 @@ async function getOrCreateDeviceId(): Promise<string> {
   const newId = `dev_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
   await AsyncStorage.setItem(STORAGE_KEYS.DEVICE_ID, newId);
   return newId;
+}
+
+/** Plain-data copy of a destination, safe to JSON-serialise (drops any extra fields). */
+function toStoredDestination(place: PlaceLocation): PlaceLocation {
+  return { name: place.name, latitude: place.latitude, longitude: place.longitude };
 }
 
 /**
@@ -90,7 +89,13 @@ export interface UseLiveLocationResult {
   trackingProfile: LiveTrackingProfile | null;
   /** 0–1, or `null` when unknown. */
   batteryLevel: number | null;
-  startSharing: (sharedWithUserIds: string[], durationHours: number) => Promise<void>;
+  /** Where the sender is heading, if set; the share ends automatically on arrival. */
+  destination: PlaceLocation | null;
+  startSharing: (
+    sharedWithUserIds: string[],
+    durationHours: number,
+    destination?: PlaceLocation | null,
+  ) => Promise<void>;
   /** `reason` defaults to `'user'`; the expiry timer passes `'expired'` so analytics can tell them apart. */
   stopSharing: (reason?: LiveLocationEndReason) => Promise<void>;
   extendTime: (hours: number) => Promise<void>;
@@ -112,6 +117,7 @@ export function useLiveLocation(): UseLiveLocationResult {
   const [expiresAt, setExpiresAt] = useState<Date | null>(null);
   const [sharedWithCount, setSharedWithCount] = useState(0);
   const [foregroundOnly, setForegroundOnly] = useState(false);
+  const [destination, setDestination] = useState<PlaceLocation | null>(null);
 
   const stopSharing = useCallback(
     async (reason: LiveLocationEndReason = 'user'): Promise<void> => {
@@ -125,6 +131,7 @@ export function useLiveLocation(): UseLiveLocationResult {
       setExpiresAt(null);
       setSharedWithCount(0);
       setForegroundOnly(false);
+      setDestination(null);
 
       try {
         const started = await Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
@@ -175,11 +182,20 @@ export function useLiveLocation(): UseLiveLocationResult {
           setExpiresAt(expiry);
           setSharedWithCount(session.sharedWithUserIds.length);
           setForegroundOnly(!backgroundRunning);
+          setDestination(session.destination ?? null);
           void AsyncStorage.multiSet([
             [STORAGE_KEYS.LIVE_LOCATION_SESSION_ID, session.id],
             [STORAGE_KEYS.LIVE_LOCATION_USER_ID, userId],
             [STORAGE_KEYS.LIVE_LOCATION_DEVICE_ID, session.deviceId ?? currentDeviceId],
             [STORAGE_KEYS.LIVE_LOCATION_EXPIRES_AT, String(expiry.getTime())],
+            ...(session.destination
+              ? [
+                  [
+                    STORAGE_KEYS.LIVE_LOCATION_DESTINATION,
+                    JSON.stringify(toStoredDestination(session.destination)),
+                  ] as [string, string],
+                ]
+              : []),
           ]);
         } else {
           void stopLiveLocationSession(session.id);
@@ -214,7 +230,11 @@ export function useLiveLocation(): UseLiveLocationResult {
   }, [isActive, foregroundOnly]);
 
   const startSharing = useCallback(
-    async (sharedWithUserIds: string[], durationHours: number): Promise<void> => {
+    async (
+      sharedWithUserIds: string[],
+      durationHours: number,
+      chosenDestination: PlaceLocation | null = null,
+    ): Promise<void> => {
       if (userId === null) throw new Error('Not authenticated');
 
       const fix = await getCurrentLocation();
@@ -228,6 +248,7 @@ export function useLiveLocation(): UseLiveLocationResult {
         fix.longitude,
         deviceId,
         shareToken,
+        chosenDestination === null ? undefined : toStoredDestination(chosenDestination),
       );
       resetTrail({ latitude: fix.latitude, longitude: fix.longitude });
 
@@ -239,6 +260,15 @@ export function useLiveLocation(): UseLiveLocationResult {
         [STORAGE_KEYS.LIVE_LOCATION_EXPIRES_AT, String(expiryDate.getTime())],
       ]);
       await AsyncStorage.removeItem(STORAGE_KEYS.LIVE_LOCATION_TRACKING_STATE);
+      if (chosenDestination === null) {
+        await AsyncStorage.removeItem(STORAGE_KEYS.LIVE_LOCATION_DESTINATION);
+      } else {
+        await AsyncStorage.setItem(
+          STORAGE_KEYS.LIVE_LOCATION_DESTINATION,
+          JSON.stringify(toStoredDestination(chosenDestination)),
+        );
+      }
+      setDestination(chosenDestination);
       setLiveLocationActive(true, newSessionId);
       useLocationStore.getState().setLiveTrackingStatus(INITIAL_TRACKING_PROFILE, null);
       setExpiresAt(expiryDate);
@@ -311,6 +341,7 @@ export function useLiveLocation(): UseLiveLocationResult {
     foregroundOnly,
     trackingProfile,
     batteryLevel,
+    destination,
     startSharing,
     stopSharing,
     extendTime,

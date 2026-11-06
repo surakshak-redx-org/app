@@ -36,6 +36,12 @@ describe('LiveLocationScreen', () => {
     expect(getByText('8h')).toBeTruthy();
   });
 
+  it('offers an optional destination that ends sharing on arrival', async () => {
+    const { getByText, getByPlaceholderText } = await render(<LiveLocationScreen />);
+    expect(getByPlaceholderText('Where are you going?')).toBeTruthy();
+    expect(getByText('Optional. Sharing stops automatically when you arrive.')).toBeTruthy();
+  });
+
   it('selects a contact and a duration', async () => {
     useUserStore.getState().setEmergencyContacts([
       {
@@ -88,7 +94,7 @@ describe('LiveLocationScreen', () => {
   });
 
   describe('foreground-only warning', () => {
-    function givenRunningSession(): void {
+    function givenRunningSession(overrides: Record<string, unknown> = {}): void {
       useAuthStore.setState({
         ...authSnapshot,
         surakshakUser: {
@@ -114,8 +120,17 @@ describe('LiveLocationScreen', () => {
         startedAt: { toDate: () => new Date() },
         expiresAt: { toDate: () => new Date(Date.now() + 3_600_000) },
         isActive: true,
+        ...overrides,
       } as never);
     }
+
+    it('shows where the sender is heading when the session has a destination', async () => {
+      givenRunningSession({ destination: { name: 'Office', latitude: 19.2, longitude: 72.9 } });
+      jest.mocked(Location.hasStartedLocationUpdatesAsync).mockResolvedValue(true);
+
+      const { findByText } = await render(<LiveLocationScreen />);
+      expect(await findByText('Heading to Office')).toBeTruthy();
+    });
 
     it('warns when the session has no background task running', async () => {
       givenRunningSession();

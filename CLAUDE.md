@@ -390,6 +390,8 @@ heading?: number (degrees)
 batteryLevel?: number (0-1)
 isCharging?: boolean
 trackingProfile?: 'moving' | 'walking' | 'stationary' | 'low_battery'
+destination?: { name: string, latitude: number, longitude: number } (share ends on arrival)
+eta?: { minutes: number, computedAt: Timestamp } (written by functions only)
 
 liveLocationSessions/{sessionId}/points/{pointId}
 latitude: number

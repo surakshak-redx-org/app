@@ -4,6 +4,7 @@ import {
   createLiveLocationSession,
   extendLiveLocationSession,
   getActiveLiveSession,
+  markLiveLocationArrived,
   revokeShareToken,
   stopLiveLocationSession,
   updateLiveLocation,
@@ -72,6 +73,34 @@ describe('live-location.service', () => {
 
     const payload = jest.mocked(addDoc).mock.calls[0]?.[1] as Record<string, unknown>;
     expect(payload).toMatchObject({ shareToken: 'token-abc', status: 'active', deviceId: 'dev-1' });
+  });
+
+  it('createLiveLocationSession stores only the destination fields it needs', async () => {
+    const destination = {
+      name: 'Home',
+      latitude: 19.1,
+      longitude: 72.9,
+      extra: 'dropped',
+    };
+    await createLiveLocationSession('user-1', [], 1, 0, 0, 'dev-1', 'token-abc', destination);
+
+    const payload = jest.mocked(addDoc).mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(payload.destination).toEqual({ name: 'Home', latitude: 19.1, longitude: 72.9 });
+  });
+
+  it('createLiveLocationSession omits the destination when none is given', async () => {
+    await createLiveLocationSession('user-1', [], 1, 0, 0);
+
+    const payload = jest.mocked(addDoc).mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(payload).not.toHaveProperty('destination');
+  });
+
+  it('markLiveLocationArrived ends the session with status arrived', async () => {
+    await markLiveLocationArrived('session-1');
+    expect(updateDoc).toHaveBeenCalledWith(expect.anything(), {
+      isActive: false,
+      status: 'arrived',
+    });
   });
 
   it('updateLiveLocation batches the session update without reading first', async () => {
@@ -192,6 +221,7 @@ describe('live-location.service', () => {
       },
     ],
     ['revokeShareToken', (): Promise<unknown> => revokeShareToken('s')],
+    ['markLiveLocationArrived', (): Promise<unknown> => markLiveLocationArrived('s')],
     ['stopLiveLocationSession', (): Promise<unknown> => stopLiveLocationSession('s')],
     ['getActiveLiveSession', (): Promise<unknown> => getActiveLiveSession('u')],
   ])('%s logs and rethrows when Firestore fails', async (_name, call) => {

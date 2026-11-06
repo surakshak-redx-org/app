@@ -5,6 +5,7 @@ import {
   resetUser,
   setAnalyticsSuperProperties,
   setAnalyticsUserProperties,
+  trackLiveLocationArrived,
   trackLiveLocationExpired,
   trackOtpRequested,
   trackOtpRequestFailed,
@@ -237,6 +238,8 @@ describe('analytics.service', () => {
     expect(track).toHaveBeenLastCalledWith('safe_journey_cancelled', {});
     trackLiveLocationExpired();
     expect(track).toHaveBeenLastCalledWith('live_location_expired', {});
+    trackLiveLocationArrived();
+    expect(track).toHaveBeenLastCalledWith('live_location_arrived', {});
     trackSafeCheckinConfirmed();
     expect(track).toHaveBeenLastCalledWith('safe_checkin_confirmed', {});
   });

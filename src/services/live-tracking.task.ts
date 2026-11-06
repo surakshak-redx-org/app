@@ -6,16 +6,26 @@ import * as TaskManager from 'expo-task-manager';
 import { captureException } from '@/config/sentry';
 import { COLORS } from '@/constants/colors';
 import { LIVE_TRACKING_PROFILES } from '@/constants/config';
-import { STORAGE_KEYS } from '@/constants/storage';
+import { LIVE_LOCATION_SESSION_STORAGE_KEYS, STORAGE_KEYS } from '@/constants/storage';
 import i18n from '@/i18n';
-import { trackLiveLocationExpired } from '@/services/analytics.service';
+import { trackLiveLocationArrived, trackLiveLocationExpired } from '@/services/analytics.service';
 import {
+  markLiveLocationArrived,
   stopLiveLocationSession,
   updateLiveLocation,
 } from '@/services/firebase/live-location.service';
+import { scheduleLocalNotification } from '@/services/notification.service';
 import { useLocationStore } from '@/stores/location.store';
-import type { LiveLocationTelemetry, LiveTrackingProfile } from '@/types/location.types';
+import type {
+  LiveLocationTelemetry,
+  LiveTrackingProfile,
+  PlaceLocation,
+} from '@/types/location.types';
 import {
+  type ArrivalState,
+  INITIAL_ARRIVAL_STATE,
+  distanceMeters,
+  evaluateArrival,
   nextStationarySince,
   selectTrackingProfile,
   shouldAppendPoint,
@@ -41,6 +51,7 @@ interface LocationTaskData {
 interface TrackingState {
   profile: LiveTrackingProfile;
   stationarySinceMs: number | null;
+  arrival: ArrivalState;
 }
 
 /** Last coordinate written to the route trail, so fixes can be decimated. */
@@ -55,17 +66,57 @@ function isProfileName(value: unknown): value is LiveTrackingProfile {
   return PROFILE_NAMES.some((name) => name === value);
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function parseArrival(value: unknown): ArrivalState {
+  if (!isRecord(value)) return INITIAL_ARRIVAL_STATE;
+  return {
+    armed: value.armed === true,
+    insideFixes: typeof value.insideFixes === 'number' ? value.insideFixes : 0,
+  };
+}
+
+function isPlaceLocation(value: unknown): value is PlaceLocation {
+  return (
+    isRecord(value) &&
+    typeof value.name === 'string' &&
+    typeof value.latitude === 'number' &&
+    Number.isFinite(value.latitude) &&
+    typeof value.longitude === 'number' &&
+    Number.isFinite(value.longitude)
+  );
+}
+
+/** The destination stored for the running session, or `null` if none / unreadable. */
+function parseDestination(raw: string | null): PlaceLocation | null {
+  if (raw === null) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return isPlaceLocation(parsed) ? parsed : null;
+  } catch (error) {
+    console.warn('parseDestination: ignoring corrupt destination:', error);
+    return null;
+  }
+}
+
 async function readTrackingState(): Promise<TrackingState> {
-  const fallback: TrackingState = { profile: INITIAL_TRACKING_PROFILE, stationarySinceMs: null };
+  const fallback: TrackingState = {
+    profile: INITIAL_TRACKING_PROFILE,
+    stationarySinceMs: null,
+    arrival: INITIAL_ARRIVAL_STATE,
+  };
   try {
     const raw = await AsyncStorage.getItem(STORAGE_KEYS.LIVE_LOCATION_TRACKING_STATE);
     if (raw === null) return fallback;
     const parsed: unknown = JSON.parse(raw);
-    if (typeof parsed !== 'object' || parsed === null) return fallback;
-    const { profile, stationarySinceMs } = parsed as Record<string, unknown>;
+    if (!isRecord(parsed)) return fallback;
+    const { profile, stationarySinceMs, arrival } = parsed;
     return {
       profile: isProfileName(profile) ? profile : INITIAL_TRACKING_PROFILE,
       stationarySinceMs: typeof stationarySinceMs === 'number' ? stationarySinceMs : null,
+      arrival: parseArrival(arrival),
     };
   } catch (error) {
     console.warn('readTrackingState: ignoring corrupt state:', error);
@@ -146,6 +197,34 @@ function telemetryFrom(
 }
 
 /**
+ * Ends a session because the sender reached the destination: marks it
+ * `arrived` (so the tracking page can say so), stops tracking, clears local
+ * session state and tells the sender. The remote write goes first, so a
+ * failure leaves the session running and the next fix retries.
+ */
+async function finishAsArrived(sessionId: string): Promise<void> {
+  await markLiveLocationArrived(sessionId);
+  await AsyncStorage.multiRemove([...LIVE_LOCATION_SESSION_STORAGE_KEYS]);
+  useLocationStore.getState().setLiveLocationActive(false);
+
+  try {
+    if (await Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK)) {
+      await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
+    }
+  } catch (error) {
+    console.warn('finishAsArrived: could not stop the background task:', error);
+  }
+
+  trackLiveLocationArrived();
+  await scheduleLocalNotification(
+    i18n.t('location.arrivedNotificationTitle'),
+    i18n.t('location.arrivedNotificationBody'),
+    0,
+    { type: 'live_location_arrived' },
+  ).catch((error: unknown) => captureException(error));
+}
+
+/**
  * Handles one fix: picks the sampling profile, writes the fix (with battery and
  * signal readings) to the session, and, when `applyProfile` is set and the
  * profile changed, retunes the background task.
@@ -165,11 +244,13 @@ export async function processLiveFix(
     ...(coords.accuracy != null ? { accuracy: coords.accuracy } : {}),
   });
 
-  const [sessionId, sessionUserId] = await Promise.all([
+  const [sessionId, sessionUserId, rawDestination] = await Promise.all([
     AsyncStorage.getItem(STORAGE_KEYS.LIVE_LOCATION_SESSION_ID),
     AsyncStorage.getItem(STORAGE_KEYS.LIVE_LOCATION_USER_ID),
+    AsyncStorage.getItem(STORAGE_KEYS.LIVE_LOCATION_DESTINATION),
   ]);
   if (sessionId === null || sessionUserId === null) return;
+  const destination = parseDestination(rawDestination);
 
   const nowMs = Date.now();
   const [state, battery] = await Promise.all([readTrackingState(), readBattery()]);
@@ -196,10 +277,28 @@ export async function processLiveFix(
   );
   if (appendPoint) lastTrailPoint = coordinate;
 
+  const arrivalCheck =
+    destination === null
+      ? { state: state.arrival, arrived: false }
+      : evaluateArrival(
+          state.arrival,
+          distanceMeters(coordinate, destination),
+          coords.accuracy ?? undefined,
+        );
+
   const profileChanged = profile !== state.profile;
-  if (profileChanged || stationarySinceMs !== state.stationarySinceMs) {
-    await writeTrackingState({ profile, stationarySinceMs });
+  const arrivalChanged =
+    arrivalCheck.state.armed !== state.arrival.armed ||
+    arrivalCheck.state.insideFixes !== state.arrival.insideFixes;
+  if (profileChanged || stationarySinceMs !== state.stationarySinceMs || arrivalChanged) {
+    await writeTrackingState({ profile, stationarySinceMs, arrival: arrivalCheck.state });
   }
+
+  if (arrivalCheck.arrived) {
+    await finishAsArrived(sessionId);
+    return;
+  }
+
   if (applyProfile && profileChanged) {
     try {
       await startTrackingUpdates(profile);
@@ -234,11 +333,7 @@ export function registerLiveLocationTask(): void {
             await stopLiveLocationSession(sessionId);
           }
           await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
-          await AsyncStorage.multiRemove([
-            STORAGE_KEYS.LIVE_LOCATION_SESSION_ID,
-            STORAGE_KEYS.LIVE_LOCATION_EXPIRES_AT,
-            STORAGE_KEYS.LIVE_LOCATION_TRACKING_STATE,
-          ]);
+          await AsyncStorage.multiRemove([...LIVE_LOCATION_SESSION_STORAGE_KEYS]);
           trackLiveLocationExpired();
           return;
         }
