@@ -38,6 +38,7 @@ import {
   resetUser as resetAnalytics,
   trackDisguiseModeEnabled,
   trackEvent,
+  trackSettingChanged,
 } from '@/services/analytics.service';
 import { setDisguiseIcon } from '@/services/disguise.service';
 import { AuthError, deleteAccount } from '@/services/firebase/auth.service';
@@ -109,16 +110,19 @@ export default function SettingsScreen(): React.JSX.Element {
   function handleShakeToggle(value: boolean): void {
     setShakeEnabled(value);
     persistToggle(STORAGE_KEYS.SHAKE_ENABLED, value, setShakeEnabled);
+    trackSettingChanged('shake_to_sos', value);
   }
 
   function handleBatteryToggle(value: boolean): void {
     setLowBatteryEnabled(value);
     persistToggle(STORAGE_KEYS.LOW_BATTERY_ENABLED, value, setLowBatteryEnabled);
+    trackSettingChanged('low_battery_alert', value);
   }
 
   function handleFollowDetectionToggle(value: boolean): void {
     setFollowDetectionEnabled(value);
     persistToggle(STORAGE_KEYS.FOLLOW_DETECTION_ENABLED, value, setFollowDetectionEnabled);
+    trackSettingChanged('follow_detection', value);
   }
 
   // The stored flag is "opted out", the switch is "recording allowed" -- the

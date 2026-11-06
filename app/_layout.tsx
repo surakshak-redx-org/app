@@ -26,9 +26,11 @@ import { initOneSignal } from '@/config/onesignal';
 import { captureException, initSentry, registerNavigationContainer } from '@/config/sentry';
 import { ROUTES } from '@/constants/routes';
 import { STORAGE_KEYS } from '@/constants/storage';
+import { useAnalyticsContext } from '@/hooks/useAnalyticsContext';
 import { useDisguiseGate } from '@/hooks/useDisguiseGate';
 import { registerLiveLocationTask } from '@/hooks/useLiveLocation';
 import { useSafeJourneyMonitor } from '@/hooks/useSafeJourneyMonitor';
+import { useScreenTracking } from '@/hooks/useScreenTracking';
 import { useSentryContext } from '@/hooks/useSentryContext';
 import { useTheme } from '@/hooks/useTheme';
 import { changeLanguage } from '@/i18n';
@@ -110,6 +112,8 @@ function RootLayout(): React.JSX.Element {
     registerNavigationContainer(navigationRef);
   }, [navigationRef]);
   useSentryContext();
+  useAnalyticsContext();
+  useScreenTracking();
 
   // Reports otherwise-unhandled JS errors (thrown outside any try/catch this
   // app owns) to Sentry before falling through to RN's own default handler.

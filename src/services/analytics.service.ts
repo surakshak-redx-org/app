@@ -1,4 +1,11 @@
-import { identify, resetAnalytics, track } from '@/config/mixpanel';
+import {
+  type AnalyticsProperties,
+  identify,
+  resetAnalytics,
+  setPeopleProperties,
+  setSuperProperties,
+  track,
+} from '@/config/mixpanel';
 import type { CommunityTab, PostType } from '@/types/community.types';
 import type { SMSAlertType, SOSTriggerMethod } from '@/types/emergency.types';
 
@@ -61,6 +68,15 @@ export const ANALYTICS_EVENTS = {
   ACCOUNT_DELETED: 'account_deleted',
   OTA_UPDATE_AVAILABLE: 'ota_update_available',
   OTA_UPDATE_APPLIED: 'ota_update_applied',
+  SCREEN_VIEWED: 'screen_viewed',
+  SOS_OUTCOME: 'sos_outcome',
+  SETTING_CHANGED: 'setting_changed',
+  PERMISSION_RESULT: 'permission_result',
+  OTP_REQUEST_FAILED: 'otp_request_failed',
+  OTP_VERIFY_FAILED: 'otp_verify_failed',
+  SAFE_JOURNEY_CANCELLED: 'safe_journey_cancelled',
+  LIVE_LOCATION_EXPIRED: 'live_location_expired',
+  SAFE_CHECKIN_CONFIRMED: 'safe_checkin_confirmed',
 } as const;
 
 export type AnalyticsEvent = (typeof ANALYTICS_EVENTS)[keyof typeof ANALYTICS_EVENTS];
@@ -78,6 +94,16 @@ export function resetUser(): void {
   resetAnalytics();
 }
 
+/** Added to every event from now on (app version, platform, language, guest status). */
+export function setAnalyticsSuperProperties(properties: AnalyticsProperties): void {
+  setSuperProperties(properties);
+}
+
+/** Added to the user's profile. Keep it non-identifying: no name, phone or location. */
+export function setAnalyticsUserProperties(properties: AnalyticsProperties): void {
+  setPeopleProperties(properties);
+}
+
 /* ------------------------------------------------------------------ *
  * Typed helpers — call these from features so an event name and its
  * payload shape can never drift apart.
@@ -89,6 +115,22 @@ export function trackSosTriggered(method: SOSTriggerMethod): void {
 
 export function trackSosCancelled(method: SOSTriggerMethod | null): void {
   trackEvent(ANALYTICS_EVENTS.SOS_CANCELLED, { method });
+}
+
+/**
+ * How an SOS dispatch ended, as the user experienced it. `sms_alert_sent` only
+ * says how many went out; this says why nothing did (airplane mode, a compose
+ * sheet instead of a direct send, no contacts, or a crash).
+ */
+export type SosOutcome =
+  'sent' | 'partial' | 'airplane_mode' | 'draft_fallback' | 'failed' | 'no_contacts' | 'error';
+
+export function trackSosOutcome(outcome: SosOutcome, sent: number, failed: number): void {
+  trackEvent(ANALYTICS_EVENTS.SOS_OUTCOME, {
+    outcome,
+    contacts_count: sent,
+    failed_count: failed,
+  });
 }
 
 export function trackSmsAlertSent(type: SMSAlertType, sent: number, failed: number): void {
@@ -159,6 +201,15 @@ export function trackSafeJourneyArrived(): void {
 
 export function trackSafeJourneyAlertSent(): void {
   trackEvent(ANALYTICS_EVENTS.SAFE_JOURNEY_ALERT_SENT, {});
+}
+
+export function trackSafeJourneyCancelled(): void {
+  trackEvent(ANALYTICS_EVENTS.SAFE_JOURNEY_CANCELLED, {});
+}
+
+/** The session ran out on its own, as opposed to the user stopping it. */
+export function trackLiveLocationExpired(): void {
+  trackEvent(ANALYTICS_EVENTS.LIVE_LOCATION_EXPIRED, {});
 }
 
 export function trackUnsafeAreaReported(category: string): void {
@@ -276,6 +327,45 @@ export function trackSafeCheckinMissed(): void {
 
 export function trackSafeCheckinAlertSent(): void {
   trackEvent(ANALYTICS_EVENTS.SAFE_CHECKIN_ALERT_SENT, {});
+}
+
+/** The user tapped "I'm safe" -- the happy path that `safe_checkin_missed` is the miss of. */
+export function trackSafeCheckinConfirmed(): void {
+  trackEvent(ANALYTICS_EVENTS.SAFE_CHECKIN_CONFIRMED, {});
+}
+
+/* ---------------------- auth, settings, navigation ---------------------- */
+
+export function trackOtpRequested(): void {
+  trackEvent(ANALYTICS_EVENTS.OTP_REQUESTED, {});
+}
+
+/** `reason` is an i18n error key or code, never user input. */
+export function trackOtpRequestFailed(reason: string): void {
+  trackEvent(ANALYTICS_EVENTS.OTP_REQUEST_FAILED, { reason });
+}
+
+export function trackOtpVerified(isNewUser: boolean): void {
+  trackEvent(ANALYTICS_EVENTS.OTP_VERIFIED, { is_new_user: isNewUser });
+}
+
+export function trackOtpVerifyFailed(reason: string): void {
+  trackEvent(ANALYTICS_EVENTS.OTP_VERIFY_FAILED, { reason });
+}
+
+export type SettingName = 'shake_to_sos' | 'low_battery_alert' | 'follow_detection';
+
+export function trackSettingChanged(setting: SettingName, enabled: boolean): void {
+  trackEvent(ANALYTICS_EVENTS.SETTING_CHANGED, { setting, enabled });
+}
+
+export function trackPermissionResult(permission: string, granted: boolean): void {
+  trackEvent(ANALYTICS_EVENTS.PERMISSION_RESULT, { permission, granted });
+}
+
+/** `screen` is a route template such as `law/[id]`, never a concrete id. */
+export function trackScreenViewed(screen: string): void {
+  trackEvent(ANALYTICS_EVENTS.SCREEN_VIEWED, { screen });
 }
 
 /* ------------------------------- OTA ------------------------------- */

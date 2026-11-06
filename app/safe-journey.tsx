@@ -24,7 +24,11 @@ import { APP_CONFIG, SAFE_JOURNEY_ETA_PRESETS_MINUTES } from '@/constants/config
 import { ROUTES } from '@/constants/routes';
 import { STORAGE_FLAG_OFF, STORAGE_KEYS } from '@/constants/storage';
 import { ICON_SIZE, TIMING } from '@/constants/ui';
-import { trackSafeJourneyArrived, trackSafeJourneyStarted } from '@/services/analytics.service';
+import {
+  trackSafeJourneyArrived,
+  trackSafeJourneyCancelled,
+  trackSafeJourneyStarted,
+} from '@/services/analytics.service';
 import {
   cancelSafeJourney,
   checkInSafeJourney,
@@ -421,6 +425,7 @@ export default function SafeJourneyScreen(): React.JSX.Element {
         text: t('location.cancelJourney'),
         style: 'destructive',
         onPress: (): void => {
+          trackSafeJourneyCancelled();
           setSafeJourneyActive(false);
           setActiveSession(null);
           bumpSafeJourneyRevision();

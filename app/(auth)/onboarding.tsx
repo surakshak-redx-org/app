@@ -41,6 +41,7 @@ import {
   identifyUser,
   trackEmergencyContactChange,
   trackEvent,
+  trackPermissionResult,
 } from '@/services/analytics.service';
 import { getCurrentUser } from '@/services/firebase/auth.service';
 import {
@@ -185,12 +186,14 @@ export default function OnboardingScreen(): React.JSX.Element {
   async function handleRequestPermission(item: PermissionItem): Promise<void> {
     try {
       const granted = await item.request();
+      trackPermissionResult(item.key, granted);
       if (granted) {
         setGrantedPermissions((previous) =>
           previous.includes(item.key) ? previous : [...previous, item.key],
         );
       }
     } catch (permissionError) {
+      trackPermissionResult(item.key, false);
       captureException(permissionError);
     }
   }

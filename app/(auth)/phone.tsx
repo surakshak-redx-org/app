@@ -17,14 +17,13 @@ import {
   OTP_RESEND_SECONDS,
   PHONE_DIGITS,
   PHONE_E164_PREFIX,
-  PHONE_LAST_DIGITS,
   PHONE_PREFIX_LABEL,
 } from '@/constants/auth';
 import { ROUTES } from '@/constants/routes';
 import { STORAGE_KEYS } from '@/constants/storage';
 import { ICON_SIZE, TIMING } from '@/constants/ui';
 import { useTheme } from '@/hooks/useTheme';
-import { ANALYTICS_EVENTS, trackEvent } from '@/services/analytics.service';
+import { trackOtpRequested, trackOtpRequestFailed } from '@/services/analytics.service';
 import { AuthError, sendOtp } from '@/services/firebase/auth.service';
 
 /**
@@ -116,13 +115,15 @@ export default function PhoneScreen(): React.JSX.Element {
         ],
         [STORAGE_KEYS.OTP_RESEND_PHONE, phone],
       ]);
-      trackEvent(ANALYTICS_EVENTS.OTP_REQUESTED, { phone_last4: phone.slice(-PHONE_LAST_DIGITS) });
+      trackOtpRequested();
       router.push({
         pathname: ROUTES.OTP,
         params: { phone: `${PHONE_E164_PREFIX}${phone}` },
       });
     } catch (error) {
-      setSubmitError(error instanceof AuthError ? error.i18nKey : 'errors.generic');
+      const reason = error instanceof AuthError ? error.i18nKey : 'errors.generic';
+      trackOtpRequestFailed(reason);
+      setSubmitError(reason);
     } finally {
       setIsLoading(false);
     }

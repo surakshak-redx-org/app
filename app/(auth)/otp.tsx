@@ -16,7 +16,7 @@ import { ROUTES } from '@/constants/routes';
 import { STORAGE_KEYS } from '@/constants/storage';
 import { ICON_SIZE, TIMING } from '@/constants/ui';
 import { useTheme } from '@/hooks/useTheme';
-import { ANALYTICS_EVENTS, trackEvent } from '@/services/analytics.service';
+import { trackOtpVerified, trackOtpVerifyFailed } from '@/services/analytics.service';
 import { AuthError, sendOtp, verifyOtp } from '@/services/firebase/auth.service';
 import { doesUserExist } from '@/services/firebase/user.service';
 import { maskPhone } from '@/utils/phone.utils';
@@ -107,13 +107,14 @@ export default function OtpScreen(): React.JSX.Element {
     try {
       const credential = await verifyOtp(confirmation, code);
       const isNewUser = !(await doesUserExist(credential.user.uid));
-      trackEvent(ANALYTICS_EVENTS.OTP_VERIFIED, { is_new_user: isNewUser });
+      trackOtpVerified(isNewUser);
       setStoredConfirmation(null);
       await AsyncStorage.removeItem(STORAGE_KEYS.OTP_RESEND_DEADLINE).catch(() => undefined);
       router.replace(isNewUser ? ROUTES.ONBOARDING : ROUTES.HOME);
     } catch (verifyError) {
       const isAuthError = verifyError instanceof AuthError;
       const i18nKey = isAuthError ? verifyError.i18nKey : 'errors.generic';
+      trackOtpVerifyFailed(i18nKey);
       setError(i18nKey);
 
       const isCodeInvalid =

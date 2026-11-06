@@ -9,6 +9,7 @@ import { APP_CONFIG } from '@/constants/config';
 import { STORAGE_KEYS } from '@/constants/storage';
 import i18n from '@/i18n';
 import {
+  trackLiveLocationExpired,
   trackLiveLocationExtended,
   trackLiveLocationStarted,
   trackLiveLocationStopped,
@@ -72,6 +73,7 @@ export function registerLiveLocationTask(): void {
             STORAGE_KEYS.LIVE_LOCATION_SESSION_ID,
             STORAGE_KEYS.LIVE_LOCATION_EXPIRES_AT,
           ]);
+          trackLiveLocationExpired();
           return;
         }
       }
