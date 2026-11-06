@@ -7,8 +7,10 @@ import { captureException, recordBreadcrumb } from '@/config/sentry';
 import { APP_CONFIG, LOCATION_UNAVAILABLE } from '@/constants/config';
 import { TIMING } from '@/constants/ui';
 import {
+  type SosOutcome,
   trackSmsAlertSent,
   trackSosCancelled,
+  trackSosOutcome,
   trackSosTriggered,
   trackSuspiciousFollowSosTriggered,
 } from '@/services/analytics.service';
@@ -185,6 +187,18 @@ export function useSOS(): UseSOSResult {
       const isDraft = result.isDraftFallback === true;
       const isFailed = result.sent.length === 0 && result.failed.length > 0;
       const isNoContacts = result.sent.length === 0 && result.failed.length === 0;
+      const outcome: SosOutcome = isAirplane
+        ? 'airplane_mode'
+        : isDraft
+          ? 'draft_fallback'
+          : isFailed
+            ? 'failed'
+            : isNoContacts
+              ? 'no_contacts'
+              : result.failed.length > 0
+                ? 'partial'
+                : 'sent';
+      trackSosOutcome(outcome, result.sent.length, result.failed.length);
       setLastOutcome({
         sent: result.sent.length,
         failed: result.failed.length,
@@ -205,6 +219,7 @@ export function useSOS(): UseSOSResult {
         error,
       });
       captureException(error);
+      trackSosOutcome('error', 0, 0);
       setLastOutcome({ sent: 0, failed: 0, error: 'failed' });
     } finally {
       activeMethod = null;

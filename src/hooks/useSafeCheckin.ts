@@ -8,6 +8,7 @@ import { STORAGE_KEYS } from '@/constants/storage';
 import i18n from '@/i18n';
 import {
   trackSafeCheckinAlertSent,
+  trackSafeCheckinConfirmed,
   trackSafeCheckinMissed,
   trackSafeCheckinStarted,
 } from '@/services/analytics.service';
@@ -270,6 +271,7 @@ export function useSafeCheckin(): UseSafeCheckinResult {
   }, [intervalMinutes, selectedContactIds, notifyOtherInstances]);
 
   const checkIn = useCallback(async (): Promise<void> => {
+    trackSafeCheckinConfirmed();
     const nextAt = new Date(Date.now() + intervalMinutes * MS_PER_MINUTE);
     setNextCheckInAt(nextAt);
     setMissedCount(0);

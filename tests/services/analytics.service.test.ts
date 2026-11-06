@@ -1,8 +1,21 @@
-import { track } from '@/config/mixpanel';
+import { setPeopleProperties, setSuperProperties, track } from '@/config/mixpanel';
 import {
   ANALYTICS_EVENTS,
   identifyUser,
   resetUser,
+  setAnalyticsSuperProperties,
+  setAnalyticsUserProperties,
+  trackLiveLocationExpired,
+  trackOtpRequested,
+  trackOtpRequestFailed,
+  trackOtpVerified,
+  trackOtpVerifyFailed,
+  trackPermissionResult,
+  trackSafeCheckinConfirmed,
+  trackSafeJourneyCancelled,
+  trackScreenViewed,
+  trackSettingChanged,
+  trackSosOutcome,
   trackEmergencyCallPlaced,
   trackEmergencyContactChange,
   trackEvent,
@@ -40,6 +53,8 @@ jest.mock('@/config/mixpanel', () => ({
   track: jest.fn(),
   identify: jest.fn(),
   resetAnalytics: jest.fn(),
+  setSuperProperties: jest.fn(),
+  setPeopleProperties: jest.fn(),
 }));
 
 describe('analytics.service', () => {
@@ -189,5 +204,75 @@ describe('analytics.service', () => {
     expect(track).toHaveBeenLastCalledWith('emergency_contact_updated', {});
     trackEmergencyContactChange('deleted');
     expect(track).toHaveBeenLastCalledWith('emergency_contact_deleted', {});
+  });
+
+  it('reports how an SOS ended, not just how many messages went out', () => {
+    trackSosOutcome('airplane_mode', 0, 3);
+    expect(track).toHaveBeenLastCalledWith('sos_outcome', {
+      outcome: 'airplane_mode',
+      contacts_count: 0,
+      failed_count: 3,
+    });
+
+    trackSosOutcome('sent', 2, 0);
+    expect(track).toHaveBeenLastCalledWith('sos_outcome', {
+      outcome: 'sent',
+      contacts_count: 2,
+      failed_count: 0,
+    });
+  });
+
+  it('maps the safety lifecycle helpers that were previously untracked', () => {
+    trackSafeJourneyCancelled();
+    expect(track).toHaveBeenLastCalledWith('safe_journey_cancelled', {});
+    trackLiveLocationExpired();
+    expect(track).toHaveBeenLastCalledWith('live_location_expired', {});
+    trackSafeCheckinConfirmed();
+    expect(track).toHaveBeenLastCalledWith('safe_checkin_confirmed', {});
+  });
+
+  it('maps the auth helpers and never sends a phone number', () => {
+    trackOtpRequested();
+    expect(track).toHaveBeenLastCalledWith('otp_requested', {});
+
+    trackOtpRequestFailed('auth.tooManyRequests');
+    expect(track).toHaveBeenLastCalledWith('otp_request_failed', {
+      reason: 'auth.tooManyRequests',
+    });
+
+    trackOtpVerified(true);
+    expect(track).toHaveBeenLastCalledWith('otp_verified', { is_new_user: true });
+
+    trackOtpVerifyFailed('auth.otpInvalid');
+    expect(track).toHaveBeenLastCalledWith('otp_verify_failed', { reason: 'auth.otpInvalid' });
+
+    for (const call of jest.mocked(track).mock.calls) {
+      expect(JSON.stringify(call)).not.toContain('phone');
+    }
+  });
+
+  it('maps settings, permission and screen helpers', () => {
+    trackSettingChanged('shake_to_sos', false);
+    expect(track).toHaveBeenLastCalledWith('setting_changed', {
+      setting: 'shake_to_sos',
+      enabled: false,
+    });
+
+    trackPermissionResult('location', true);
+    expect(track).toHaveBeenLastCalledWith('permission_result', {
+      permission: 'location',
+      granted: true,
+    });
+
+    trackScreenViewed('law/[id]');
+    expect(track).toHaveBeenLastCalledWith('screen_viewed', { screen: 'law/[id]' });
+  });
+
+  it('forwards super and people properties to the config layer', () => {
+    setAnalyticsSuperProperties({ app_version: '1.4.2', is_guest: false });
+    expect(setSuperProperties).toHaveBeenCalledWith({ app_version: '1.4.2', is_guest: false });
+
+    setAnalyticsUserProperties({ language: 'hi' });
+    expect(setPeopleProperties).toHaveBeenCalledWith({ language: 'hi' });
   });
 });
