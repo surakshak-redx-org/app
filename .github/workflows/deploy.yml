@@ -208,6 +208,39 @@ jobs:
             --message "$OTA_MESSAGE" \
             --non-interactive
 
+      # `eas update` leaves its export (bundles + .map files) in ./dist.
+      # Sentry matches uploaded maps to events by the Debug ID that
+      # getSentryExpoConfig (metro.config.js) injects into each bundle, so no
+      # Sentry release needs to exist -- these maps deliberately have none.
+      #
+      # Staging and production are separate Sentry ORGS (see app.config.ts), and
+      # an auth token only works for its own org, hence one secret per tier.
+      #
+      # A missing token / export is a warning, not a failure: the update is
+      # already live by this point, and failing the job would not roll it back.
+      # The warning + summary line keep a silent gap from going unnoticed.
+      - name: Upload source maps to Sentry
+        env:
+          SENTRY_AUTH_TOKEN: ${{ github.ref_name == 'production' && secrets.SENTRY_AUTH_TOKEN_PRODUCTION || secrets.SENTRY_AUTH_TOKEN_STAGING }}
+          SENTRY_ORG: ${{ github.ref_name == 'production' && 'surakshak-production' || 'surakshak-staging' }}
+          SENTRY_PROJECT: react-native
+        run: |
+          if [ -z "$SENTRY_AUTH_TOKEN" ]; then
+            echo "::warning::No Sentry auth token for ${SENTRY_ORG}; OTA stack traces will not be symbolicated."
+            echo "⚠️ Sentry source maps **not uploaded** (no auth token for \`${SENTRY_ORG}\`)" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+
+          MAP_COUNT=$(find dist -name '*.map' 2>/dev/null | wc -l | tr -d ' ')
+          if [ "$MAP_COUNT" -eq 0 ]; then
+            echo "::warning::No .map files found in dist/; nothing to upload to Sentry."
+            echo "⚠️ Sentry source maps **not uploaded** (no .map files in dist/)" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+
+          yarn sentry-expo-upload-sourcemaps dist
+          echo "✅ Uploaded ${MAP_COUNT} source map(s) to Sentry org \`${SENTRY_ORG}\`" >> $GITHUB_STEP_SUMMARY
+
   eas-build:
     name: EAS Native Build
     needs: decide-deploy-type
