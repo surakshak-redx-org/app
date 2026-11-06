@@ -62,6 +62,12 @@ export const APP_CONFIG = {
   /** Countdown turns red once the journey has this many seconds or fewer left. */
   SAFE_JOURNEY_ALERT_WARN_SECONDS: 300,
   /**
+   * How long past the expected arrival time the user has to confirm they are
+   * safe before contacts are texted. Without it, being a couple of minutes late
+   * alarmed contacts at the same moment the "are you safe?" prompt appeared.
+   */
+  SAFE_JOURNEY_OVERDUE_GRACE_SECONDS: 300,
+  /**
    * A journey found already overdue by more than this (e.g. the app was not
    * opened for hours) is closed quietly instead of texting contacts a stale
    * "check on her immediately".

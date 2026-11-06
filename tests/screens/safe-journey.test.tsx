@@ -2,6 +2,7 @@ import { fireEvent, render } from '@testing-library/react-native';
 import React from 'react';
 import { Alert } from 'react-native';
 
+import { APP_CONFIG } from '@/constants/config';
 import { useAuthStore } from '@/stores/auth.store';
 import { useLocationStore } from '@/stores/location.store';
 import { useUserStore } from '@/stores/user.store';
@@ -111,7 +112,7 @@ describe('SafeJourneyScreen', () => {
     expect(await findByText('Cancel Journey')).toBeTruthy();
   });
 
-  it('displays overdue status for an already-overdue journey and bumps monitor revision', async () => {
+  it('tells the user how long they have left while still inside the grace period', async () => {
     useAuthStore.setState({
       ...authSnapshot,
       surakshakUser: { userId: 'u1', name: 'Asha', language: 'en' } as never,
@@ -125,7 +126,35 @@ describe('SafeJourneyScreen', () => {
       etaMinutes: 30,
       sharedWithUserIds: [],
       startedAt: { toDate: () => new Date(Date.now() - 3_600_000) },
+      // One minute past the deadline: inside the grace period.
       expectedArrivalAt: { toDate: () => new Date(Date.now() - 60_000) },
+      status: 'active',
+    } as never);
+
+    const { findByText, queryByText } = await render(<SafeJourneyScreen />);
+
+    expect(await findByText(/Confirm you've arrived or extend your time within/)).toBeTruthy();
+    // Contacts have not been alerted yet, so the screen must not claim they were.
+    expect(queryByText(/An alert was sent to your emergency contacts/)).toBeNull();
+  });
+
+  it('displays overdue status for an already-overdue journey and bumps monitor revision', async () => {
+    useAuthStore.setState({
+      ...authSnapshot,
+      surakshakUser: { userId: 'u1', name: 'Asha', language: 'en' } as never,
+    });
+    const graceMs = APP_CONFIG.SAFE_JOURNEY_OVERDUE_GRACE_SECONDS * 1000;
+    mockGetActiveJourney.mockResolvedValue({
+      id: 'j1',
+      userId: 'u1',
+      destinationName: 'Andheri Station',
+      destinationLatitude: 19.1,
+      destinationLongitude: 72.8,
+      etaMinutes: 30,
+      sharedWithUserIds: [],
+      startedAt: { toDate: () => new Date(Date.now() - 3_600_000) },
+      // Past the deadline and the grace period: the alert has gone out.
+      expectedArrivalAt: { toDate: () => new Date(Date.now() - 60_000 - graceMs) },
       status: 'active',
     } as never);
     const revisionBefore = useLocationStore.getState().safeJourneyRevision;

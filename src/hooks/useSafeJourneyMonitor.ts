@@ -6,7 +6,7 @@ import { captureException } from '@/config/sentry';
 import { APP_CONFIG } from '@/constants/config';
 import { STORAGE_KEYS } from '@/constants/storage';
 import i18n from '@/i18n';
-import { trackSafeJourneyAlertSent } from '@/services/analytics.service';
+import { trackSafeJourneyAlertSent, trackSmsAlertSent } from '@/services/analytics.service';
 import {
   cancelSafeJourney,
   getActiveJourneySession,
@@ -38,6 +38,9 @@ const MS_PER_HOUR = 3_600_000;
 const DEADLINE_GRACE_MS = 500;
 // Re-evaluate at least this often: RN timers stall in deep sleep and drift on clock changes.
 const WATCHDOG_MAX_DELAY_MS = 30_000;
+const SECONDS_PER_MINUTE = 60;
+/** How long past the expected arrival the user has before contacts are texted. */
+const OVERDUE_GRACE_MS = APP_CONFIG.SAFE_JOURNEY_OVERDUE_GRACE_SECONDS * MS_PER_SECOND;
 
 async function cancelJourneyNotifications(): Promise<void> {
   await Promise.all([
@@ -65,7 +68,9 @@ async function scheduleJourneyNotifications(deadline: number, now: number): Prom
   }
   await scheduleLocalNotification(
     i18n.t('location.journeyDueTitle'),
-    i18n.t('location.journeyDueBody'),
+    i18n.t('location.journeyDueBody', {
+      minutes: Math.round(APP_CONFIG.SAFE_JOURNEY_OVERDUE_GRACE_SECONDS / SECONDS_PER_MINUTE),
+    }),
     secondsLeft,
     { type: 'safe_journey' },
     DUE_NOTIFICATION_ID,
@@ -105,7 +110,10 @@ async function sendOverdueAlert(session: SafeJourneySession): Promise<void> {
     contactsSent: result.sent,
     contactsFailed: result.failed,
   });
-  trackSafeJourneyAlertSent();
+  // The alert is marked sent before the SMS goes out, so the counts are the only
+  // way to tell an alert that reached contacts from one that reached nobody.
+  trackSafeJourneyAlertSent(result.sent.length, result.failed.length);
+  trackSmsAlertSent('safe_journey', result.sent.length, result.failed.length);
 }
 
 /**
@@ -163,18 +171,26 @@ export function useSafeJourneyMonitor(userId: string | null): void {
       }
 
       const deadline = session.expectedArrivalAt.toDate().getTime();
+      const alertAt = deadline + OVERDUE_GRACE_MS;
       const now = Date.now();
-      if (deadline > now) {
+      // Still before the point where contacts get texted: the journey stays
+      // active through the grace window so the user can confirm they are safe.
+      if (alertAt > now) {
         setSafeJourneyActive(true, session.id);
-        await scheduleJourneyNotifications(deadline, now);
+        // Past the deadline the reminders have already fired; scheduling again
+        // would cancel them and hand the scheduler a negative delay.
+        if (deadline > now) {
+          await scheduleJourneyNotifications(deadline, now);
+        }
         await AsyncStorage.multiSet([
           [STORAGE_KEYS.SAFE_JOURNEY_SESSION_ID, session.id],
           [STORAGE_KEYS.SAFE_JOURNEY_USER_ID, session.userId],
           [STORAGE_KEYS.SAFE_JOURNEY_DEADLINE, String(deadline)],
         ]).catch(() => undefined);
-        // Timer fires exactly at the expected arrival deadline (plus grace window).
+        // Timer fires when the alert is due: the deadline, the user's grace
+        // period, and a small margin for timer drift.
         const delayMs = Math.min(
-          Math.max(deadline - now + DEADLINE_GRACE_MS, 0),
+          Math.max(alertAt - now + DEADLINE_GRACE_MS, 0),
           WATCHDOG_MAX_DELAY_MS,
         );
         clearTimer();
@@ -248,11 +264,14 @@ export function useSafeJourneyMonitor(userId: string | null): void {
         if (Number.isNaN(cachedDeadline)) return;
 
         const now = Date.now();
-        if (cachedDeadline > now) {
+        const cachedAlertAt = cachedDeadline + OVERDUE_GRACE_MS;
+        if (cachedAlertAt > now) {
           setSafeJourneyActive(true, cachedId);
-          await scheduleJourneyNotifications(cachedDeadline, now);
+          if (cachedDeadline > now) {
+            await scheduleJourneyNotifications(cachedDeadline, now);
+          }
           const delayMs = Math.min(
-            Math.max(cachedDeadline - now + DEADLINE_GRACE_MS, 0),
+            Math.max(cachedAlertAt - now + DEADLINE_GRACE_MS, 0),
             WATCHDOG_MAX_DELAY_MS,
           );
           clearTimer();

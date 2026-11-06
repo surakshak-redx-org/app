@@ -405,8 +405,9 @@
     "journeyWarningTitle": "Safe Journey: 5 minutes left",
     "journeyWarningBody": "Check in or extend your time, or your contacts will be alerted.",
     "journeyDueTitle": "Safe Journey: are you safe?",
-    "journeyDueBody": "Your expected arrival time has passed, so your contacts are being alerted. Open Surakshak if you need to update them.",
+    "journeyDueBody": "Your expected arrival time has passed. Open Surakshak within {{minutes}} minutes to confirm you're safe, or your contacts will be alerted.",
     "journeyOverdue": "Journey Overdue",
+    "journeyGraceWarning": "Your arrival time has passed. Confirm you've arrived or extend your time within {{time}}, or your contacts will be alerted.",
     "journeyOverdueWarning": "Your arrival deadline has passed. An alert was sent to your emergency contacts.",
     "destinationPickRequired": "Please select a valid place from the suggestions list."
   },
