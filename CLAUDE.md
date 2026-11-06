@@ -384,6 +384,12 @@ deviceId?: string
 shareToken?: string (128-bit hex in the public tracking link; removed on revoke)
 status?: 'active' | 'arrived' | 'ended' | 'lost_contact'
 lastFixAt?: Timestamp
+accuracy?: number (metres)
+speed?: number (m/s)
+heading?: number (degrees)
+batteryLevel?: number (0-1)
+isCharging?: boolean
+trackingProfile?: 'moving' | 'walking' | 'stationary' | 'low_battery'
 
 liveLocationSessions/{sessionId}/points/{pointId}
 latitude: number

@@ -84,9 +84,35 @@ describe('live-location.service', () => {
       longitude: 2,
       locationUrl: 'https://www.google.com/maps/place/1,2',
       lastFixAt: { __serverTimestamp: true },
+      status: 'active',
     });
     expect(mockBatch.set).not.toHaveBeenCalled();
     expect(mockBatch.commit).toHaveBeenCalledTimes(1);
+  });
+
+  it('updateLiveLocation stores telemetry and drops undefined readings defensively', async () => {
+    // The type forbids `undefined`, but Firestore throws on it, so the service
+    // strips it anyway in case a caller casts around the type.
+    await updateLiveLocation('session-1', 1, 2, false, {
+      batteryLevel: 0.4,
+      isCharging: false,
+      speed: 3,
+      trackingProfile: 'walking',
+      heading: undefined,
+    } as never);
+
+    expect(mockBatch.update).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        batteryLevel: 0.4,
+        isCharging: false,
+        speed: 3,
+        trackingProfile: 'walking',
+        status: 'active',
+      }),
+    );
+    const payload = mockBatch.update.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(payload).not.toHaveProperty('heading');
   });
 
   it('updateLiveLocation also records a trail point when appendPoint is set', async () => {

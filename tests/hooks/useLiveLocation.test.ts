@@ -1,10 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, renderHook } from '@testing-library/react-native';
 import * as Location from 'expo-location';
-import * as TaskManager from 'expo-task-manager';
 
 import { STORAGE_KEYS } from '@/constants/storage';
-import { registerLiveLocationTask, useLiveLocation } from '@/hooks/useLiveLocation';
+import { useLiveLocation } from '@/hooks/useLiveLocation';
 import { trackLiveLocationExpired, trackLiveLocationStopped } from '@/services/analytics.service';
 import {
   createLiveLocationSession,
@@ -12,7 +11,7 @@ import {
   getActiveLiveSession,
   stopLiveLocationSession,
 } from '@/services/firebase/live-location.service';
-import { getCurrentLocation } from '@/services/location.service';
+import { getCurrentLocation, watchLocation } from '@/services/location.service';
 import { sendLiveLocationShare } from '@/services/sms.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { useLocationStore } from '@/stores/location.store';
@@ -41,6 +40,7 @@ jest.mock('@/services/location.service', () => ({
   getCurrentLocation: jest.fn(() =>
     Promise.resolve({ latitude: 19.076, longitude: 72.8777, timestamp: 1 }),
   ),
+  watchLocation: jest.fn(() => jest.fn()),
 }));
 
 jest.mock('@/services/sms.service', () => ({
@@ -158,54 +158,50 @@ describe('useLiveLocation', () => {
     expect(extendLiveLocationSession).toHaveBeenCalledWith('session-1', 1);
   });
 
-  it('stops background updates when background location permission is revoked', async () => {
-    registerLiveLocationTask();
-    const taskCallback = jest.mocked(TaskManager.defineTask).mock.calls[0]?.[1] as
-      ((body: { data?: unknown; error?: unknown }) => Promise<void>) | undefined;
+  it('falls back to foreground-only tracking when background permission is denied', async () => {
+    const { result } = await renderHook(() => useLiveLocation());
 
-    jest.mocked(Location.getBackgroundPermissionsAsync).mockResolvedValue({
-      granted: false,
-      status: 'denied',
-      canAskAgain: false,
-      expires: 'never',
-      android: { accuracy: 'fine' },
-    } as never);
-
-    jest.mocked(AsyncStorage.getItem).mockImplementation((key: string) => {
-      if (key === STORAGE_KEYS.LIVE_LOCATION_EXPIRES_AT)
-        return Promise.resolve(String(Date.now() + 60000));
-      if (key === STORAGE_KEYS.LIVE_LOCATION_SESSION_ID) return Promise.resolve('session-1');
-      return Promise.resolve(null);
+    await act(async () => {
+      await result.current.startSharing(['c1'], 1);
     });
 
-    await taskCallback!({ data: { locations: [{ coords: { latitude: 19, longitude: 72 } }] } });
-
-    expect(Location.stopLocationUpdatesAsync).toHaveBeenCalled();
+    expect(result.current.foregroundOnly).toBe(true);
+    // Updates then come from the foreground watch instead.
+    expect(watchLocation).toHaveBeenCalledTimes(1);
+    expect(Location.startLocationUpdatesAsync).not.toHaveBeenCalled();
+    // The session and SMS still go out; only the background task is skipped.
+    expect(sendLiveLocationShare).toHaveBeenCalled();
   });
 
-  it('registerLiveLocationTask terminates background updates when session is expired', async () => {
-    registerLiveLocationTask();
-    const taskCallback = jest.mocked(TaskManager.defineTask).mock.calls[0]?.[1] as
-      ((body: { data?: unknown; error?: unknown }) => Promise<void>) | undefined;
-    expect(taskCallback).toBeDefined();
+  it('starts the background task at the walking profile when permission is granted', async () => {
+    jest
+      .mocked(Location.requestBackgroundPermissionsAsync)
+      .mockResolvedValueOnce({ granted: true } as never);
+    const { result } = await renderHook(() => useLiveLocation());
 
-    jest.mocked(AsyncStorage.getItem).mockImplementation((key: string) => {
-      if (key === STORAGE_KEYS.LIVE_LOCATION_EXPIRES_AT) {
-        return Promise.resolve(String(Date.now() - 5000));
-      }
-      if (key === STORAGE_KEYS.LIVE_LOCATION_SESSION_ID) {
-        return Promise.resolve('session-1');
-      }
-      return Promise.resolve(null);
+    await act(async () => {
+      await result.current.startSharing(['c1'], 1);
     });
 
-    await taskCallback!({ data: { locations: [{ coords: { latitude: 19, longitude: 72 } }] } });
+    expect(result.current.foregroundOnly).toBe(false);
+    expect(watchLocation).not.toHaveBeenCalled();
+    expect(result.current.trackingProfile).toBe('walking');
+    expect(Location.startLocationUpdatesAsync).toHaveBeenCalledWith(
+      'surakshak-live-location',
+      expect.objectContaining({ timeInterval: 20_000, distanceInterval: 15 }),
+    );
+  });
 
-    expect(stopLiveLocationSession).toHaveBeenCalledWith('session-1');
-    expect(Location.stopLocationUpdatesAsync).toHaveBeenCalled();
-    expect(AsyncStorage.multiRemove).toHaveBeenCalledWith([
-      STORAGE_KEYS.LIVE_LOCATION_SESSION_ID,
-      STORAGE_KEYS.LIVE_LOCATION_EXPIRES_AT,
-    ]);
+  it('stopSharing clears the persisted tracking state', async () => {
+    useLocationStore.getState().setLiveLocationActive(true, 'session-1');
+    const { result } = await renderHook(() => useLiveLocation());
+
+    await act(async () => {
+      await result.current.stopSharing();
+    });
+
+    expect(AsyncStorage.multiRemove).toHaveBeenCalledWith(
+      expect.arrayContaining([STORAGE_KEYS.LIVE_LOCATION_TRACKING_STATE]),
+    );
   });
 });
