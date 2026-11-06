@@ -150,8 +150,8 @@ describe('RootLayout auth listener', () => {
       state: '',
       language: 'en' as const,
       isGuest: false,
-      createdAt: null as never,
-      updatedAt: null as never,
+      createdAt: { seconds: 1_700_000_000, nanoseconds: 0 } as never,
+      updatedAt: { seconds: 1_700_000_000, nanoseconds: 0 } as never,
     };
     const cachedContacts = [
       {

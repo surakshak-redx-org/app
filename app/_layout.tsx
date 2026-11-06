@@ -133,11 +133,7 @@ function RootLayout(): React.JSX.Element {
               getCachedEmergencyContacts(),
             ]);
 
-            if (
-              cachedProfile !== null &&
-              (cachedProfile.userId === firebaseUser.uid ||
-                (cachedProfile as { id?: string }).id === firebaseUser.uid)
-            ) {
+            if (cachedProfile !== null && cachedProfile.userId === firebaseUser.uid) {
               setSurakshakUser(cachedProfile);
               setProfileMirror(cachedProfile);
               identifyUser(firebaseUser.uid);

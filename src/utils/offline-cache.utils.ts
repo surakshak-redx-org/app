@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Timestamp } from '@react-native-firebase/firestore';
 
 import { captureException } from '@/config/sentry';
 import { PREDEFINED_EMERGENCY_NUMBERS } from '@/constants/emergency-numbers';
@@ -71,6 +72,59 @@ export async function getCachedUserInfo(): Promise<OfflineUserCache | null> {
   }
 }
 
+interface SerializedTimestamp {
+  seconds: number;
+  nanoseconds: number;
+}
+
+function isSerializedTimestamp(value: unknown): value is SerializedTimestamp {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Record<string, unknown>;
+  return typeof candidate.seconds === 'number' && typeof candidate.nanoseconds === 'number';
+}
+
+const LANGUAGES: readonly Language[] = ['en', 'hi', 'mr'];
+
+function isLanguage(value: unknown): value is Language {
+  return typeof value === 'string' && LANGUAGES.includes(value as Language);
+}
+
+/**
+ * Validates the parsed cache and rebuilds real Firestore `Timestamp`s, which
+ * JSON.stringify flattens to plain `{seconds, nanoseconds}` (no `toDate()`).
+ * Returns null for any shape mismatch so a corrupt cache is ignored.
+ */
+function reviveUserProfile(value: unknown): User | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const raw = value as Record<string, unknown>;
+  if (
+    typeof raw.userId !== 'string' ||
+    typeof raw.name !== 'string' ||
+    typeof raw.phone !== 'string' ||
+    typeof raw.profilePhotoUrl !== 'string' ||
+    typeof raw.city !== 'string' ||
+    typeof raw.state !== 'string' ||
+    !isLanguage(raw.language) ||
+    typeof raw.isGuest !== 'boolean' ||
+    !isSerializedTimestamp(raw.createdAt) ||
+    !isSerializedTimestamp(raw.updatedAt)
+  ) {
+    return null;
+  }
+  return {
+    userId: raw.userId,
+    name: raw.name,
+    phone: raw.phone,
+    profilePhotoUrl: raw.profilePhotoUrl,
+    city: raw.city,
+    state: raw.state,
+    language: raw.language,
+    isGuest: raw.isGuest,
+    createdAt: new Timestamp(raw.createdAt.seconds, raw.createdAt.nanoseconds),
+    updatedAt: new Timestamp(raw.updatedAt.seconds, raw.updatedAt.nanoseconds),
+  };
+}
+
 /**
  * Caches full user profile to AsyncStorage so the app can rehydrate instantly on launch.
  */
@@ -83,13 +137,14 @@ export async function cacheUserProfile(user: User): Promise<void> {
 }
 
 /**
- * Reads cached full user profile, or null if nothing has been cached.
+ * Reads cached full user profile with real `Timestamp` instances, or null if
+ * nothing valid has been cached.
  */
 export async function getCachedUserProfile(): Promise<User | null> {
   try {
     const raw = await AsyncStorage.getItem(STORAGE_KEYS.USER_PROFILE_CACHE);
     if (raw === null) return null;
-    return JSON.parse(raw) as User;
+    return reviveUserProfile(JSON.parse(raw));
   } catch (error) {
     console.warn('getCachedUserProfile: could not read cache:', error);
     return null;

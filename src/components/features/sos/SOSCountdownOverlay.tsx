@@ -70,11 +70,7 @@ export function SOSCountdownOverlay({
             accessibilityLabel={t('home.sosCancel')}
             className="mt-8 rounded-full bg-white px-8 py-4 active:opacity-90 dark:bg-white"
           >
-            <Text
-              variant="h3"
-              style={{ color: COLORS.PRIMARY_RED }}
-              className="font-bold text-primary-red dark:text-primary-red"
-            >
+            <Text variant="h3" className="font-bold text-primary-red dark:text-primary-red">
               {t('home.sosCancel')}
             </Text>
           </Pressable>

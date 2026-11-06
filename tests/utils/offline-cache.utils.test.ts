@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Timestamp } from '@react-native-firebase/firestore';
 
 import { STORAGE_KEYS } from '@/constants/storage';
 import type { EmergencyContact } from '@/types/user.types';
@@ -97,11 +98,11 @@ describe('cacheUserProfile & getCachedUserProfile', () => {
     state: 'Maharashtra',
     language: 'en' as const,
     isGuest: false,
-    createdAt: null as never,
-    updatedAt: null as never,
+    createdAt: new Timestamp(1_700_000_000, 5_000_000),
+    updatedAt: new Timestamp(1_700_000_100, 0),
   };
 
-  it('saves and reads full user profile correctly', async () => {
+  it('saves and reads full user profile with real Timestamps', async () => {
     await cacheUserProfile(dummyProfile);
     expect(AsyncStorage.setItem).toHaveBeenCalledWith(
       STORAGE_KEYS.USER_PROFILE_CACHE,
@@ -109,7 +110,17 @@ describe('cacheUserProfile & getCachedUserProfile', () => {
     );
 
     jest.mocked(AsyncStorage.getItem).mockResolvedValueOnce(JSON.stringify(dummyProfile));
-    expect(await getCachedUserProfile()).toEqual(dummyProfile);
+    const result = await getCachedUserProfile();
+    expect(result).toEqual(dummyProfile);
+    expect(result?.createdAt.toDate().getTime()).toBe(1_700_000_000_005);
+    expect(result?.updatedAt.toMillis()).toBe(1_700_000_100_000);
+  });
+
+  it('returns null when the cached profile has the wrong shape', async () => {
+    jest
+      .mocked(AsyncStorage.getItem)
+      .mockResolvedValueOnce(JSON.stringify({ ...dummyProfile, createdAt: 'yesterday' }));
+    expect(await getCachedUserProfile()).toBeNull();
   });
 
   it('returns null when no cached profile exists', async () => {

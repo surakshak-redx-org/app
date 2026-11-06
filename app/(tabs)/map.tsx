@@ -7,10 +7,11 @@ import {
   useLocalSearchParams,
   useRouter,
 } from 'expo-router';
+import { cssInterop } from 'nativewind';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Alert, Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Linking, Pressable, View } from 'react-native';
 import MapView, { Circle, Marker, PROVIDER_GOOGLE, type Region } from 'react-native-maps';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { z } from 'zod';
@@ -100,16 +101,12 @@ function formatDistance(distanceKm: number): string {
   return `${distanceKm.toFixed(1)}km`;
 }
 
-const styles = StyleSheet.create({
-  map: { flex: 1 },
-  nearbyPanelBg: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderWidth: 1,
-  },
-  nearbyIndicator: {
-    width: 40,
-  },
+// Register third-party components with NativeWind so className maps to their style props.
+cssInterop(MapView, { className: 'style' });
+cssInterop(GorhomBottomSheet, {
+  className: 'style',
+  backgroundClassName: 'backgroundStyle',
+  handleIndicatorClassName: 'handleIndicatorStyle',
 });
 
 export default function MapScreen(): React.JSX.Element {
@@ -436,7 +433,7 @@ export default function MapScreen(): React.JSX.Element {
         <MapView
           ref={mapRef}
           provider={PROVIDER_GOOGLE}
-          style={styles.map}
+          className="flex-1"
           showsUserLocation
           showsMyLocationButton
           initialRegion={initialRegion}
@@ -522,25 +519,26 @@ export default function MapScreen(): React.JSX.Element {
         {/* A labelled button rather than an icon-only FAB, and hidden while
             an area card would cover it (BUG-008). */}
         {selectedArea === null && sheetIndex === 0 && (
-          <Pressable
-            onPress={openReport}
-            accessibilityRole="button"
-            accessibilityLabel={t('map.reportArea')}
-            style={{
-              bottom:
-                APP_CONFIG.MAP_FAB_OFFSET +
-                insets.bottom +
-                APP_CONFIG.MAP_BOTTOM_SHEET_COLLAPSED_CLEARANCE,
-            }}
-            className="absolute right-5 h-14 flex-row items-center gap-2 rounded-full bg-primary-red px-5 shadow-lg"
+          <SafeAreaView
+            edges={['bottom']}
+            pointerEvents="box-none"
+            className="absolute inset-x-0 bottom-0 items-end pr-5"
           >
-            <MaterialIcons name="add-location" size={ICON_SIZE.ROW} color={COLORS.WHITE} />
-            <Text variant="label" tKey="map.reportArea" className="text-white" />
-          </Pressable>
+            {/* mb-map-fab = MAP_FAB_OFFSET + MAP_BOTTOM_SHEET_COLLAPSED_CLEARANCE (tailwind.config.js) */}
+            <Pressable
+              onPress={openReport}
+              accessibilityRole="button"
+              accessibilityLabel={t('map.reportArea')}
+              className="mb-map-fab h-14 flex-row items-center gap-2 rounded-full bg-primary-red px-5 shadow-lg"
+            >
+              <MaterialIcons name="add-location" size={ICON_SIZE.ROW} color={COLORS.WHITE} />
+              <Text variant="label" tKey="map.reportArea" className="text-white" />
+            </Pressable>
+          </SafeAreaView>
         )}
 
         {selectedArea !== null && (
-          <View className="absolute inset-x-0 bottom-0" style={{ paddingBottom: insets.bottom }}>
+          <SafeAreaView edges={['bottom']} className="absolute inset-x-0 bottom-0">
             <Card padding="lg" className="rounded-b-none">
               <View className="flex-row items-center justify-between">
                 <Text variant="h3" className="flex-1">
@@ -587,7 +585,7 @@ export default function MapScreen(): React.JSX.Element {
                 onPress={() => setSelectedAreaId(null)}
               />
             </Card>
-          </View>
+          </SafeAreaView>
         )}
 
         {selectedArea === null && (
@@ -597,11 +595,8 @@ export default function MapScreen(): React.JSX.Element {
             snapPoints={snapPoints}
             enableDynamicSizing={false}
             onChange={setSheetIndex}
-            backgroundStyle={[
-              styles.nearbyPanelBg,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-            handleIndicatorStyle={[styles.nearbyIndicator, { backgroundColor: COLORS.STONE }]}
+            backgroundClassName="rounded-t-3xl border border-[#E5E7EB] bg-white dark:border-dark-border dark:bg-charcoal"
+            handleIndicatorClassName="w-10 bg-stone"
           >
             <View className="px-4 pb-2 pt-1">
               <View className="flex-row items-center justify-between gap-2">

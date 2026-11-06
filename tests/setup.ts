@@ -55,6 +55,20 @@ jest.mock('@react-native-firebase/firestore', () => ({
       }),
   ),
   serverTimestamp: jest.fn(() => ({ __serverTimestamp: true })),
+  Timestamp: class MockTimestamp {
+    seconds: number;
+    nanoseconds: number;
+    constructor(secondsValue: number, nanosecondsValue: number) {
+      this.seconds = secondsValue;
+      this.nanoseconds = nanosecondsValue;
+    }
+    toMillis(): number {
+      return this.seconds * 1000 + Math.floor(this.nanoseconds / 1e6);
+    }
+    toDate(): Date {
+      return new Date(this.toMillis());
+    }
+  },
 }));
 
 jest.mock('expo-file-system', () => {
