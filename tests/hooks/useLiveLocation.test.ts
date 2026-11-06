@@ -5,6 +5,7 @@ import * as TaskManager from 'expo-task-manager';
 
 import { STORAGE_KEYS } from '@/constants/storage';
 import { registerLiveLocationTask, useLiveLocation } from '@/hooks/useLiveLocation';
+import { trackLiveLocationExpired, trackLiveLocationStopped } from '@/services/analytics.service';
 import {
   createLiveLocationSession,
   extendLiveLocationSession,
@@ -15,6 +16,13 @@ import { getCurrentLocation } from '@/services/location.service';
 import { sendLiveLocationShare } from '@/services/sms.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { useLocationStore } from '@/stores/location.store';
+
+jest.mock('@/services/analytics.service', () => ({
+  trackLiveLocationStarted: jest.fn(),
+  trackLiveLocationStopped: jest.fn(),
+  trackLiveLocationExtended: jest.fn(),
+  trackLiveLocationExpired: jest.fn(),
+}));
 
 jest.mock('@/services/firebase/live-location.service', () => ({
   createLiveLocationSession: jest.fn(() => Promise.resolve('session-1')),
@@ -106,6 +114,21 @@ describe('useLiveLocation', () => {
     expect(stopLiveLocationSession).toHaveBeenCalledWith('session-1');
     expect(useLocationStore.getState().isLiveLocationActive).toBe(false);
     expect(useLocationStore.getState().liveLocationSessionId).toBeNull();
+    expect(trackLiveLocationStopped).toHaveBeenCalledTimes(1);
+    expect(trackLiveLocationExpired).not.toHaveBeenCalled();
+  });
+
+  it('stopSharing("expired") reports an expiry, not a user stop', async () => {
+    useLocationStore.getState().setLiveLocationActive(true, 'session-1');
+    const { result } = await renderHook(() => useLiveLocation());
+
+    await act(async () => {
+      await result.current.stopSharing('expired');
+    });
+
+    expect(stopLiveLocationSession).toHaveBeenCalledWith('session-1');
+    expect(trackLiveLocationExpired).toHaveBeenCalledTimes(1);
+    expect(trackLiveLocationStopped).not.toHaveBeenCalled();
   });
 
   it('extendTime extends the active session', async () => {

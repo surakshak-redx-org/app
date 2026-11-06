@@ -117,6 +117,9 @@ export function registerLiveLocationTask(): void {
   });
 }
 
+/** Why a live location session ended: the user stopped it, or its timer ran out. */
+export type LiveLocationEndReason = 'user' | 'expired';
+
 export interface UseLiveLocationResult {
   isActive: boolean;
   sessionId: string | null;
@@ -124,7 +127,8 @@ export interface UseLiveLocationResult {
   sharedWithCount: number;
   currentLocationUrl: string | null;
   startSharing: (sharedWithUserIds: string[], durationHours: number) => Promise<void>;
-  stopSharing: () => Promise<void>;
+  /** `reason` defaults to `'user'`; the expiry timer passes `'expired'` so analytics can tell them apart. */
+  stopSharing: (reason?: LiveLocationEndReason) => Promise<void>;
   extendTime: (hours: number) => Promise<void>;
 }
 
@@ -142,30 +146,37 @@ export function useLiveLocation(): UseLiveLocationResult {
   const [expiresAt, setExpiresAt] = useState<Date | null>(null);
   const [sharedWithCount, setSharedWithCount] = useState(0);
 
-  const stopSharing = useCallback(async (): Promise<void> => {
-    const activeSessionId = useLocationStore.getState().liveLocationSessionId;
-    if (activeSessionId === null) return;
+  const stopSharing = useCallback(
+    async (reason: LiveLocationEndReason = 'user'): Promise<void> => {
+      const activeSessionId = useLocationStore.getState().liveLocationSessionId;
+      if (activeSessionId === null) return;
 
-    await stopLiveLocationSession(activeSessionId);
-    await AsyncStorage.multiRemove([
-      STORAGE_KEYS.LIVE_LOCATION_SESSION_ID,
-      STORAGE_KEYS.LIVE_LOCATION_USER_ID,
-      STORAGE_KEYS.LIVE_LOCATION_DEVICE_ID,
-      STORAGE_KEYS.LIVE_LOCATION_EXPIRES_AT,
-    ]);
-    setLiveLocationActive(false);
-    setExpiresAt(null);
-    setSharedWithCount(0);
+      await stopLiveLocationSession(activeSessionId);
+      await AsyncStorage.multiRemove([
+        STORAGE_KEYS.LIVE_LOCATION_SESSION_ID,
+        STORAGE_KEYS.LIVE_LOCATION_USER_ID,
+        STORAGE_KEYS.LIVE_LOCATION_DEVICE_ID,
+        STORAGE_KEYS.LIVE_LOCATION_EXPIRES_AT,
+      ]);
+      setLiveLocationActive(false);
+      setExpiresAt(null);
+      setSharedWithCount(0);
 
-    try {
-      const started = await Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
-      if (started) await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
-    } catch (error) {
-      console.warn('stopSharing: background task was not running:', error);
-    }
+      try {
+        const started = await Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
+        if (started) await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
+      } catch (error) {
+        console.warn('stopSharing: background task was not running:', error);
+      }
 
-    trackLiveLocationStopped();
-  }, [setLiveLocationActive]);
+      if (reason === 'expired') {
+        trackLiveLocationExpired();
+      } else {
+        trackLiveLocationStopped();
+      }
+    },
+    [setLiveLocationActive],
+  );
 
   // Restore an active session on mount (e.g. after an app restart).
   useEffect(() => {
@@ -221,7 +232,7 @@ export function useLiveLocation(): UseLiveLocationResult {
   useEffect(() => {
     if (expiresAt === null || !isActive) return;
     const ms = Math.max(0, expiresAt.getTime() - Date.now());
-    const timer = setTimeout(() => void stopSharing(), ms);
+    const timer = setTimeout(() => void stopSharing('expired'), ms);
     return (): void => clearTimeout(timer);
   }, [expiresAt, isActive, stopSharing]);
 
