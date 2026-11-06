@@ -380,7 +380,7 @@ export default function OnboardingScreen(): React.JSX.Element {
 
   return (
     <ErrorBoundary>
-      <SafeScreen scrollable>
+      <SafeScreen blockReplay scrollable>
         <View className="mb-8 mt-4 flex-row justify-center gap-3">
           {Array.from({ length: ONBOARDING_STEP_COUNT }, (_, index) => (
             <View

@@ -93,7 +93,7 @@ export default function SafeCheckinScreen(): React.JSX.Element {
 
   return (
     <ErrorBoundary>
-      <SafeScreen scrollable>
+      <SafeScreen blockReplay scrollable>
         <ScreenHeader titleKey="screens.safeCheckin" />
 
         {isActive ? (

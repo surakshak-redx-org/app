@@ -218,7 +218,7 @@ export default function EmergencyContactsScreen(): React.JSX.Element {
 
   return (
     <ErrorBoundary>
-      <SafeScreen scrollable>
+      <SafeScreen blockReplay scrollable>
         <ScreenHeader titleKey="emergency.contacts" />
 
         <Text variant="label" tKey="emergency.predefinedContacts" className="mb-2 mt-2" />

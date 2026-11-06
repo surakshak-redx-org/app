@@ -479,7 +479,7 @@ export default function SafeJourneyScreen(): React.JSX.Element {
 
   return (
     <ErrorBoundary>
-      <SafeScreen scrollable>
+      <SafeScreen blockReplay scrollable>
         <ScreenHeader titleKey="location.safeJourney" />
 
         {activeSession !== null ? (

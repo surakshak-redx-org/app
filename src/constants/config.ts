@@ -186,3 +186,31 @@ export const SENTRY_TRACES_SAMPLE_RATE_BY_ENV: Record<AppEnv, number> = {
   staging: 1,
   prod: 0.1,
 };
+
+/**
+ * Fraction of sessions Sentry records a full replay for, per APP_ENV. Staging is
+ * recorded fully so masking can be verified on every tester's device; production
+ * is sampled to keep volume, battery and upload cost proportional.
+ */
+export const SENTRY_REPLAY_SESSION_SAMPLE_RATE_BY_ENV: Record<AppEnv, number> = {
+  dev: 0,
+  staging: 1,
+  prod: 0.1,
+};
+
+/**
+ * Fraction of sessions that buffer a replay and upload it only if an error
+ * occurs. Kept at 1 in every tier: error replays are the reason to have replay.
+ */
+export const SENTRY_REPLAY_ERROR_SAMPLE_RATE_BY_ENV: Record<AppEnv, number> = {
+  dev: 0,
+  staging: 1,
+  prod: 1,
+};
+
+/** Percent (0-100) of sessions Mixpanel records, per APP_ENV. Mirrors Sentry's split. */
+export const MIXPANEL_REPLAY_SESSION_PERCENT_BY_ENV: Record<AppEnv, number> = {
+  dev: 0,
+  staging: 100,
+  prod: 10,
+};

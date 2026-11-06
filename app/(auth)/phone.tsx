@@ -132,7 +132,7 @@ export default function PhoneScreen(): React.JSX.Element {
 
   return (
     <ErrorBoundary>
-      <SafeScreen>
+      <SafeScreen blockReplay>
         <Pressable
           onPress={() => router.back()}
           className="mt-2 h-11 w-11 items-center justify-center"

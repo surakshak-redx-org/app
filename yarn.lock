@@ -3232,6 +3232,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@mixpanel/react-native-session-replay@npm:2.1.0":
+  version: 2.1.0
+  resolution: "@mixpanel/react-native-session-replay@npm:2.1.0"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10c0/86b8535bcb0a24c7d827516ec0a51d2f7786120ef32952271929d72afe07b13f9083efc6e227f996c56c5c26057408daa0d72efb463428d0b70acea5757531cd
+  languageName: node
+  linkType: hard
+
 "@napi-rs/wasm-runtime@npm:^1.1.4":
   version: 1.2.3
   resolution: "@napi-rs/wasm-runtime@npm:1.2.3"
@@ -14527,6 +14537,7 @@ __metadata:
     "@expo/vector-icons": "npm:^15.0.2"
     "@gorhom/bottom-sheet": "npm:^5.2.14"
     "@hookform/resolvers": "npm:^5.9.1"
+    "@mixpanel/react-native-session-replay": "npm:2.1.0"
     "@react-native-async-storage/async-storage": "npm:2.2.0"
     "@react-native-firebase/app": "npm:^26.4.0"
     "@react-native-firebase/auth": "npm:^26.4.0"

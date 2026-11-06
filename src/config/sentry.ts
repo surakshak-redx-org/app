@@ -1,9 +1,14 @@
 import * as Sentry from '@sentry/react-native';
 
 import { ENV, IS_TELEMETRY_ENABLED } from '@/config/env';
-import { SENTRY_TRACES_SAMPLE_RATE_BY_ENV } from '@/constants/config';
+import {
+  SENTRY_REPLAY_ERROR_SAMPLE_RATE_BY_ENV,
+  SENTRY_REPLAY_SESSION_SAMPLE_RATE_BY_ENV,
+  SENTRY_TRACES_SAMPLE_RATE_BY_ENV,
+} from '@/constants/config';
 import { type LogDomain, metroLogger } from '@/utils/logger.utils';
 import { sanitizeDiagnostics } from '@/utils/redaction.utils';
+import { isReplayOptedOut } from '@/utils/replay-consent.utils';
 
 export interface CaptureContext {
   domain?: LogDomain;
@@ -19,8 +24,15 @@ export interface BreadcrumbContext {
 
 type NavigationIntegration = ReturnType<typeof Sentry.reactNavigationIntegration>;
 
-/** Created in `initSentry`; stays null when telemetry is off (APP_ENV=dev). */
+/** Set once `Sentry.init` has run; stays null when telemetry is off (APP_ENV=dev). */
 let navigationIntegration: NavigationIntegration | null = null;
+
+/**
+ * The root layout hands over its navigation ref as soon as it mounts, but init
+ * now waits on a storage read first. Remember the ref so registration happens
+ * whichever of the two finishes first.
+ */
+let pendingNavigationContainer: unknown = null;
 
 /**
  * Phone numbers are the single most sensitive field Surakshak handles — an SOS
@@ -44,25 +56,61 @@ export function scrubBreadcrumb(breadcrumb: Sentry.Breadcrumb): Sentry.Breadcrum
   return sanitizeDiagnostics(breadcrumb) as Sentry.Breadcrumb;
 }
 
-export function initSentry(): void {
+export async function initSentry(): Promise<void> {
   if (!IS_TELEMETRY_ENABLED) {
     return;
   }
 
-  navigationIntegration = Sentry.reactNavigationIntegration();
+  try {
+    // Read before init because replay sample rates are fixed once Sentry starts
+    // (SDK 7.11 has no runtime pause/stop). Opting out therefore applies from the
+    // next launch. A failed read counts as opted out -- see `isReplayOptedOut`.
+    const replayOptedOut = await isReplayOptedOut();
+    const integration = Sentry.reactNavigationIntegration();
 
-  Sentry.init({
-    dsn: ENV.SENTRY_DSN,
-    environment: ENV.APP_ENV,
-    tracesSampleRate: SENTRY_TRACES_SAMPLE_RATE_BY_ENV[ENV.APP_ENV],
-    // Slow/frozen frame counts per screen. User-interaction tracing is left off
-    // on purpose: it records touched component names, and the disguise
-    // calculator's keypad is one of them.
-    enableNativeFramesTracking: true,
-    integrations: [navigationIntegration],
-    beforeSend: scrubPhoneNumbers,
-    beforeSendTransaction: scrubTransaction,
-    beforeBreadcrumb: scrubBreadcrumb,
+    Sentry.init({
+      dsn: ENV.SENTRY_DSN,
+      environment: ENV.APP_ENV,
+      tracesSampleRate: SENTRY_TRACES_SAMPLE_RATE_BY_ENV[ENV.APP_ENV],
+      // Slow/frozen frame counts per screen. User-interaction tracing is left off
+      // on purpose: it records touched component names, and the disguise
+      // calculator's keypad is one of them.
+      enableNativeFramesTracking: true,
+      replaysSessionSampleRate: replayOptedOut
+        ? 0
+        : SENTRY_REPLAY_SESSION_SAMPLE_RATE_BY_ENV[ENV.APP_ENV],
+      replaysOnErrorSampleRate: replayOptedOut
+        ? 0
+        : SENTRY_REPLAY_ERROR_SAMPLE_RATE_BY_ENV[ENV.APP_ENV],
+      integrations: replayOptedOut ? [integration] : [integration, buildReplayIntegration()],
+      beforeSend: scrubPhoneNumbers,
+      beforeSendTransaction: scrubTransaction,
+      beforeBreadcrumb: scrubBreadcrumb,
+    });
+
+    navigationIntegration = integration;
+    if (pendingNavigationContainer !== null) {
+      integration.registerNavigationContainer(pendingNavigationContainer);
+    }
+  } catch (error) {
+    // Sentry is not up, so there is nowhere to report this -- log and carry on.
+    console.error('initSentry failed:', error);
+  }
+}
+
+/**
+ * Replay for a women's-safety app: everything is masked, and the Android
+ * `canvas` strategy is used because it masks all text, inputs and images
+ * regardless of other settings (the default `pixelCopy` can misalign masks and
+ * briefly expose text). Screens that reveal location or contacts are blocked
+ * outright with `ReplayBlock`.
+ */
+function buildReplayIntegration(): ReturnType<typeof Sentry.mobileReplayIntegration> {
+  return Sentry.mobileReplayIntegration({
+    maskAllText: true,
+    maskAllImages: true,
+    maskAllVectors: true,
+    screenshotStrategy: 'canvas',
   });
 }
 
@@ -71,6 +119,7 @@ export function initSentry(): void {
  * navigation transactions. Safe to call before init or with telemetry off.
  */
 export function registerNavigationContainer(navigationContainerRef: unknown): void {
+  pendingNavigationContainer = navigationContainerRef;
   navigationIntegration?.registerNavigationContainer(navigationContainerRef);
 }
 

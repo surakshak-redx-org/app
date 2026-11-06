@@ -446,7 +446,7 @@ export default function SilentRecordingScreen(): React.JSX.Element {
 
   return (
     <ErrorBoundary>
-      <SafeScreen scrollable>
+      <SafeScreen blockReplay scrollable>
         <ScreenHeader titleKey="screens.silentRecording" />
 
         <View className="mt-4 flex-1 items-center justify-center px-2">

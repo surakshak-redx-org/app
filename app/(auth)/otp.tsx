@@ -194,7 +194,7 @@ export default function OtpScreen(): React.JSX.Element {
 
   return (
     <ErrorBoundary>
-      <SafeScreen>
+      <SafeScreen blockReplay>
         <Pressable
           onPress={handleBack}
           className="mt-2 h-11 w-11 items-center justify-center"

@@ -284,7 +284,7 @@ export default function IncidentReportScreen(): React.JSX.Element {
 
   return (
     <ErrorBoundary>
-      <SafeScreen scrollable>
+      <SafeScreen blockReplay scrollable>
         <ScreenHeader titleKey="screens.incidentReport" />
 
         <View className="mb-4 mt-2 flex-row gap-2">

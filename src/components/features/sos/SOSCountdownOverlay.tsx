@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AccessibilityInfo, Modal, Pressable, View } from 'react-native';
 
+import { ReplayBlock } from '@/components/ui/ReplayBlock';
 import { Spinner } from '@/components/ui/Spinner';
 import { Text } from '@/components/ui/Text';
 import { COLORS } from '@/constants/colors';
@@ -40,42 +41,44 @@ export function SOSCountdownOverlay({
       statusBarTranslucent
       onRequestClose={isSending ? undefined : onCancel}
     >
-      {isSending ? (
-        <View
-          className="flex-1 items-center justify-center bg-near-black/90 px-8"
-          accessibilityLiveRegion="polite"
-        >
-          <Spinner size="lg" color={COLORS.WHITE} />
-          <Text variant="h3" tKey="home.sosSending" className="mt-6 text-center text-white" />
-        </View>
-      ) : (
-        <View
-          className="flex-1 items-center justify-center bg-near-black/90 px-8"
-          accessibilityLiveRegion="assertive"
-          accessibilityRole="timer"
-          accessibilityLabel={t('home.sosCountdown', { count: countdown })}
-        >
-          <Text variant="h1" className="text-6xl text-white">
-            {String(countdown)}
-          </Text>
-          <Text
-            variant="body"
-            tKey="home.sosCountdown"
-            tOptions={{ count: countdown }}
-            className="mt-3 text-center text-white"
-          />
-          <Pressable
-            onPress={onCancel}
-            accessibilityRole="button"
-            accessibilityLabel={t('home.sosCancel')}
-            className="mt-8 rounded-full bg-white px-8 py-4 active:opacity-90 dark:bg-white"
+      <ReplayBlock>
+        {isSending ? (
+          <View
+            className="flex-1 items-center justify-center bg-near-black/90 px-8"
+            accessibilityLiveRegion="polite"
           >
-            <Text variant="h3" className="font-bold text-primary-red dark:text-primary-red">
-              {t('home.sosCancel')}
+            <Spinner size="lg" color={COLORS.WHITE} />
+            <Text variant="h3" tKey="home.sosSending" className="mt-6 text-center text-white" />
+          </View>
+        ) : (
+          <View
+            className="flex-1 items-center justify-center bg-near-black/90 px-8"
+            accessibilityLiveRegion="assertive"
+            accessibilityRole="timer"
+            accessibilityLabel={t('home.sosCountdown', { count: countdown })}
+          >
+            <Text variant="h1" className="text-6xl text-white">
+              {String(countdown)}
             </Text>
-          </Pressable>
-        </View>
-      )}
+            <Text
+              variant="body"
+              tKey="home.sosCountdown"
+              tOptions={{ count: countdown }}
+              className="mt-3 text-center text-white"
+            />
+            <Pressable
+              onPress={onCancel}
+              accessibilityRole="button"
+              accessibilityLabel={t('home.sosCancel')}
+              className="mt-8 rounded-full bg-white px-8 py-4 active:opacity-90 dark:bg-white"
+            >
+              <Text variant="h3" className="font-bold text-primary-red dark:text-primary-red">
+                {t('home.sosCancel')}
+              </Text>
+            </Pressable>
+          </View>
+        )}
+      </ReplayBlock>
     </Modal>
   );
 }
