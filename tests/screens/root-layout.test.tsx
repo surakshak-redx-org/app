@@ -32,6 +32,7 @@ jest.mock('expo-router', () => ({
   Stack: (): null => null,
   useRouter: () => mockRouter,
   useSegments: () => mockSegments,
+  useNavigationContainerRef: () => null,
 }));
 
 jest.mock('@/services/firebase/auth.service', () => ({

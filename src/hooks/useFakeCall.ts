@@ -89,7 +89,7 @@ export function useFakeCall(): UseFakeCallResult {
       clearPending();
       setCallerName(name);
 
-      if (delaySeconds <= 0) {
+      if (!(delaySeconds > 0)) {
         if (Platform.OS === 'android') {
           await cancelScheduledFakeCall().catch(() => undefined);
         }

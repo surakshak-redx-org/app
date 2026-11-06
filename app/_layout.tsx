@@ -8,7 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Sentry from '@sentry/react-native';
 import { Image } from 'expo-image';
 import * as Notifications from 'expo-notifications';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, useNavigationContainerRef, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { cssInterop } from 'nativewind';
 import React, { useEffect } from 'react';
@@ -23,12 +23,13 @@ import { GlobalSOSOverlay } from '@/components/features/sos/GlobalSOSOverlay';
 import { Spinner } from '@/components/ui/Spinner';
 import { initMixPanel } from '@/config/mixpanel';
 import { initOneSignal } from '@/config/onesignal';
-import { captureException, initSentry } from '@/config/sentry';
+import { captureException, initSentry, registerNavigationContainer } from '@/config/sentry';
 import { ROUTES } from '@/constants/routes';
 import { STORAGE_KEYS } from '@/constants/storage';
 import { useDisguiseGate } from '@/hooks/useDisguiseGate';
 import { registerLiveLocationTask } from '@/hooks/useLiveLocation';
 import { useSafeJourneyMonitor } from '@/hooks/useSafeJourneyMonitor';
+import { useSentryContext } from '@/hooks/useSentryContext';
 import { useTheme } from '@/hooks/useTheme';
 import { changeLanguage } from '@/i18n';
 import { identifyUser } from '@/services/analytics.service';
@@ -100,6 +101,15 @@ function RootLayout(): React.JSX.Element {
     initOneSignal();
     void initMixPanel();
   }, []);
+
+  // Declared after the init effect on purpose: effects in one component run in
+  // order, so Sentry's navigation integration exists by the time the container
+  // is registered. The ref can be null on the first render.
+  const navigationRef = useNavigationContainerRef();
+  useEffect(() => {
+    registerNavigationContainer(navigationRef);
+  }, [navigationRef]);
+  useSentryContext();
 
   // Reports otherwise-unhandled JS errors (thrown outside any try/catch this
   // app owns) to Sentry before falling through to RN's own default handler.

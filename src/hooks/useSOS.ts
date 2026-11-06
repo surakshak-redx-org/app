@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 import { checkSmsPermission } from 'surakshak-native';
 
-import { captureException } from '@/config/sentry';
+import { captureException, recordBreadcrumb } from '@/config/sentry';
 import { APP_CONFIG, LOCATION_UNAVAILABLE } from '@/constants/config';
 import { TIMING } from '@/constants/ui';
 import {
@@ -250,6 +250,7 @@ export function useSOS(): UseSOSResult {
       activeMethod = method;
       setActive(true, method);
       trackSosTriggered(method);
+      recordBreadcrumb('sos triggered', { domain: 'SOS', data: { method } });
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       clearActiveTimer();
       startDeadline();
@@ -309,6 +310,10 @@ export function useSOS(): UseSOSResult {
     if (isActive && activeInterval === null && useSOSStore.getState().isActive) {
       activeMethod = triggerMethod;
       trackSosTriggered(triggerMethod ?? 'button');
+      recordBreadcrumb('sos triggered', {
+        domain: 'SOS',
+        data: { method: triggerMethod ?? 'button' },
+      });
       if (triggerMethod === 'suspicious_follow') trackSuspiciousFollowSosTriggered();
       startDeadline();
       activeInterval = setInterval(tick, TIMING.SECOND_MS);
