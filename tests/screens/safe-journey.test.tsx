@@ -6,6 +6,12 @@ import { useAuthStore } from '@/stores/auth.store';
 import { useLocationStore } from '@/stores/location.store';
 import { useUserStore } from '@/stores/user.store';
 import SafeJourneyScreen from '@app/safe-journey';
+
+// The first cold render of this screen (vector-icon glyph maps + NativeWind JIT,
+// under `--coverage`) can exceed Jest's 5s default on a loaded CI runner. The
+// suite time varies from ~7s to ~14s between identical CI runs.
+jest.setTimeout(20000);
+
 const mockGetActiveJourney = jest.fn(() => Promise.resolve(null));
 jest.mock('@/services/firebase/safe-journey.service', () => ({
   getActiveJourneySession: () => mockGetActiveJourney(),
