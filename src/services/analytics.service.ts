@@ -199,8 +199,16 @@ export function trackSafeJourneyArrived(): void {
   trackEvent(ANALYTICS_EVENTS.SAFE_JOURNEY_ARRIVED, {});
 }
 
-export function trackSafeJourneyAlertSent(): void {
-  trackEvent(ANALYTICS_EVENTS.SAFE_JOURNEY_ALERT_SENT, {});
+/**
+ * A Safe Journey went overdue and contacts were texted. `contactsCount` is how
+ * many the message reached and `failedCount` how many it did not, so an alert
+ * that reached nobody is distinguishable from one that did.
+ */
+export function trackSafeJourneyAlertSent(contactsCount: number, failedCount: number): void {
+  trackEvent(ANALYTICS_EVENTS.SAFE_JOURNEY_ALERT_SENT, {
+    contacts_count: contactsCount,
+    failed_count: failedCount,
+  });
 }
 
 export function trackSafeJourneyCancelled(): void {

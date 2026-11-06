@@ -129,8 +129,18 @@ describe('analytics.service', () => {
     trackSafeJourneyArrived();
     expect(track).toHaveBeenLastCalledWith('safe_journey_arrived', {});
 
-    trackSafeJourneyAlertSent();
-    expect(track).toHaveBeenLastCalledWith('safe_journey_alert_sent', {});
+    trackSafeJourneyAlertSent(2, 1);
+    expect(track).toHaveBeenLastCalledWith('safe_journey_alert_sent', {
+      contacts_count: 2,
+      failed_count: 1,
+    });
+
+    // An alert that reached nobody must be distinguishable from one that did.
+    trackSafeJourneyAlertSent(0, 3);
+    expect(track).toHaveBeenLastCalledWith('safe_journey_alert_sent', {
+      contacts_count: 0,
+      failed_count: 3,
+    });
 
     trackUnsafeAreaReported('poorly_lit');
     expect(track).toHaveBeenLastCalledWith('unsafe_area_reported', { category: 'poorly_lit' });

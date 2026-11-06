@@ -198,6 +198,22 @@ export default function SafeJourneyScreen(): React.JSX.Element {
       ? 0
       : Math.max(0, Math.floor((activeSession.expectedArrivalAt.toDate().getTime() - now) / 1000));
 
+  // Past the deadline contacts are not texted until the grace period also runs
+  // out, so the overdue banner counts that down rather than claiming an alert
+  // has already gone.
+  const graceSecondsLeft =
+    activeSession === null
+      ? 0
+      : Math.max(
+          0,
+          Math.floor(
+            (activeSession.expectedArrivalAt.toDate().getTime() +
+              APP_CONFIG.SAFE_JOURNEY_OVERDUE_GRACE_SECONDS * TIMING.SECOND_MS -
+              now) /
+              TIMING.SECOND_MS,
+          ),
+        );
+
   // At zero, hand over to the app-wide monitor (useSafeJourneyMonitor), which
   // owns the overdue alert whether or not this screen is open.
   useEffect(() => {
@@ -495,7 +511,9 @@ export default function SafeJourneyScreen(): React.JSX.Element {
                   {t('location.journeyOverdue')}
                 </Text>
                 <Text variant="caption" className="mt-1 text-error-red">
-                  {t('location.journeyOverdueWarning')}
+                  {graceSecondsLeft > 0
+                    ? t('location.journeyGraceWarning', { time: formatCountdown(graceSecondsLeft) })
+                    : t('location.journeyOverdueWarning')}
                 </Text>
               </View>
             )}
